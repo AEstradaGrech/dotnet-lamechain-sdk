@@ -9,7 +9,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
     /// may read an instruction message from Chroma or use a default hardcoded message. 
     /// The also accept some extra guidance instruction from the http request that is stored as _systemMessage
     /// So they can be used:
-    ///     - with guidance message only
+    ///     - with _systemMessage only
     ///     - default hardcoded only
     ///     - default hardcoded + guidance
     ///     - chroma stored only
