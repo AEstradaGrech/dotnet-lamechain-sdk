@@ -1,0 +1,131 @@
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators;
+using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
+using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
+using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
+using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
+using OllamaSharp.Models.Chat;
+
+namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
+{
+    public class SingleThrowStep : ChainStep
+    {
+        public SingleThrowStep() : base() { }
+
+        public SingleThrowStep(StepInstruction instruction, StepSettings request) : base(request, instruction.FeedFwdInstruction)
+        {
+            _commands.Add(instruction.Command);
+        }
+        public SingleThrowStep(IJsoneable command, StepSettings request, string? feedFwdInstruction = null) : base(request, feedFwdInstruction)
+        {
+            _commands.Add(command);
+
+        }
+
+        /// <summary>
+        /// This is the constructor for the FIRST RUNNER. ALWAYS
+
+        /// It recieves and stores the original (and unique-per-chain) ChainRunner or a Clone (if swapped in a ThrowTo(parallelSubchain) [in splitters | pipes])
+        /// 
+        /// > If it is the FIRST RUNNER, the ChainRunner MUST CONTAIN the general INIT DATA (user prompt, chain intent and finalSysMessage) to 
+        /// be used as contextual info on each step. Also...
+        /// 
+        /// > Subscribes to the NECESSARY events to persist outputs and messages across the chain steps. This is the only place for a FIRST RUNNER to do that, the 
+        /// other runners must catch the previous pass on runtime (calling Forge(previous)) to do this and keep running the chain.
+        /// 
+        /// > The UserPrompt is prompted ONLY in the first step (the rest should work on interpretations of the previous data and 
+        /// feedFwd guidance messages)
+        /// 
+        /// > If it is the FIRST SUBRUNNER, it works exactly as any other step in terms of recieved data / template instruction formation, but
+        ///   it recieves a clone of the ChainRunner to run their chain in parallel and then return their ChainRunner clone with the results
+        ///   to append  them to the (unique) original ChainRunner and keep running the main chain.
+        ///   
+        ///     *Note: subrunners MUST use Link(prev, fwd: false, two-way-bind: false) to recieve a previous from the main chain
+        /// 
+        /// > FIRST RUNNER is differenced from a FIRST SUB_RUNNER because the total RunnedInstruction stored in the ChainRunner & SwappedClones
+        /// 
+        /// </summary>
+        /// <param name="command"> The initial chain command</param>
+        /// <param name="runner">A data structure containing the initial data and store the generated data to pass it along the chain</param>
+        /// <param name="feedFwdInstruction">This is like 'what you want to tell the next one about the instruction output' </param>
+        public SingleThrowStep(StepInstruction instruction, ChainRunner runner) 
+            : this(instruction.Command, instruction.StepSettings, instruction.FeedFwdInstruction)
+        {
+            _runner = runner;
+            _passCatchTimestamp = DateTime.Now;
+            
+            if(_runner.RunnedInstructions.Count != 0) //It is recieving a Throw with the original ChainRunner or a clone (it is a FIRST SUBRUNNER, then has 'prev guidance')
+                Request.GuidanceMessage += getContextMessageHeader(); // IF the request has a Guidance from the instantiation it will be inserted in-between the CMD.Instruction (maps to cmd._systemMessage) and the STEP.Context
+
+            onRunNotify += _runner.OnRunnerNotification; // write stuff to runner. This is always triggered AFTER forgeLink or when appending subchain results
+            onReportReplay += _runner.OnReplayReport;
+
+            _runner.SetReady(this);
+        }
+        // All runners MUST check if they are in possession of the ChainRunner (IsRunner) and... (<step-type-check>)
+        public override bool CanBeForged(IChaineable previous)
+            => IsRunning && previous == null ? _commands.Count > 0 : !previous.IsMultiSocket;
+
+        public async Task<ChainResult> ExecuteChainAsync(bool withFinalMessage = false, bool withReplay = false, CommandSettings? finalMsgSettings = null)
+        {
+            var firstStep = getFirstStep(current: this);
+
+            if (!firstStep.IsReady())
+                throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(ExecuteChainAsync)} >> {nameof(firstStep.IsReady)} >> FIRST STEP IS NOT READY :: ABORTING CHAIN");
+            
+            var finalStep = await firstStep.Forge(null); // Rename ? .Run(cmd) & (runner.Go(previous: null) | runner.Play(previous)
+
+            var typedResult = finalStep.Outputs.First().SerializedResult;
+
+            var finalMessage = new ChatMessage(ChatRole.Assistant.ToString(), string.Empty);
+
+            ChainRunner finalRunner = null;
+            if (withFinalMessage)
+            {
+                var finalInstruction = getDefaultFinalInstruction();
+                var finalizer = ExpandTo<MessagePromptCommand, ChatMessage>(
+                    instruction: finalInstruction.SystemMessage, 
+                    finalMsgSettings ?? finalStep.Runner.DefaultSettings,
+                    new StepSettings(new PromptCommandRequest(
+                        message: finalInstruction.Prompt,
+                        guidanceMessage: string.IsNullOrEmpty(finalStep.Runner.FwdSystemMessage) ? string.Empty : $"## USER PREFERENCES: {finalStep.Runner.FwdSystemMessage}\n") 
+                    )
+                );
+
+                var jsonMessage = await finalizer.Forge(finalStep);
+
+                finalMessage = jsonMessage.GetOutputAs<ChatMessage>();
+
+                finalRunner = jsonMessage.Drop();
+            }
+
+            else finalRunner = finalStep.Drop();
+
+            return new ChainResult(withReplay ? finalRunner.GetReplays() : [], jsonResult: typedResult, finalStep.Outputs.First().JsonSchema, chainInput: firstStep.Input, stepsLog: finalRunner.RunnedInstructions, processedResult: finalMessage);
+        }
+
+        public override async Task<IChaineable> Forge(IChaineable previous)
+        {
+            if (!IsFirstStep() && !IsFirstSubstep())
+            {
+                    if (!IsRunning && !hasCatchedThrow(previous))
+                        throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(Forge)} >> {_commands.First().GetType().Name} >> {nameof(hasCatchedThrow)} >> AN ERROR HAS OCCURED WHILE PASSING THE CHAIN RUNNER FROM PREVIOUS STEP");
+            }
+            
+            else _passCatchTimestamp = DateTime.Now;
+
+            await forgeLinkForPlug(previous);
+
+            submitForgeLog();
+
+            return _next != null ? await _next.Forge(this) : this;
+        }
+
+        private Instruction getDefaultFinalInstruction()
+            => new Instruction("Review and analyze carefully the previous output and return the content in text format as stated in your instruction",@"Your task is to analyze the provided context data from the previous outputs and return a 'user-friendly' text version of it in order to keep chatting with the user about the output results.
+Try to preserve the provided content information unless instructed to give the final result a specific mood, tone or whatever extra instruction you are commanded to apply over the results");
+
+    }
+}
