@@ -4,11 +4,15 @@ using System.Text;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Base
 {
-    public class StructuredOutput
+    public abstract class StructuredOutput
     {
-        public string ToSystemMessage()
+        private const string _jsonFormatInstruction = "# IMPORTANT: ENSURE that you output your response in JSON format according to the specified schema. Use the below information to get a better idea of what does each field represent and more information about the how to fulfill it.";
+        public string ToSystemMessage(bool withFormatInsructions = true)
         {
             var sb = new StringBuilder();
+
+            if (withFormatInsructions)
+                sb.AppendLine(_jsonFormatInstruction);
 
             var header = jsonClassDescription().Trim();
 

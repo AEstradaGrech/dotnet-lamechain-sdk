@@ -1,5 +1,6 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Exceptions;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
@@ -70,6 +71,16 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             if (string.IsNullOrEmpty(prompt) && string.IsNullOrEmpty(systemGuidance))
                 throw new InvalidDataException($"{nameof(OllamaInferenceService)} >> {nameof(StructuredPrompt)} >> no messages to send");
 
+            if(typeof(T).IsAssignableTo(typeof(StructuredOutput)))
+            {
+                var requestModel = Activator.CreateInstance(typeof(T)) as StructuredOutput;
+
+                if (string.IsNullOrEmpty(systemGuidance))
+                    systemGuidance = requestModel.ToSystemMessage();
+
+                else systemGuidance += $"\n{requestModel.ToSystemMessage()}";
+            }
+
             if (options == null)
                 options = _settings;
             
@@ -100,6 +111,16 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                 {
                     if (string.IsNullOrEmpty(request.Prompt))
                         throw new InvalidDataException($"{nameof(OllamaInferenceService)} >> {nameof(StructuredPrompt)} >> no messages to send");
+
+                    if (typeof(T).IsAssignableTo(typeof(StructuredOutput)))
+                    {
+                        var requestModel = Activator.CreateInstance(typeof(T)) as StructuredOutput;
+
+                        if (string.IsNullOrEmpty(request.System))
+                            request.System = requestModel.ToSystemMessage();
+
+                        else request.System += $"\n{requestModel.ToSystemMessage()}";
+                    }
 
                     request.Format = JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(T));
                     request.Stream = false;
