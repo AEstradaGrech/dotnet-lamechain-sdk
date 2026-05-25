@@ -35,8 +35,7 @@ namespace DotnetLlamaSharp.Services.Prompting
         /// <param name="instruction"></param>
         /// <param name="settings"></param>
         /// <returns></returns>
-        public async Task<TResult> GuidedPromptCommand<TRequest, TResult>(TRequest request, string? instruction = null, CommandSettings settings = null)
-            where TRequest : PromptCommandRequest
+        public async Task<TResult> GuidedPromptCommand<TResult>(PromptCommandRequest request, string? instruction = null, CommandSettings settings = null)
             where TResult : class
                 => await _factory.GetCommand<GuidedStructuredPrompt<TResult>, TResult>(instruction, settings)
                                  .Prompt(request);
@@ -54,17 +53,15 @@ namespace DotnetLlamaSharp.Services.Prompting
         /// <param name="settings"></param>
         /// <returns></returns>
 
-        public async Task<TResult> PromptCommand<TCommand, TRequest, TResult>(TRequest request, string? guidanceMessage = null, CommandSettings settings = null)
+        public async Task<TResult> PromptCommand<TCommand, TResult>(PromptCommandRequest request, string? guidanceMessage = null, CommandSettings settings = null)
             where TCommand : BasePromptCommand<TResult>, new()
-            where TRequest : PromptCommandRequest
             where TResult : class
                 => await _factory.GetCommand<TCommand, TResult>(guidanceMessage, settings)
                                  .Prompt(request);
 
         // With DbSetup
-        public async Task<TResult> DbPromptCommand<TCommand, TRequest, TResult>(TRequest request, string messageSource, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, CommandSettings settings = null)
+        public async Task<TResult> DbPromptCommand<TCommand, TResult>(PromptCommandRequest request, string messageSource, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, CommandSettings settings = null)
             where TCommand : DbPromptCommand<TResult>, new()
-            where TRequest : PromptCommandRequest
                => await _factory.GetDbCommand<TCommand, TResult>(messageSource, messageName, retriever, guidanceMessage, settings)
                                  .Prompt(request);
         
@@ -82,7 +79,7 @@ namespace DotnetLlamaSharp.Services.Prompting
             //DefaultSetup
             var command = _factory.GetDbCommand<StringChoiceCommand, string>(source: null, messageName: null, retrieverLambda: null, guidanceMessage, settings);
 
-            var response = await command.Prompt(new StringChoiceRequest(choices, prompt, _settings,  settings.Model));
+            var response = await command.Prompt(new StringChoiceRequest(choices, prompt,  settings.Model));
 
             return response;
         }
@@ -91,7 +88,7 @@ namespace DotnetLlamaSharp.Services.Prompting
         {
             var command = _factory.GetDbCommand<MultiChoiceCommand, List<string>>(source: null, messageName: null, retrieverLambda: null, guidanceMessage, settings);
 
-            var response = await command.Prompt(new MultiChoiceRequest(maxChoices, choices, prompt, _settings, settings.Model));
+            var response = await command.Prompt(new MultiChoiceRequest(maxChoices, choices, prompt, settings.Model));
 
             return response;
         }
@@ -100,7 +97,7 @@ namespace DotnetLlamaSharp.Services.Prompting
         {
             var command = _factory.GetDbCommand<BoolPromptCommand, bool>(source: null, messageName: null, retrieverLambda: null, guidanceMessage, settings);
 
-            return await command.Prompt(new PromptCommandRequest(prompt, _settings, settings.Model));
+            return await command.Prompt(new PromptCommandRequest(prompt, settings.Model));
         }
 
         public async Task<string> StringBoolChoice(string prompt, string? guidanceMessage = null, CommandSettings settings = null)
@@ -110,16 +107,16 @@ namespace DotnetLlamaSharp.Services.Prompting
         {
             var command = _factory.GetNumericPromptCommand(source: null, messageName: null, retrieverLambda: null, guidanceMessage, settings);
 
-            return await command.Prompt(new PromptCommandRequest(prompt, _settings, settings.Model));
+            return await command.Prompt(new PromptCommandRequest(prompt, settings.Model));
         }
 
         public async Task<ScoredBoolResponse> ScoredBool(string prompt, string? guidanceMessage = null, CommandSettings settings = null)
-            => await DbPromptCommand<ScoredBoolCommand, PromptCommandRequest, ScoredBoolResponse>(
+            => await DbPromptCommand<ScoredBoolCommand, ScoredBoolResponse>(
                 new PromptCommandRequest(prompt), messageSource: null, messageName: null, retriever: null, guidanceMessage, settings);
 
         public async Task<ScoredStringChoice> ScoredChoice(List<string> choices, string prompt, string? guidanceMessage = null, CommandSettings settings = null)
-            => await DbPromptCommand<ScoredChoiceCommand, StringChoiceRequest, ScoredStringChoice>(
-                new StringChoiceRequest(choices, prompt, _settings, settings.Model), messageSource: null, messageName: null, retriever: null, guidanceMessage, settings);
+            => await DbPromptCommand<ScoredChoiceCommand, ScoredStringChoice>(
+                new StringChoiceRequest(choices, prompt, settings.Model), messageSource: null, messageName: null, retriever: null, guidanceMessage, settings);
 
         public TCommand GetDbCommand<TCommand, TResult>(string source, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, PromptSettings? settings = null) where TCommand : DbPromptCommand<TResult>, new()
                 => _factory.GetDbCommand<TCommand, TResult>(source, messageName, retriever, guidanceMessage, settings);

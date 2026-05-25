@@ -1,9 +1,13 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
+using DotnetLlamaSharp.Domain.Services.Embeddings;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using OllamaSharp.Models.Chat;
 
@@ -12,9 +16,11 @@ namespace DotnetLlamaSharp.Services.Prompting
     public class PromptCommandsFactory : IPromptCommandsFactory
     {
         private readonly IOllamaInferenceService _ollama;
-        public PromptCommandsFactory(IOllamaInferenceService ollama) 
+        private readonly IEmbeddingsService _embeddingsService;
+        public PromptCommandsFactory(IOllamaInferenceService ollama, IEmbeddingsService embeddingsService) 
         { 
             _ollama = ollama;
+            _embeddingsService = embeddingsService;
         }
         
         //Generic factory methods
@@ -23,6 +29,28 @@ namespace DotnetLlamaSharp.Services.Prompting
 
         public TCommand GetDbCommand<TCommand, TResult>(string source, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, PromptSettings? settings = null) 
             where TCommand : DbPromptCommand<TResult>, new()
+            => Activator.CreateInstance(typeof(TCommand), _ollama, source, messageName, retrieverLambda, guidanceMessage, settings) as TCommand;
+
+        public SimilaritySearchCommand GetSimilaritySearchCommand(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<SimilarSearchResult>>> queryFunction)
+            => Activator.CreateInstance(typeof(SimilaritySearchCommand), _embeddingsService, queryFunction) as SimilaritySearchCommand;
+
+        public TCommand GetSimilaritySearchLlama<TCommand>(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<SimilarSearchResult>>> queryFunction) where TCommand : SimilaritySearchCommand
+           => Activator.CreateInstance(typeof(TCommand),_ollama, _embeddingsService, queryFunction) as TCommand;
+
+        public SimilarSourceCommand GetSimilaritySearchSourceable(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<SimilarSearchResult>>> queryFunction)
+            => Activator.CreateInstance(typeof(SimilarSourceCommand), _embeddingsService, queryFunction) as SimilarSourceCommand;
+
+        public SimilarSourceCommand GetSimilaritySearchSourceable(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<SimilarSearchResult>>> queryFunction,
+            string source, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, PromptSettings? settings = null)
+           => Activator.CreateInstance(typeof(SimilarSourceCommand), _embeddingsService, queryFunction, source, messageName, retrieverLambda, guidanceMessage, settings) as SimilarSourceCommand;
+
+        // Sourceables with no DB dependency AND ollama dependency (no sysmessage. SimilaritySearchCommands for example)
+        // They recieve a copy of the _ollama service because the framework is built with it)
+        public TCommand GetSourceable<TCommand>() where TCommand : SourceableCommand
+            => Activator.CreateInstance(typeof(TCommand), _ollama) as TCommand;
+
+        // A command that makes use of the LLM somehow to generate the List<string> result of all SourceableCommands
+        public TCommand GetSourceable<TCommand>(string source, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, PromptSettings? settings = null) where TCommand : SourceableCommand
             => Activator.CreateInstance(typeof(TCommand), _ollama, source, messageName, retrieverLambda, guidanceMessage, settings) as TCommand;
 
         //Domain object command helpers
@@ -77,6 +105,5 @@ namespace DotnetLlamaSharp.Services.Prompting
 
         public IPrompteable<Message> GetPrompteableMessage(string? systemMessage = null, PromptSettings? settings = null)
             => Activator.CreateInstance(typeof(MessagePromptCommand), _ollama, systemMessage, settings) as IPrompteable<Message>;
-
     }
 }

@@ -17,7 +17,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
 
             
             var message =  isChat ?
-                await _ollama.ChatPrompt(((ChatCommandRequest)request).ToOllama()) :
+                await _ollama.ChatPrompt(((ChatCommandRequest)request).ToOllama(_settings.ToOllamaRequest())) :
                 await _ollama.GeneratePrompt(await getGenerateRequest(request));
 
             return new ChatMessage(message.Role.ToString(), message.Content);

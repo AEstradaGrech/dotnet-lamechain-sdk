@@ -4,8 +4,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Requests
 {
     public class MultiChoiceRequest : StringChoiceRequest
     {
-        public MultiChoiceRequest() { }
-        public MultiChoiceRequest(int selections, List<string> choices, string message, RequestOptions? settings, string? model = null) : base(choices, message, settings, model)
+        public MultiChoiceRequest() : base() { }
+        public MultiChoiceRequest(int selections, List<string> choices, string message, string? model = null) : base(choices, message, model)
         {
             MaxSelections = selections;
         }

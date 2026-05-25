@@ -125,7 +125,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
                 Prompt = request.Prompt,
                 SystemMessage = request.SystemMessage,
                 RawOutput = request.RawOutput,
-                Settings = request.Settings,
                 ResponseExamples = request.ResponseExamples
             };
     }

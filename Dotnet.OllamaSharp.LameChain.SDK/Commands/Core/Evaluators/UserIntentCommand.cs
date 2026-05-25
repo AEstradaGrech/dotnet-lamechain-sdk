@@ -24,7 +24,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators
                 Model = request.Model,
                 Messages = [new Message(ChatRole.System, systemMessage), new Message(ChatRole.User, request.Prompt)],
                 Stream = false,
-                Options = request.Settings
+                Options = _settings.ToOllamaRequest()
             };
 
             var response = await _ollama.ChatPrompt(chatReq);

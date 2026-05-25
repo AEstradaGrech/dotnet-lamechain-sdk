@@ -7,18 +7,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services
 {
     public interface IPromptCommandsService
     {
-        Task<TResult> GuidedPromptCommand<TRequest, TResult>(TRequest request, string? guidanceMessage = null, CommandSettings settings = null)
-            where TRequest : PromptCommandRequest
+        Task<TResult> GuidedPromptCommand<TResult>(PromptCommandRequest request, string? guidanceMessage = null, CommandSettings settings = null)
             where TResult : class;
 
-        Task<TResult> PromptCommand<TCommand, TRequest, TResult>(TRequest request, string? instruction = null, CommandSettings settings = null)
+        Task<TResult> PromptCommand<TCommand, TResult>(PromptCommandRequest request, string? instruction = null, CommandSettings settings = null)
             where TCommand : BasePromptCommand<TResult>, new()
-            where TRequest : PromptCommandRequest
             where TResult : class;
 
-        Task<TResult> DbPromptCommand<TCommand, TRequest, TResult>(TRequest request, string messageSource, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, CommandSettings settings = null)
-            where TCommand : DbPromptCommand<TResult>, new()
-            where TRequest : PromptCommandRequest;
+        Task<TResult> DbPromptCommand<TCommand, TResult>(PromptCommandRequest request, string messageSource, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, CommandSettings settings = null)
+            where TCommand : DbPromptCommand<TResult>, new();
 
         TCommand GetDbCommand<TCommand, TResult>(string messageSource, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, PromptSettings? settings = null)
             where TCommand : DbPromptCommand<TResult>, new();

@@ -1,5 +1,6 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
@@ -8,7 +9,7 @@ using OllamaSharp.Models.Chat;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
 {
-    public class QueryAugmentationCommand : DbPromptCommand<ChatMessage>
+    public class QueryAugmentationCommand : SourceableCommand
     {
         public QueryAugmentationCommand() : base() { }
         public QueryAugmentationCommand(IOllamaInferenceService ollama) : base(ollama) { }
@@ -16,7 +17,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
         public QueryAugmentationCommand(IOllamaInferenceService ollama, string messageSourceName, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, CommandSettings? settings = null) 
             : base(ollama, messageSourceName, messageName, retriever, guidanceMessage, settings) { }
 
-        public override async Task<ChatMessage> Prompt(PromptCommandRequest request)
+        public override async Task<List<string>> Prompt(PromptCommandRequest request)
         {
             validateInputRequest<RagExpansionRequest>(request);
 
@@ -28,11 +29,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
 
             var response = new ChatMessage(ChatRole.Assistant.ToString(), string.Empty);
 
+            var results = new List<string>();
+
             for (int i = 0; i < expanseReq.Results; i++)
             {
                 var result = await getAugmentedQuery(_ollama, promptReq);
 
-                response.Content += $"{result}\n";
+                results.Add(result.Trim());
 
                 if (expanseReq.Results > 1 && expanseReq.UsePrevAsExample && i < expanseReq.MaxExamples)
                 {
@@ -43,7 +46,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
                 }
             }
 
-            return response;
+            return results;
         }
 
         private async Task<string> getAugmentedQuery(IOllamaInferenceService ollama, GenerateRequest request)

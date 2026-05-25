@@ -1,7 +1,10 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
+using Dotnet.OllamaSharp.LameChain.SDK.Models.Step;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Steps;
 
@@ -13,7 +16,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             => Activator.CreateInstance(typeof(SingleThrowStep), firstInstruction, 
                 new ChainRunner(firstInstruction.StepSettings.CommandRequest.Prompt, defaultSettings, finalSysMessage, chainIntent)) 
                 as SingleThrowStep;
-        
+
+        public static TStep StartWith<TStep>(StepInstruction firstInstruction, CommandSettings defaultSettings, string? finalSysMessage = null, string? chainIntent = null) where TStep : SingleThrowStep
+            => Activator.CreateInstance(typeof(TStep), firstInstruction,
+                new ChainRunner(firstInstruction.StepSettings.CommandRequest.Prompt, defaultSettings, finalSysMessage, chainIntent))
+                as TStep;
+        public static TStep SubChainWith<TStep>(StepInstruction firstInstruction, CommandSettings defaultSettings) where TStep : SingleThrowStep
+            => Activator.CreateInstance(typeof(TStep), firstInstruction, null)
+                as TStep;
         public static SingleThrowStep Then(this SingleThrowStep step, IJsoneable command, StepSettings request, string? feedFwdInstruction = null)
         {
             /*
@@ -184,7 +194,75 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             
             return step;
         }
-        
+
+        public static ConditionalStep ThenIf(this SingleThrowStep step, StepInstruction evaluator, StepInstruction thenInstruction, out SingleThrowStep trueBranch, bool isGreedy = false, bool isIsolated = true)
+        {
+            var conditional = step.AsConditional(evaluator);
+
+            trueBranch = step.ExpandTo(thenInstruction.Command, thenInstruction.StepSettings, thenInstruction.FeedFwdInstruction);
+
+            conditional.IfTrueThen(trueBranch);
+
+            return conditional;
+        }
+
+        public static ConditionalStep StashIf(this SingleThrowStep step, StepInstruction evaluator, StepInstruction stashInstruction, bool isGreedy = false, bool isIsolated = true)
+        {
+            var conditional = step.AsConditional(evaluator);
+
+            var trueBranch = step.ToStash(stashInstruction, isGreedy, isIsolated);
+
+            conditional.IfTrueThen(trueBranch);
+
+            return conditional;
+        }
+
+        public static TStep ForwardFirstType<TStep>(this ChainStep step) where TStep : ChainStep
+        {
+            var firstStep = step.GetFirstStep();
+
+            if (firstStep.GetType() != typeof(TStep))
+                throw new InvalidOperationException($"{nameof(ForwardFirstType)} >> INVALID CHAIN CONFIGURATION >> TYPE OF FIRST STEP IS {firstStep.GetType().Name}");
+
+            return firstStep as TStep;
+        }
+        public static ConditionalStep StashIf(this SingleThrowStep step, StepInstruction evaluator, StashedStep trueBranch)
+        {
+            var conditional = step.AsConditional(evaluator);
+
+            conditional.IfTrueThen(trueBranch);
+
+            return conditional;
+        }
+
+        public static StashedStep Stash(this SingleThrowStep step, StepInstruction stashInstruction, out Guid stashId, bool isGreedy = false, bool isIsolated = true)
+        {
+            var stash = step.ToStash(stashInstruction, isGreedy, isIsolated);
+
+            step.Link(stash, isForward: true, isTwoWay: true);
+
+            stashId = stash.Id;
+
+            return stash;
+        }
+
+        public static StashedStep Stash(this SplitterStep step, StepInstruction stashInstruction, out Guid stashId)
+        {
+            var stash = step.ToStash(stashInstruction);
+
+            step.Link(stash, isForward: true, isTwoWay: true);
+
+            stashId = stash.Id;
+
+            return stash;
+        }
+
+        public static ChainStep ChainFeedsFrom(this ChainStep stash, List<Guid> steps, string? guidance = null)
+        {
+            stash.WithChainFeeds(steps);
+            return stash;
+        }
+
         public static async Task<ChainResult> ThenExecuteAsync(this SingleThrowStep step, bool withFinalMessage = false, bool withReplay = false, CommandSettings finalMsgSettings = null)
             => await step.ExecuteChainAsync(withFinalMessage, withReplay, finalMsgSettings);
 

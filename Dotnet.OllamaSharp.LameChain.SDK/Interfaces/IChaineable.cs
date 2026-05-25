@@ -36,6 +36,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces
         SingleThrowStep ExpandTo<TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings settings, string? feedForwardInstruction = null) 
             where TCommand : BasePromptCommand<TResult>, new();
         TDeserialized GetOutputAs<TDeserialized>() where TDeserialized : class;
+        public void WithChainFeeds(List<Guid> stepIds);
         public void BoostWith(List<string> feeds, string? feedMsg);
         public IChaineable Previous { get; }
         public IChaineable Next { get; }

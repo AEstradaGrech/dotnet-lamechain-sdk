@@ -1,8 +1,11 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
+using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
+using Dotnet.OllamaSharp.LameChain.SDK.Models.Step;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs;
 using System.Text;
@@ -171,6 +174,23 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
           => Activator.CreateInstance(typeof(SplitterStep), instructions, request, splitterFeedFwd) as SplitterStep;
         public SplitterStep SplitTo(StepInstruction splitted, List<StepInstruction> instructions)
           => Activator.CreateInstance(typeof(SplitterStep),  splitted, instructions) as SplitterStep;
+
+        public StashedStep ToStash(StepInstruction instruction, bool isGreedy = false, bool isIsolated = true) // next can read the stash, the stash does not use previous output for its request
+        {
+            if (!instruction.Command.GetType().IsAssignableTo(typeof(SourceableCommand)))
+                throw new InvalidOperationException($"{nameof(ChainStep)} >> {nameof(ToStash)} >> INVALID STEP CONFIGURATION >> The configured command type ({instruction.Command.GetType().Name}) is not a {typeof(SourceableCommand)} or any subclass of it");
+
+            return Activator.CreateInstance(typeof(StashedStep), instruction.Command, instruction.StepSettings, isGreedy, isIsolated, instruction.FeedFwdInstruction) as StashedStep;
+        }
+
+        public ConditionalStep AsConditional(StepInstruction instruction)
+        {
+            if (!instruction.Command.GetType().IsSubclassOf(typeof(ScoredBoolCommand)))
+                throw new InvalidDataException($"{nameof(ConditionalStep)} >> {instruction.Command.GetType().Name} >> A ConditionalStep command must be a ScoredBoolCommand or a subclass of it");
+
+            return Activator.CreateInstance(typeof(ConditionalStep), instruction.Command, instruction.StepSettings, instruction.FeedFwdInstruction) as ConditionalStep;
+        }
+
         public TDeserialized GetOutputAs<TDeserialized>() where TDeserialized : class
             => IsForged ? JsonSerializer.Deserialize<TDeserialized>(Outputs.First().SerializedResult,getSerializerOptions()) ??
                 throw new InvalidOperationException($"Failed to deserialize JSON to type {typeof(TDeserialized).Name}") :
@@ -194,8 +214,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             if(!IsRunning)
                 throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(Forge)} >> The current step has no runner object configured. STEP CANNOT BE FORGED");
-            //It has ChainReport object (es el portador del balon en la jugada)
-            // I is subscribed
         }
 
         protected string getStepGuidanceMessage(IChaineable previous)
@@ -232,9 +250,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                 _runner.UserPrompt : !string.IsNullOrEmpty(Request.Prompt.Trim()) ? 
                 Request.Prompt :
                 "Complete the specified instruction. Do not chat with the user, just output the requested data as described.";
-            
-            if (Request.Settings == null)
-                Request.Settings = _runner.DefaultSettings.ToOllamaRequest();
             
             var sb = new StringBuilder();
             
@@ -348,5 +363,10 @@ description (wrapped in parenthesis) to understand what does it represent and ho
         public bool IsReady() => IsRunning && _stepSettings != null && Request != null && _runner.CanRun();
 
         public void BoostWith(List<string> feeds, string? feedMessage) => _stepSettings.WithDataBoost(feedMessage, feeds);
+
+        public void WithChainFeeds(List<Guid> stepIds)
+        {
+            stepIds.ForEach(id => _stepSettings.FeedFrom(id));
+        }
     }
 }

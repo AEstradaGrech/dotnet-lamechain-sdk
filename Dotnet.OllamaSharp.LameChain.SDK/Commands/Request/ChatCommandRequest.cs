@@ -8,7 +8,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Requests
     public class ChatCommandRequest : PromptCommandRequest
     {
         public ChatCommandRequest() { }
-        public ChatCommandRequest(bool includeSystem, List<ChatMessage> messages, string message, RequestOptions? settings, string? model = null) : base(message, settings, model)
+        public ChatCommandRequest(bool includeSystem, List<ChatMessage> messages, string message, string? model = null) : base(message, model)
         {
             ChatHistory = messages;
             IncludeSystemMessage = includeSystem;
@@ -16,7 +16,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Requests
         public List<ChatMessage> ChatHistory { get; set; } = new List<ChatMessage>();
         public bool IncludeSystemMessage { get; set; }
 
-        public ChatRequest ToOllama(string? systemUpdate = null, bool isStream = false)
+        public ChatRequest ToOllama(RequestOptions? options = null, string? systemUpdate = null)
         {
             if (IncludeSystemMessage && !string.IsNullOrEmpty(systemUpdate))
                 ChatHistory.Add(new ChatMessage(ChatRole.System.ToString(), systemUpdate));
@@ -31,8 +31,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Requests
             {
                 Model = Model,
                 Messages = messages,
-                Stream = isStream,
-                Options = Settings
+                Stream = false,
+                Options = options ?? new RequestOptions()
             };
         }
     }

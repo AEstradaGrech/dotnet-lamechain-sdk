@@ -5,7 +5,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Requests
     public class StringChoiceRequest : PromptCommandRequest
     {
         public StringChoiceRequest() { }
-        public StringChoiceRequest(List<string> choices, string message, RequestOptions? settings = null, string? model = null) : base(message, settings, model)
+        public StringChoiceRequest(List<string> choices, string message, string? model = null) : base(message, model)
         {
             Choices = choices;
         }

@@ -14,7 +14,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
     {
         public SingleThrowStep() : base() { }
 
-        public SingleThrowStep(StepInstruction instruction, StepSettings request) : base(request, instruction.FeedFwdInstruction)
+        public SingleThrowStep(StepInstruction instruction) : base(instruction.StepSettings, instruction.FeedFwdInstruction)
         {
             _commands.Add(instruction.Command);
         }
@@ -53,16 +53,21 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         public SingleThrowStep(StepInstruction instruction, ChainRunner runner) 
             : this(instruction.Command, instruction.StepSettings, instruction.FeedFwdInstruction)
         {
-            _runner = runner;
-            _passCatchTimestamp = DateTime.Now;
-            
-            if(_runner.RunnedInstructions.Count != 0) //It is recieving a Throw with the original ChainRunner or a clone (it is a FIRST SUBRUNNER, then has 'prev guidance')
-                Request.GuidanceMessage += getContextMessageHeader(); // IF the request has a Guidance from the instantiation it will be inserted in-between the CMD.Instruction (maps to cmd._systemMessage) and the STEP.Context
+            if(runner != null)
+            {
+                _runner = runner;
+                _passCatchTimestamp = DateTime.Now;
 
-            onRunNotify += _runner.OnRunnerNotification; // write stuff to runner. This is always triggered AFTER forgeLink or when appending subchain results
-            onReportReplay += _runner.OnReplayReport;
+                if (_runner.RunnedInstructions.Count != 0) //It is recieving a Throw with the original ChainRunner or a clone (it is a FIRST SUBRUNNER, then has 'prev guidance')
+                    Request.GuidanceMessage += getContextMessageHeader(); // IF the request has a Guidance from the instantiation it will be inserted in-between the CMD.Instruction (maps to cmd._systemMessage) and the STEP.Context
 
-            _runner.SetReady(this);
+                onRunNotify += _runner.OnRunnerNotification; // write stuff to runner. This is always triggered AFTER forgeLink or when appending subchain results
+                onReportReplay += _runner.OnReplayReport;
+
+                _runner.SetReady(this);
+            }
+
+            // else is .SubChain()
         }
         // All runners MUST check if they are in possession of the ChainRunner (IsRunner) and... (<step-type-check>)
         public override bool CanBeForged(IChaineable previous)
