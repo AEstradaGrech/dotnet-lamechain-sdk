@@ -1,7 +1,7 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators;
-using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutput;
+using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.AtomicValues;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
@@ -80,7 +80,7 @@ namespace DotnetLlamaSharp.Services.Prompting
             //DefaultSetup
             var command = _factory.GetDbCommand<StringChoiceCommand, string>(source: null, messageName: null, retrieverLambda: null, guidanceMessage, settings);
 
-            var response = await command.Prompt(new StringChoiceRequest(choices, prompt,  settings.Model));
+             var response = await command.Prompt(new StringChoiceRequest(choices, prompt,  settings.Model));
 
             return response;
         }

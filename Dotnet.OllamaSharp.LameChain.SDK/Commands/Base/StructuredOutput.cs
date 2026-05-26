@@ -1,7 +1,7 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutput.Attributes;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs.Attributes;
 using System.Reflection;
 using System.Text;
-
+using System.Text.Json.Serialization;
 namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Base
 {
     public abstract class StructuredOutput
@@ -64,13 +64,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Base
             var properties = GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
             if (!properties.Any(p => p.Name == propertyName)) return string.Empty;
-
+            
             var attributes = properties.SingleOrDefault(p => p.Name == propertyName).GetCustomAttributes<OllamaJsonProperty>();
 
             if (attributes.Count() == 0) return string.Empty;
 
+            var jsonName = properties.SingleOrDefault(p => p.Name == propertyName).GetCustomAttribute<JsonPropertyNameAttribute>();
+
+            var displayName = jsonName == null ? propertyName : jsonName.Name;
+
             var sb = new StringBuilder()
-                .AppendLine($"## PROPERTY NAME: {propertyName}");
+                .AppendLine($"## PROPERTY NAME: {displayName}");
 
             var auxSb = new StringBuilder();
             attributes.GroupBy(p => p.Title).ToList().ForEach(prop =>

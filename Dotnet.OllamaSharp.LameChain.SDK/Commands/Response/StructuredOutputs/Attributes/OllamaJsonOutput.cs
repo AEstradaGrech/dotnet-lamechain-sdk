@@ -1,4 +1,4 @@
-﻿namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutput.Attributes
+﻿namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs.Attributes
 {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false)]
     public class OllamaJsonOutput : Attribute

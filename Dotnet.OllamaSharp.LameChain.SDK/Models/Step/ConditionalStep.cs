@@ -1,5 +1,5 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators;
-using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutput;
+using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;

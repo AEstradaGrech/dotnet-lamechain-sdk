@@ -119,7 +119,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                         if (string.IsNullOrEmpty(request.System))
                             request.System = requestModel.ToSystemMessage();
 
-                        else request.System += $"\n{requestModel.ToSystemMessage()}";
+                        else request.System += $"\n\n{requestModel.ToSystemMessage()}";
                     }
 
                     request.Format = JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(T));

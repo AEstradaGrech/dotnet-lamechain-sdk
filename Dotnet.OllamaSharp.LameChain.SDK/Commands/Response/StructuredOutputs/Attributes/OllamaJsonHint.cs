@@ -1,4 +1,4 @@
-﻿namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutput.Attributes
+﻿namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs.Attributes
 {
     public class OllamaJsonHint : OllamaJsonProperty
     {

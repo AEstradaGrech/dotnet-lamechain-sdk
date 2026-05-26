@@ -1,5 +1,5 @@
 ﻿
-namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutput.Attributes
+namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs.Attributes
 {
     //Add N stacked attributes on a property with Title - Description
     // And they will parsed as Section-Instruction
