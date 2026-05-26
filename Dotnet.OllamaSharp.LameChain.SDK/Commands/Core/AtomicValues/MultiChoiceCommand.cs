@@ -6,7 +6,6 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuratio
 using DotnetLlamaSharp.Domain.Services.Inference;
 using System.Text;
 
-
 namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
 {
     public class MultiChoiceCommand : DbPromptCommand<List<string>>
@@ -32,7 +31,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
             var sb = new StringBuilder();
 
             foreach (var choice in multiChoiceReq.Choices)
-                sb.AppendLine($"- {choice}");
+                sb.AppendLine(choice);
 
             promptReq.System = promptReq.System.Replace("<<MAX_SEL>>", $"{multiChoiceReq.MaxSelections}").Replace("<<CHOICES>>", sb.ToString());
 
@@ -42,6 +41,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
         }
 
         protected override string getDefaultInstruction()
-            => "Analyze the provided list of choices and select up to (but not necessarily) <<MAX_SEL>> options that matches the best with the user request, or an empty list if the user intent is unrelated to any available choice. Output a list of strings containing your selected values (if any) according to the provided JSON schema.\n> CHOICES:\n<<CHOICES>>";
+            => @"Analyze the provided list of choices and select up to (but not necessarily) <<MAX_SEL>> options that matches the best with the user request, or an empty list if the user intent is unrelated to 
+any available choice. Output a list of strings containing your selected values (if any) according to the provided JSON schema.
+
+> CHOICES:
+
+<<CHOICES>>
+
+#IMPORTANT: review carefully any provided information about the available choices to ensure that you select the most suitable option for the given user query.
+";
     }
 }

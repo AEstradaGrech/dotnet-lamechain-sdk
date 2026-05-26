@@ -275,22 +275,42 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             
             var sb = new StringBuilder();
             
-            _stepSettings.ChainFeeds.ForEach(runnerId =>
-            {
-                if (_runner.TryFindForged(runnerId, out var forged))
-                    sb.AppendLine()
-                      .AppendLine(guidanceMessageFrom(
-                        forged.CommandInstruction,
-                        forged.JsonResult,
-                        forged.JsonSchema,
-                        forged.FeedForwardMessage));
+            _stepSettings.ChainFeeds.ForEach(runnerId => sb.Append(getPreviousContextFromLog(runnerId(), _stepSettings.WithFullContext, _stepSettings.WithPrevSchema)));
+
+            _stepSettings.NestFeeds.Keys.ToList().ForEach(key => {
+                var split = key.Split("-");
+                if(split.Length > 1)
+                {
+                    bool isForStep = split.Length == 3;
+                    //STEP format = StepGuid-cmdtagForRepeats-STEP (differentiate from Default & store target ID
+                    //CMD format (default) CMDNAME-TagForReapeats (no id, many nested commands of the same type
+                   
+                    if (isForStep)
+                    {
+                        var feedId = new Guid(split[0]);
+
+                        _stepSettings.NestFeeds[key].ForEach(id =>  sb.AppendLine(getPreviousContextFromLog(feedId, _stepSettings.WithFullContext, _stepSettings.WithPrevSchema)));
+                    }
+                    else
+                    {
+                        var reqSb = new StringBuilder();
+                            
+                        _stepSettings.NestFeeds[key].ForEach(id => reqSb.AppendLine(getPreviousContextFromLog(id(), _stepSettings.WithFullContext, _stepSettings.WithPrevSchema)));
+
+                        Request.NestedGuidances.Add(key, reqSb.ToString());
+                    }
+                }
+                else
+                {
+                    // Try pass for CMD 0
+                }
             });
 
             if(_stepSettings.Boosters.Count > 0)
                 sb.AppendLine()
                   .AppendLine(_stepSettings.BoostersFeedText());
 
-            Request.GuidanceMessage += $"\n\n{sb.ToString()}".Trim();
+            Request.GuidanceMessage += $"\n{sb.ToString().Trim()}";
 
             // JsonPrompt
             var jsonResult = await _commands[idx].JsonPrompt(Request, returnFullInstruction: false, preInstruction: preInstructionTag); //Skip GuidanceMessage, return only instruction for this step
@@ -306,6 +326,26 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             _forgeLog.ForgeTimestamp = DateTime.Now;
             _forgeLog.JsonResult = jsonResult.RawJson;
             _forgeLog.JsonSchema = link.SchemaForMessage();
+        }
+
+        private string getPreviousContextFromLog(Guid runnerId, bool withFullContext = true, bool withPrevSchema = true)
+        {
+            if (!IsRunning) return string.Empty;
+
+            var sb = new StringBuilder();
+
+            if (_runner.TryFindForged(runnerId, out var forged))
+                sb.AppendLine()
+                  .AppendLine(!withFullContext ?
+                    forged.JsonResult :
+                    guidanceMessageFrom(
+                        forged.CommandInstruction,
+                        forged.JsonResult,
+                        withPrevSchema ? forged.JsonSchema : null,
+                        forged.FeedForwardMessage)
+                    );
+
+            return sb.ToString().Trim();
         }
 
         public string getContextMessageHeader()
@@ -386,9 +426,13 @@ description (wrapped in parenthesis) to understand what does it represent and ho
 
         public void BoostWith(List<string> feeds, string? feedMessage) => _stepSettings.WithDataBoost(feedMessage, feeds);
 
-        public void WithChainFeeds(List<Guid> stepIds)
+        public void WithChainFeeds(List<Func<Guid>> stepIds)
         {
             stepIds.ForEach(id => _stepSettings.FeedFrom(id));
         }
+
+        public Guid GetRunnerId() => _id;
+        public Guid WhoIsPrevious() => _prev != null ? _prev.Id : _id;
+        public Guid WhoIsNext() => _next != null ? _next.Id : _id;
     }
 }

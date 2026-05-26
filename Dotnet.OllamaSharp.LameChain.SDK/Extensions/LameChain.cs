@@ -65,15 +65,28 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 
         // Expose ChainSteps to FeedAlsoFrom([Guid]) to pass chain results past the
         // Next step
-        public static SingleThrowStep ExposeThisId(this SingleThrowStep step, out Guid id)
+        public static SingleThrowStep ExposeThisId(this SingleThrowStep step, out Func<Guid> id)
         {
-            id = step.Id;
+            id = step.GetRunnerId;
 
             return step;
         }
-        public static SplitterStep ExposeThisId(this SplitterStep step, out Guid id)
+        public static SplitterStep ExposeThisId(this SplitterStep step, out Func<Guid> id)
         {
-            id = step.Id;
+            id = step.GetRunnerId;
+
+            return step;
+        }
+
+        public static SingleThrowStep ExposeThisStep(this SingleThrowStep step, out SingleThrowStep exposed)
+        {
+            exposed = step;
+
+            return step;
+        }
+        public static SplitterStep ExposeThisStep(this SplitterStep step, out SplitterStep exposed)
+        {
+            exposed = step;
 
             return step;
         }
@@ -236,13 +249,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return conditional;
         }
 
-        public static StashedStep Stash(this SingleThrowStep step, StepInstruction stashInstruction, out Guid stashId, bool isGreedy = false, bool isIsolated = true)
+        public static StashedStep Stash(this SingleThrowStep step, StepInstruction stashInstruction, out Func<Guid> stashId, bool isGreedy = false, bool isIsolated = true)
         {
             var stash = step.ToStash(stashInstruction, isGreedy, isIsolated);
 
             step.Link(stash, isForward: true, isTwoWay: true);
 
-            stashId = stash.Id;
+            stashId = stash.GetRunnerId;
 
             return stash;
         }
@@ -258,13 +271,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return stash;
         }
 
-        public static SingleThrowStep ChainFeedsFrom(this SingleThrowStep step, List<Guid> steps, string? guidance = null)
+        public static SingleThrowStep ChainFeedsFrom(this SingleThrowStep step, List<Func<Guid>> steps, string? guidance = null)
         {
             step.WithChainFeeds(steps);
             return step;
         }
 
-        public static SplitterStep ChainFeedsFrom(this SplitterStep step, List<Guid> steps, string? guidance = null)
+        public static SplitterStep ChainFeedsFrom(this SplitterStep step, List<Func<Guid>> steps, string? guidance = null)
         {
             step.WithChainFeeds(steps);
             return step;

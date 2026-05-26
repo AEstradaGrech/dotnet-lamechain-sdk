@@ -10,34 +10,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces
 {
     public interface IChaineable
     {
+        //Accessors / read config
         Guid Id { get; }
-        bool IsChained(bool? checkNextOnly = true);
-        bool IsFirstStep();
-        bool IsFirstSubstep();
-        public bool CanBeForged(IChaineable previous);
         bool IsMultiSocket { get; }
         public bool IsForged { get; }
         public ChainRunner? Runner { get; }
         public PromptCommandRequest Request { get; }
         public bool IsRunning { get; }
-        public void Link(IChaineable next, bool isForward, bool isTwoWay = false);
-        Task<IChaineable> Forge(IChaineable previous);
-        ChainRunner Drop();
-        bool IsReady();
-        void SendReplay();
-        IChaineable OnRunnerCall();
-        void OnRunnerSupport(Guid id);
-        void FollowRunner(IChaineable current);
-        TStep ExpandTo<TStep>(IJsoneable command, StepSettings settings, string? feedForwardInstruction = null) where TStep : ChainStep;
-        SingleThrowStep ExpandTo(IJsoneable command, StepSettings settings, string? feedForwardInstruction = null);
-        SplitterStep Plug(List<StepInstruction> commands, StepSettings settings, string? splitterFeedFwd = null);
-        TStep ExpandTo<TStep, TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings settings, string? feedForwardInstruction = null) 
-            where TCommand : BasePromptCommand<TResult>, new() where TStep : ChainStep;
-        SingleThrowStep ExpandTo<TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings settings, string? feedForwardInstruction = null) 
-            where TCommand : BasePromptCommand<TResult>, new();
-        TDeserialized GetOutputAs<TDeserialized>() where TDeserialized : class;
-        public void WithChainFeeds(List<Guid> stepIds);
-        public void BoostWith(List<string> feeds, string? feedMsg);
         public IChaineable Previous { get; }
         public IChaineable Next { get; }
         public List<IJsoneable> Commands { get; }
@@ -46,9 +25,52 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces
         public string? FeedForwardInstruction { get; }
         public string Input { get; }
         public List<ChainLink> Outputs { get; }
-        public Dictionary<Guid, List<ChainLink>> GrouppedOutputs();
-        public IChaineable GetFirstStep();
 
+        // Checkers and delegate friendly type accesors
+
+        // Method version accessors to allow the deferred chaining of steps 
+        Guid GetRunnerId();
+        // You can't feed a subChain from the owning step in the same extension
+        // because the subchain is created first as a variable of a owning step
+        // that doesn't exists yet (hence, it cannot be outted, cannot be exposed later because
+        // the subchain cannot store the id of an unexistent step. So, for that cases
+        // you have to store 'WhoIsPrevious' as a delegate in Feeds && NestedFeeds and the Id
+        // will be retrieven on chain runtime
+        Guid WhoIsPrevious();
+        Guid WhoIsNext();
+        public IChaineable GetFirstStep();
         public IChaineable GetLastStep();
+
+        bool IsFirstStep();
+        bool IsFirstSubstep();
+        bool IsReady();
+        bool IsChained(bool? checkNextOnly = true);
+
+        // Config & execution
+        public void WithChainFeeds(List<Func<Guid>> stepIds);
+        public void BoostWith(List<string> feeds, string? feedMsg);
+        public bool CanBeForged(IChaineable previous);
+        public void Link(IChaineable next, bool isForward, bool isTwoWay = false);
+        Task<IChaineable> Forge(IChaineable previous);
+        ChainRunner Drop();
+
+        // Read Output
+        TDeserialized GetOutputAs<TDeserialized>() where TDeserialized : class;
+        public Dictionary<Guid, List<ChainLink>> GrouppedOutputs();
+
+        // ChainRunner Events
+        void SendReplay();
+        IChaineable OnRunnerCall();
+        void OnRunnerSupport(Guid id);
+        void FollowRunner(IChaineable current);
+
+        //Factory methods
+        TStep ExpandTo<TStep>(IJsoneable command, StepSettings settings, string? feedForwardInstruction = null) where TStep : ChainStep;
+        SingleThrowStep ExpandTo(IJsoneable command, StepSettings settings, string? feedForwardInstruction = null);
+        SplitterStep Plug(List<StepInstruction> commands, StepSettings settings, string? splitterFeedFwd = null);
+        TStep ExpandTo<TStep, TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings settings, string? feedForwardInstruction = null) 
+            where TCommand : BasePromptCommand<TResult>, new() where TStep : ChainStep;
+        SingleThrowStep ExpandTo<TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings settings, string? feedForwardInstruction = null) 
+            where TCommand : BasePromptCommand<TResult>, new();
     }
 }

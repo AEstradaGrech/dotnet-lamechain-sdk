@@ -19,6 +19,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands
             : base(ollama, generator, queryFunction)
         {
         }
+
         //TODO:
         //public SmartQueryCommand(IOllamaInferenceService ollama, IEmbeddingsService generator,
         //  DbQuerySettings{
@@ -37,27 +38,29 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands
             var castedReq = (SmartQueryRequest)request;
 
             var choiceCommand = new MultiChoiceCommand(_ollama, await getPromptInstruction(), _settings);
+            
+            var selectorGuidance = string.Empty;
+            // Repeated Commands are tagged in the order they are appended, is up to you to add the feeds in the command execution order for commands of the same type
+            if (castedReq.NestedGuidances.ContainsKey($"{nameof(MultiChoiceCommand)}-0"))
+                selectorGuidance = castedReq.NestedGuidances[$"{nameof(MultiChoiceCommand)}-0"];
 
-            var selectedChoices = await choiceCommand.Prompt(new MultiChoiceRequest(castedReq.MaxReturnedChoices, castedReq.CollectionChoices, request.Prompt, guidance: request.GuidanceMessage));
+            // selector guidance carries any feeded configured for nested commands, with the same format than the rag expansion results (for now), which is the raw json output with no cntext
+            var selectedChoices = await choiceCommand.Prompt(new MultiChoiceRequest(castedReq.MaxReturnedChoices, castedReq.CollectionChoices, request.Prompt, guidance: selectorGuidance));
 
             if (selectedChoices.Count == 0) return [];
 
             var finalResults = new List<string>();
             foreach (var choice in selectedChoices)
             {
-                var queryCommand = new VectorSearchSourceable(_generator, _queryFunction);
-
-                var results = await queryCommand.Prompt(new VectorSearchRequest(choice, request.Prompt, castedReq.Model, castedReq.Dimensions, castedReq.MaxReturnedChoices, castedReq.Filters));
+                var queryCommand = new VectorSearchSourceable(_generator, _queryFunction); 
+                
+                // Guidance message carries the raw output of the rag expansion commands
+                var results = await queryCommand.Prompt(new VectorSearchRequest(choice, $"{request.Prompt} {request.GuidanceMessage}", castedReq.Model, castedReq.Dimensions, castedReq.ReturnedResults, castedReq.Filters));
 
                 if(results.Count > 0)
                     finalResults.AddRange(results);
             }
-            
-            // return List<string>{
-            //  colA,
-            //  colB.results,
-            //  etc
-            // }
+
             return finalResults;
         }
     }
