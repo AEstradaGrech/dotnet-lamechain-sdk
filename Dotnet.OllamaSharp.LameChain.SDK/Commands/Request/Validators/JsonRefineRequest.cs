@@ -1,6 +1,6 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 
-namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Requests
+namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Evaluators
 {
     public class JsonRefineRequest<TRefined> : JsonValidationRequest<TRefined> where TRefined : class
     {

@@ -1,5 +1,5 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
-using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
@@ -48,5 +48,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces
         public List<ChainLink> Outputs { get; }
         public Dictionary<Guid, List<ChainLink>> GrouppedOutputs();
         public IChaineable GetFirstStep();
+
+        public IChaineable GetLastStep();
     }
 }

@@ -1,4 +1,4 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
 using DotnetLlamaSharp.Domain.Services.Inference;
 

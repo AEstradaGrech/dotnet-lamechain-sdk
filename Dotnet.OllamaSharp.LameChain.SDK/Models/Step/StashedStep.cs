@@ -26,26 +26,36 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
         private bool _isIsolated = true;
         public bool IsGreedy => _isGreedy;
         public bool IsEmpty => _stepSettings.Boosters.Count == 0;
-        
-        public StashedStep(SourceableCommand retrieverCommand, StepSettings settings, bool isGreedy = false, bool isIsolated = true, string? feedForwardMessage = null) : base(null, feedForwardMessage)
+
+        //By default Stashes are not greedy and isolated --> next will be able to read the stash and the stash command won't read from the previous
+        public StashedStep(StepInstruction instruction, bool isGreedy = false, bool isIsolated = true) : base(instruction)
         {
             _isGreedy = isGreedy;
             _isIsolated = isIsolated;
         }
 
-        public override bool CanBeForged(IChaineable previous) => IsReady() && IsChained(isForwardCheck: true);
+        public StashedStep(SourceableCommand retrieverCommand, StepSettings settings, bool isGreedy = false, bool isIsolated = true, string? feedForwardMessage = null) : base(retrieverCommand, settings, feedForwardMessage)
+        {
+            _isGreedy = isGreedy;
+            _isIsolated = isIsolated;
+        }
+
+        public override bool CanBeForged(IChaineable previous) => IsReady() && (IsFirstStep() ? IsChained() : IsChained(isForwardCheck: null));
 
         public override async Task<IChaineable> Forge(IChaineable previous)
         {
-            if (!hasCatchedThrow(previous))
-                throw new InvalidOperationException($"{nameof(StashedStep)} >> {nameof(Forge)} >> An error has occured while revieving the ChainRunner from the previous step >> INVALID CHAIN RUN");
-            
-            if(!_isIsolated)
+            onRunBegin(previous);
+         
+            if(_isIsolated)
             {
-                // append previous output
+                Request.GuidanceMessage = string.Empty;
+
+                await forgeLink();
             }
-            
-            await forgeLink();
+
+            else await forgeLinkForPlug(previous);
+
+            submitForgeLog();
 
             var result = _outputs.First();
 

@@ -1,4 +1,4 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using System.Text;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects

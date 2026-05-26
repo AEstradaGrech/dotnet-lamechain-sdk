@@ -1,5 +1,5 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators;
-using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
@@ -21,7 +21,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         public SingleThrowStep(IJsoneable command, StepSettings request, string? feedFwdInstruction = null) : base(request, feedFwdInstruction)
         {
             _commands.Add(command);
-
         }
 
         /// <summary>
@@ -113,17 +112,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
         public override async Task<IChaineable> Forge(IChaineable previous)
         {
-            if (!IsFirstStep() && !IsFirstSubstep())
-            {
-                    if (!IsRunning && !hasCatchedThrow(previous))
-                        throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(Forge)} >> {_commands.First().GetType().Name} >> {nameof(hasCatchedThrow)} >> AN ERROR HAS OCCURED WHILE PASSING THE CHAIN RUNNER FROM PREVIOUS STEP");
-            }
-            
-            else _passCatchTimestamp = DateTime.Now;
-
-            await forgeLinkForPlug(previous);
-
-            submitForgeLog();
+            await runStep(previous);
 
             return _next != null ? await _next.Forge(this) : this;
         }

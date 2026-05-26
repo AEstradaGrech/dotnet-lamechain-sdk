@@ -193,7 +193,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
         {
             feedLog = null;
 
-            if (!_chainFeeds.Any(log => log.RunnerId == id))
+            if (onChainFeedRequest != null && !_chainFeeds.Any(log => log.RunnerId == id))
                 onChainFeedRequest(id);
 
             if(_chainFeeds.Any(log => log.RunnerId == id))

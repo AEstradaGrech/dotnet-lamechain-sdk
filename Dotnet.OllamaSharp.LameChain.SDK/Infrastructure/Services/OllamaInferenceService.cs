@@ -1,6 +1,6 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators;
-using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Exceptions;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;

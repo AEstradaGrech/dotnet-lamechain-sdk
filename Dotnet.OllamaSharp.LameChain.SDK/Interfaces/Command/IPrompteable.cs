@@ -1,4 +1,4 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command
 {

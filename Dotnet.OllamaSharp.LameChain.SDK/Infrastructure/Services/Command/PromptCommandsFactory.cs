@@ -3,7 +3,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
@@ -31,26 +31,31 @@ namespace DotnetLlamaSharp.Services.Prompting
             where TCommand : DbPromptCommand<TResult>, new()
             => Activator.CreateInstance(typeof(TCommand), _ollama, source, messageName, retrieverLambda, guidanceMessage, settings) as TCommand;
 
-        public SimilaritySearchCommand GetSimilaritySearchCommand(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<SimilarSearchResult>>> queryFunction)
-            => Activator.CreateInstance(typeof(SimilaritySearchCommand), _embeddingsService, queryFunction) as SimilaritySearchCommand;
+        public VectorSearchCommand GetSimilaritySearchCommand(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<ILameSearchResult>>> queryFunction)
+            => Activator.CreateInstance(typeof(VectorSearchCommand), _embeddingsService, queryFunction) as VectorSearchCommand;
 
-        public TCommand GetSimilaritySearchLlama<TCommand>(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<SimilarSearchResult>>> queryFunction) where TCommand : SimilaritySearchCommand
+        public TCommand GetSimilaritySearchLlama<TCommand>(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<ILameSearchResult>>> queryFunction) where TCommand : VectorSearchCommand
            => Activator.CreateInstance(typeof(TCommand),_ollama, _embeddingsService, queryFunction) as TCommand;
 
-        public SimilarSourceCommand GetSimilaritySearchSourceable(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<SimilarSearchResult>>> queryFunction)
-            => Activator.CreateInstance(typeof(SimilarSourceCommand), _embeddingsService, queryFunction) as SimilarSourceCommand;
+        public VectorSearchSourceable GetVectorSearchSourceable(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<ILameSearchResult>>> queryFunction)
+            => Activator.CreateInstance(typeof(VectorSearchSourceable), _embeddingsService, queryFunction) as VectorSearchSourceable;
 
-        public SimilarSourceCommand GetSimilaritySearchSourceable(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<SimilarSearchResult>>> queryFunction,
+        public TCommand GetEmbeddedSourceable<TCommand>(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<ILameSearchResult>>> queryFunction, string? llamaGuidance = null, CommandSettings? settings = null) 
+            where TCommand : VectorSearchSourceable
+            => Activator.CreateInstance(typeof(TCommand), _ollama, _embeddingsService, queryFunction, llamaGuidance, settings) as TCommand;
+
+        public VectorSearchSourceable GetVectorSearchSourceable(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<ILameSearchResult>>> queryFunction,
             string source, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, PromptSettings? settings = null)
-           => Activator.CreateInstance(typeof(SimilarSourceCommand), _embeddingsService, queryFunction, source, messageName, retrieverLambda, guidanceMessage, settings) as SimilarSourceCommand;
+           => Activator.CreateInstance(typeof(VectorSearchSourceable), _ollama, _embeddingsService, queryFunction, source, messageName, retrieverLambda, guidanceMessage, settings) as VectorSearchSourceable;
+
 
         // Sourceables with no DB dependency AND ollama dependency (no sysmessage. SimilaritySearchCommands for example)
         // They recieve a copy of the _ollama service because the framework is built with it)
-        public TCommand GetSourceable<TCommand>() where TCommand : SourceableCommand
-            => Activator.CreateInstance(typeof(TCommand), _ollama) as TCommand;
+        public TCommand GetSourceable<TCommand>(string? llamaGuidance = null, CommandSettings? settings = null) where TCommand : SourceableCommand
+            => Activator.CreateInstance(typeof(TCommand), _ollama, llamaGuidance, settings) as TCommand;
 
         // A command that makes use of the LLM somehow to generate the List<string> result of all SourceableCommands
-        public TCommand GetSourceable<TCommand>(string source, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, PromptSettings? settings = null) where TCommand : SourceableCommand
+        public TCommand GetDbSourceable<TCommand>(string source, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, PromptSettings? settings = null) where TCommand : SourceableCommand
             => Activator.CreateInstance(typeof(TCommand), _ollama, source, messageName, retrieverLambda, guidanceMessage, settings) as TCommand;
 
         //Domain object command helpers

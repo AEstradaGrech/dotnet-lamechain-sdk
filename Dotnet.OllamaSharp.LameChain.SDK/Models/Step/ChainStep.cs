@@ -1,7 +1,7 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators;
-using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
@@ -68,6 +68,25 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
        
         //Checks that _cmds.Count > 0 & the input type of step to ensure that the pieces match (single from single, collector from multi or pipe, multi from single, pipe from multi or pipe
         public abstract bool CanBeForged(IChaineable previous);
+        protected void onRunBegin(IChaineable previous)
+        {
+            if (!IsFirstStep() && !IsFirstSubstep())
+            {
+                if (!IsRunning && !hasCatchedThrow(previous))
+                    throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(Forge)} >> {_commands.First().GetType().Name} >> {nameof(hasCatchedThrow)} >> AN ERROR HAS OCCURED WHILE PASSING THE CHAIN RUNNER FROM PREVIOUS STEP");
+            }
+
+            else _passCatchTimestamp = DateTime.Now;
+        }
+
+        protected virtual async Task runStep(IChaineable previous) 
+        {
+            onRunBegin(previous);    
+
+            await forgeLinkForPlug(previous);
+
+            submitForgeLog();
+        }
         //protected abstract Task forgeLink(IChaineable previous); // this makes the request and add the resulting link to the outputs list (allows multi-socket)
         public ChainStep() 
         { 
@@ -92,6 +111,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         }
 
         public IChaineable GetFirstStep() => _prev != null ? getFirstStep(_prev) : this;
+        public IChaineable GetLastStep() => _next != null ? getLastStep(_next) : this;
         public Dictionary<Guid, List<ChainLink>> GrouppedOutputs()
         {
             var result = new Dictionary<Guid, List<ChainLink>>();
@@ -185,7 +205,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
         public ConditionalStep AsConditional(StepInstruction instruction)
         {
-            if (!instruction.Command.GetType().IsSubclassOf(typeof(ScoredBoolCommand)))
+            if (instruction.Command.GetType() != typeof(ScoredBoolCommand) && !instruction.Command.GetType().IsSubclassOf(typeof(ScoredBoolCommand)))
                 throw new InvalidDataException($"{nameof(ConditionalStep)} >> {instruction.Command.GetType().Name} >> A ConditionalStep command must be a ScoredBoolCommand or a subclass of it");
 
             return Activator.CreateInstance(typeof(ConditionalStep), instruction.Command, instruction.StepSettings, instruction.FeedFwdInstruction) as ConditionalStep;
@@ -206,7 +226,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         }
         protected IChaineable getFirstStep(IChaineable current)
             => current.IsFirstStep() ? current : getFirstStep(current.Previous);
-
+        protected IChaineable getLastStep(IChaineable current)
+            => current.Next == null ? current : getLastStep(current.Next);
         protected void checkCanForge(IChaineable previous)
         {
             if (!CanBeForged(previous))
@@ -222,6 +243,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             if (!IsFirstStep() && previous.IsForged)
             {
+                if (previous.GetType() == typeof(StashedStep) && ((StashedStep)previous).IsGreedy) return string.Empty;
                 // The guidance message is appended to the command final system message in this way: _systemMessage (optional. guidance. on constructor) + dbMessage (optional. main msg. on construction) | defaultInstruction(optional. main msg. hardcoded) + _request.Guidance
                 sb.AppendLine()
                   .AppendLine(guidanceMessageFrom(

@@ -13,7 +13,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Base
     {
         public SourceableCommand() : base() {}
 
-        public SourceableCommand(IOllamaInferenceService ollama) : base(ollama) {}
+        public SourceableCommand(IOllamaInferenceService ollama, string? llamaGuidance = null, CommandSettings? settings = null) : base(ollama, llamaGuidance, settings) {}
 
         public SourceableCommand(IOllamaInferenceService ollama, string messageSourceName, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, CommandSettings? settings = null)
             : base(ollama, messageSourceName, messageName, retriever, guidanceMessage, settings) { }

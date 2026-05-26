@@ -1,10 +1,8 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
-
-namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request
+﻿namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
 {
-    public class SimilaritySearchRequest : PromptCommandRequest
+    public class VectorSearchRequest : PromptCommandRequest
     {
-        public SimilaritySearchRequest(string index, string query, string embedder, int dimensions, int results, Dictionary<string, object>? filters = null) :  base(message: query, model: embedder)
+        public VectorSearchRequest(string index, string query, string embedder, int dimensions, int results, Dictionary<string, object>? filters = null) :  base(message: query, model: embedder)
         {
             QueryIndex = index;
             Dimensions = dimensions;

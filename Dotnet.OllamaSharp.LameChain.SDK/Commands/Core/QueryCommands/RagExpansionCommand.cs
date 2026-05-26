@@ -1,6 +1,6 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
-using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
@@ -22,7 +22,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
     public class RagExpansionCommand : SourceableCommand
     {
         public RagExpansionCommand() : base() { }
-        public RagExpansionCommand(IOllamaInferenceService ollama) : base(ollama) { }
+        public RagExpansionCommand(IOllamaInferenceService ollama, string? llamaGuidance = null, CommandSettings? settings = null) : base(ollama, llamaGuidance, settings) { }
 
         public RagExpansionCommand(IOllamaInferenceService ollama, string messageSourceName, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, CommandSettings? settings = null) 
             : base(ollama, messageSourceName, messageName, retriever, guidanceMessage, settings) { }

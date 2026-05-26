@@ -1,5 +1,5 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators;
-using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
@@ -10,7 +10,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators
     public class UserIntentCommand : MessagePromptCommand
     {
         public UserIntentCommand() : base() { }
-        public UserIntentCommand(IOllamaInferenceService ollama) : base(ollama) { }
         public UserIntentCommand(IOllamaInferenceService ollama, string? systemMessage = null, CommandSettings? settings = null) : base(ollama, systemMessage, settings) {}
 
         public override async Task<ChatMessage> Prompt(PromptCommandRequest request)

@@ -1,6 +1,6 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
-using Dotnet.OllamaSharp.LameChain.SDK.Command.Requests;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
@@ -12,7 +12,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
     public class QueryAugmentationCommand : SourceableCommand
     {
         public QueryAugmentationCommand() : base() { }
-        public QueryAugmentationCommand(IOllamaInferenceService ollama) : base(ollama) { }
+        public QueryAugmentationCommand(IOllamaInferenceService ollama, string? llamaGuidance = null, CommandSettings? settings = null) : base(ollama, llamaGuidance, settings) { }
 
         public QueryAugmentationCommand(IOllamaInferenceService ollama, string messageSourceName, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, CommandSettings? settings = null) 
             : base(ollama, messageSourceName, messageName, retriever, guidanceMessage, settings) { }
@@ -26,8 +26,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
             var promptReq = await getGenerateRequest(request);
 
             promptReq.System += $"\n{request.Prompt}";
-
-            var response = new ChatMessage(ChatRole.Assistant.ToString(), string.Empty);
 
             var results = new List<string>();
 

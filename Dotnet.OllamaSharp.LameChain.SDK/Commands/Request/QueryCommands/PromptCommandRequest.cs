@@ -1,6 +1,6 @@
 ﻿using OllamaSharp.Models;
 
-namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Requests
+namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
 {
     public class PromptCommandRequest
     {

@@ -12,6 +12,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
         public IChaineable TrueBranchRunner;
 
         public ConditionalStep() : base() { }
+
+        public ConditionalStep(StepInstruction instruction) : base(instruction) { }
         public ConditionalStep(ScoredBoolCommand command, StepSettings request, string? feedFwdInstruction = null) : base(command, request, feedFwdInstruction) 
         {
            
@@ -27,22 +29,21 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
 
         public override async Task<IChaineable> Forge(IChaineable previous)
         {
-            await Forge(previous);
+            await runStep(previous);
 
             if (Outputs.Count == 0)
                 throw new InvalidOperationException($"{nameof(ConditionalStep)} >> {nameof(Forge)} >> An error has occured while running the EvaluatorCommand >> INVALID CHAIN RUN");
             
             var evaluation = GetOutputAs<ScoredBoolResponse>();
 
-            IChaineable returnedStep = this;
-
             if (evaluation.Answer)
             {
-                returnedStep = TrueBranchRunner;
+                TrueBranchRunner.GetLastStep().Link(_next, isForward: true, isTwoWay: true);
+
                 Link(TrueBranchRunner, isForward: true, isTwoWay: true);
             }
-            
-            return await _next.Forge(returnedStep);
+            //Chain again
+            return await _next.Forge(this);
         }
     }
 }

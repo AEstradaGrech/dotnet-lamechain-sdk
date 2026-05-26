@@ -8,6 +8,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
     public class JunctionStep : SingleThrowStep
     {
         public JunctionStep() : base() { }
+
         public JunctionStep(IJsoneable junctionCommand, StepSettings request, string? feedFwdMessage = null) : base(junctionCommand, request, feedFwdMessage) { }
         
         public override bool CanBeForged(IChaineable previous)
@@ -25,7 +26,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             _runner.RunnedInstructions.Add($"- JOIN: {_id}");
 
             var castedPrev = (SplitterStep)previous;
-
 
             //  original.instruction (OBJETIVO GENERAL) + SplitterStep._feedForwardMessage (puede llevar una instruccion general / descripcion del step
             //      N * output instruction & schema & result & guidance (RESULTADOS Y QUE DEBERIA HACERSE CON ELLO)

@@ -21,9 +21,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             => Activator.CreateInstance(typeof(TStep), firstInstruction,
                 new ChainRunner(firstInstruction.StepSettings.CommandRequest.Prompt, defaultSettings, finalSysMessage, chainIntent))
                 as TStep;
-        public static TStep SubChainWith<TStep>(StepInstruction firstInstruction, CommandSettings defaultSettings) where TStep : SingleThrowStep
-            => Activator.CreateInstance(typeof(TStep), firstInstruction, null)
-                as TStep;
+        public static TStep SubChainWith<TStep>(params object?[]? args) where TStep : SingleThrowStep // null will use the Main ChainRunner's Defaultsettings
+            => Activator.CreateInstance(typeof(TStep), args) as TStep;
         public static SingleThrowStep Then(this SingleThrowStep step, IJsoneable command, StepSettings request, string? feedFwdInstruction = null)
         {
             /*
@@ -232,6 +231,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 
             conditional.IfTrueThen(trueBranch);
 
+            step.Link(conditional, isForward: true, isTwoWay: true);
+
             return conditional;
         }
 
@@ -257,10 +258,16 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return stash;
         }
 
-        public static ChainStep ChainFeedsFrom(this ChainStep stash, List<Guid> steps, string? guidance = null)
+        public static SingleThrowStep ChainFeedsFrom(this SingleThrowStep step, List<Guid> steps, string? guidance = null)
         {
-            stash.WithChainFeeds(steps);
-            return stash;
+            step.WithChainFeeds(steps);
+            return step;
+        }
+
+        public static SplitterStep ChainFeedsFrom(this SplitterStep step, List<Guid> steps, string? guidance = null)
+        {
+            step.WithChainFeeds(steps);
+            return step;
         }
 
         public static async Task<ChainResult> ThenExecuteAsync(this SingleThrowStep step, bool withFinalMessage = false, bool withReplay = false, CommandSettings finalMsgSettings = null)
