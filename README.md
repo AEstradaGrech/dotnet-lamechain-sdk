@@ -1,3 +1,7 @@
+[![NuGet](https://img.shields.io/nuget/v/Estrada.OllamaSharp.LameChain.SDK.svg)](https://www.nuget.org/packages/Estrada.OllamaSharp.LameChain.SDK)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-10.0%2B-blue.svg)](https://dotnet.microsoft.com/)
+
 # dotnet-lamechain-sdk
 A fluent .NET framework for chaining structured OllamaSharp prompts with sequence and parallel workflows.
 
@@ -535,3 +539,14 @@ This example demonstrates how can you use LameChain to build a 'smart' rag that 
                 .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
 
 ```
+
+
+## 🛠️ Sample Implementation
+
+This repository includes a sample project: [**dotnet-llamasharp**](https://github.com/AEstradaGrech/dotnet-llamasharp)
+
+It demonstrates how to use the SDK to gather data and feed a RAG (Retrieval-Augmented Generation) service, showcasing real-world integration.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
