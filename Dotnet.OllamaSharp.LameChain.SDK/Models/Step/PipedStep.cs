@@ -28,10 +28,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
                 outputs[key].ForEach(link =>
                 {
-                    var branch = ThrowTo(swapRunner: true, _commands.First(), _stepSettings, _feedForwardInstruction);
+                    var branch = ThrowTo(swapRunner: true, _commands.First(), _stepSettings.Clone(), _feedForwardInstruction);
 
                     _branches.Add(branch);
-
+                    //Maps the Id of the last step in the subchain to the origin of the pipe
+                    // (the previous chaineable who produced the output)
                     prevsMap.Add(branch.Id, origin);
                 });
             });
@@ -47,5 +48,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             return await _next.Forge(this);
         }
+
     }
 }

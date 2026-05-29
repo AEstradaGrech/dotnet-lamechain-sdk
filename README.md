@@ -393,76 +393,92 @@ It starts with a simple instruction to build the character in different sequenti
 
 
 ```csharp
-return await LameChain
-    .StartWith(new StepInstruction(
-            _promptsFactory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
-                instruction: "Generate a character name and assign it an age (the age might be a specific number or a rough string approximation).",
+
+public async Task<ChainResult> ParallelChainExample(ChainedPrompt request)
+    => await LameChain
+        .StartWith(new StepInstruction(
+                _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
+                    instruction: "Generate a character name and assign it an age (the age might be a specific number or a rough string approximation).", //This should be the 'request.SystemMessage'
+                    settings: request.Settings),
+                settings: new StepSettings(new PromptCommandRequest(
+                    message: "Generate a character for a game ambiented in Spain in the XVI century", // This should be the 'request.Prompt'
+                    guidanceMessage: "You are a character concept creator for a videogames company" // bias the output of the first step by assigning it a role that makes it an expert in the topic.
+                )),
+                feedFwd: ""),
+            defaultSettings: request.Settings, // default settings for all the chain. If you don't pass individual settings to a command, this will be used instead
+            finalSysMessage: "Ensure you output your answer in old castillian spanish style, but be consistent with the provided context data.", //This is just to demonstrate how to use the Final Message. Let's say you are doing some tests about how should the character speak in the game
+            chainIntent: "Create game character") // This will be passed to all steps so every LLM request has a clear idea of what is the final task / overall goal
+        .ExposeThisId(out var startId)
+        .Then(
+            _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
+                instruction: "Reduce the previous output to ensure it only contains the requested name and age, remove the rest",
+                request.Settings), // pass indiviual settings for each step if necessary to regulate how focused or creative is the LLM
+            new StepSettings(new PromptCommandRequest("")),
+            feedFwdInstruction: "Use the name and the age to develop your part of the character") // Help the next step with its task by passing 'Feed Forward' messages that will be added to the context along with the previous output.
+        .ExposeThisId(out var thenId)
+        .SplitThrough(
+        //This step will split the chain but executing a command first that will feed every plugged substep.
+        // The splitted step recieves the previous output (ideally only the name and age after the reduction) and generate some kind of descriptive 'picture' of a possible character that will be passed
+        // to the parallel branches for further post-processing.
+            new StepInstruction(
+                _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
+                    instruction: "Generate a succinct 'iconic moment' for the character, that is: a description of a typical situation or scene for this character, a moment that should represent its nature and the way it is. Use no more than 50-60 words",
+                    settings: request.Settings), // You could pass some very creative settings in this step for example
+                settings: new StepSettings(new PromptCommandRequest(message: "")),
+                feedFwd: "Use this character typical scene as a character concept to inspire your creations"), [
+                    //Based on this little character concept (that inherits the name and age) the other steps will pick a faction, a game location as hometowm and generate an extensive background story to use it as a base for the final result (that will merge the three outputs)
+                new StepInstruction(
+                    _factory.GetStringChoiceCommand( //You can use different type of Lame Commands in the chain. Here I'm using an AtomicValue Command that selects a single string from the passed list based on the given instruction
+                        guidanceMessage: "Select a faction from the available list for the game character you are creating. Use the provided data to select the faction that fits best or choose at random if none stands out."),
+                    new StepSettings(new StringChoiceRequest(
+                        choices: ["Germaners", "Comuneros", "Tercio Imperial" ],
+                        message: "Select a game faction for the character", // Enforce the instruction if you get hallucinations with dumb models or maybe the context adds too much noise and misleads the LLM
+                        model: null))
+                        .FeedFrom(startId), // This is just to demonstrate an individual feed in a splitted step from a previous process different than the previous
+                    feedFwd: "Use this game related data to ground your profile to the game lore"), // Help the next worker focus on its task when you start to add too much content to the LLM's context window (for example joining three outputs, like in the next step)
+                new StepInstruction(
+                    _factory.GetEnumChoiceCommand<EGameLocations>( // You can use other type of AtomicValue command for quick selections based on your app code. values  Here I'm using an AtomicValue command that selects an app enum value based on the instruction.
+                        guidanceMessage: "Select a game location from the available list for the game character you are creating. Use the provided data to select the location that fits best with the profile."),
+                    new StepSettings(new PromptCommandRequest(message: "Select a game location for the character as stated in your instruction")),
+                    feedFwd: "Use the selected location as the character's place of birth"), // Every parallel branch can add its own Feed Forward message to help the next step to understand / use the output of its instruction
+                new StepInstruction(
+                    _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
+                        instruction:"Generate a background story or profile for the character you are creating. Use the provided data to figure out what kind of character my ne appropriate in terms of style, mood, vibe..."),
+                    settings: new StepSettings(new PromptCommandRequest(message: ""))
+                        .WithDataBoost( // Steps can be boosted by feeding the output of previous steps but also by adding external string sources.
+                        // In this case I'm adding semi-random data to the bias the generated character base profile towards specific styles.
+                        // But ideally you would add here well processed sources (in this example it could be real human-made character concepts made by the game studio artists
+                            "Use the below data to bias your final response towards that style, ambience, topic or vibe",
+                            await _langSearch.SearchRankedTexts(new RankedPageRequest { Count = 6, Query = "Don Pablo o La vida del buscón. Lazarillo de Tormes, sinopsis." }, returnSnippet: true)),
+                    feedFwd: "Use this profile as an inspiration for your final character profile, but adapt it to the game lore") // Guide the refining / summarizing step to leverage the output of the different branches and get more consistent results
+            ])
+        // Now that the chain has been splitted in 3 branches, it is possible to work on each branch indepently by piping commands that will be executed on each recieved previous output
+        // This part of the example tries to demonstrate how to use another step to post-process the generated outputs and get more consistent results by generating
+        // some semi-random content that is based on the generated content so far (the goal is to augment the previous results and have more base material to work with in the joining step)
+        // Note that now every FeedForward message from the splitter will be 'spent' in this step, you have to use the pipeFeedFwd message to guide the next one
+        .Pipe(
+            _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
+                instruction: "Review the content so far and combine it with the provided sources in a very short story plot (around 50 words)",
                 settings: request.Settings),
-            settings: new StepSettings(new PromptCommandRequest(
-                message: request.Prompt,
-                guidanceMessage: request.SystemMessage
-            )),
-            feedFwd: ""),
-        defaultSettings: request.Settings,
-        finalSysMessage: request.FinalSystemMessage,
-        chainIntent: "Create game character")
-    .ExposeThisId(out var startId)
-    .Then(
-        _promptsFactory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
-            instruction: "Reduce the previous output to ensure it only contains the requested name and age, remove the rest",
-            request.Settings),
-        new StepSettings(new PromptCommandRequest("")),
-        feedFwdInstruction: "Use the name and the age to develop your part of the character")
-    .ExposeThisId(out var thenId)
-    .SplitThrough(
-        new StepInstruction(
-            _promptsFactory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
-                instruction: "Generate a succinct 'iconic moment' for the character, that is: a description of a typical situation or scene for this character, a moment that should represent its nature and the way it is. Use no more than 50-60 words",
-                settings: request.Settings),
-            settings: new StepSettings(new PromptCommandRequest(message: "")),
-            feedFwd: "Use this character typical scene as a character concept to inspire your creations"),
-        new List<StepInstruction> {
+            pipedSettings: new StepSettings(new PromptCommandRequest(message: "")),
+            pipeFeedFwd: "Review all the sources and get a consistent overview of the expected character profile.")
+        // You can add rebujitos of data to influence the outputs of each branch of the pipe if you need.
+        // In this case I'm simulating more style biasing without filtering it, but ideally you would add business content that you would like to apply on each branch.
+        // In this example, it could be more content produced by the game studio staff (like scene scripts or even quest scripts, the idea
+        // is to add get results that are aligned with the game lore so the final junction step does not hallucinate and add content from it's training dataset
+        .WithRebujito(
+            await _langSearch.SearchRankedTexts(new RankedPageRequest { Count = 3, Query = "Revuelta de los Comuneros. Rebelion de las Germanias" }, returnSnippet: false),
+            guidance: "Use this data as a source of style references and add merge them in your final response along with the generated game lore. Output your response in always in English despite the source language.", // It is possible to add guidance instruction about the rebujito content to help the lLM to use it
+            feedDose: 100)
+        .Join(
             new StepInstruction(
-                _promptsFactory.GetStringChoiceCommand(
-                    guidanceMessage: "Select a faction from the available list for the game character you are creating. Use the provided data to select the faction that fits best or choose at random if none stands out."),
-                new StepSettings(new StringChoiceRequest(
-                    choices: [ "Game Faction A", "Game Faction B", "Game Faction C" ],
-                    message: "Select a game faction for the character",
-                    settings: null,
-                    model: null))
-                    .FeedFrom(startId),
-                feedFwd: "Use this game related data to ground your profile to the game lore"),
-            new StepInstruction(
-                _promptsFactory.GetEnumChoiceCommand<EGameLocations>(
-                    guidanceMessage: "Select a game location from the available list for the game character you are creating. Use the provided data to select the location that fits best with the profile."),
-                new StepSettings(new PromptCommandRequest(message: "Select a game location for the character as stated in your instruction")),
-                feedFwd: "Use the selected location as the character's place of birth"),
-            new StepInstruction(
-                _promptsFactory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
-                    instruction: request.Instructions.Skip(4).First().SystemMessage),
-                settings: new StepSettings(new PromptCommandRequest(message: "Generate a background story or profile for the character you are creating. Use the provided data to figure out what kind of character may be appropriate in terms of style, mood, vibe..."))
-                    .WithDataBoost(
-                        "Use the below data to bias your final response towards that style, ambience, topic or vibe",
-                        await _langSearch.SearchRankedTexts(new RankedPageRequest { Count = 6, Query = "Bujias Campanolo, El Dia de la Bestia" }, returnSnippet: true)),
-                feedFwd: "Use this profile as an inspiration for your final character profile, but adapt it to the game lore")
-        })
-    .Pipe(
-        _promptsFactory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
-            instruction: "Review the content so far and combine it with the provided sources in a very short story plot (around 50 words)",
-            settings: request.Settings),
-        pipedSettings: new StepSettings(new PromptCommandRequest(message: "")),
-        pipeFeedFwd: "Review all the sources and get a consistent overview of the expected character profile.")
-    .WithRebujito(
-        await _langSearch.SearchRankedTexts(new RankedPageRequest { Count = 3, Query = "H.P Lovecraft stories. Richard Bachman novels" }, returnSnippet: false),
-        guidance: "",
-        feedDose: 100)
-    .Join(
-        new StepInstruction(
-            _promptsFactory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
-                instruction: "Generate a full character profile (400-500 words) with the provided data. Include a background story, a psychological profile and a 'usual routines' section"),
-            settings: new StepSettings(new PromptCommandRequest(message: "Generate the requested character profile")).FeedFrom(thenId),
-            feedFwd: ""))
-    .ThenExecuteAsync(request.WithFinalMessage, request.WithReport, request.FinalMessageSettings ?? request.Settings);
+                _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
+                    instruction: "Generate a full character profile (400-500 words) with the provided data. Include a background story, a psychological profile and a 'usual routines' section"),
+                settings: new StepSettings(new PromptCommandRequest(message: "Generate the requested character profile")) // Enforce the instruction (specially if you are using small local models and the context window is relatively filled)
+                    .FeedFrom(thenId) // Feed the name and age to ensure it uses the one generated at this step (dumb models may have alucinated with the background story and the rebujito feeds)
+            )
+        )
+        .ThenExecuteAsync(request.WithFinalMessage, request.WithReport, request.FinalMessageSettings ?? request.Settings);
 ```
 
 This example demonstrates how can you use LameChain to build a 'smart' rag that will:

@@ -27,8 +27,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             var castedPrev = (SplitterStep)previous;
 
-            //  original.instruction (OBJETIVO GENERAL) + SplitterStep._feedForwardMessage (puede llevar una instruccion general / descripcion del step
-            //      N * output instruction & schema & result & guidance (RESULTADOS Y QUE DEBERIA HACERSE CON ELLO)
             var outputs = previous.GrouppedOutputs();
 
             var sb = new StringBuilder();

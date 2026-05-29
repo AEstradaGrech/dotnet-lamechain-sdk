@@ -167,11 +167,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                 throw new InvalidOperationException($"{nameof(ChainStep)} >> {nameof(ThrowTo)} >> This method is to instantiate steps with a copy of the chain runner and the current caller is not the runner");
 
             var newRunner = swapRunner ? _runner.Clone() : _runner;
-
-            //every step of this sub chain gets a new nullable runner with the previous log, but they subscribe to their own runner
+            // every step of this sub chain gets a new nullable runner with the previous log, but they subscribe to their own runner
             // this is to run chains in parallel. The last runner of each subChain has the report for the original Multithrow Step so they can be appended
             // to the original / main runner and deleted
-            var reciever = Activator.CreateInstance(typeof(SingleThrowStep), new StepInstruction(command, recieverSettings, feedForwardInstruction), newRunner) as SingleThrowStep;
+            var reciever = Activator.CreateInstance(typeof(SingleThrowStep), new StepInstruction(command, recieverSettings, feedForwardInstruction), newRunner) as SingleThrowStep; // !!!!!!!!!!!!!! CLONE STEP SETTINGS
 
             return reciever;
         }
@@ -246,11 +245,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                 if (previous.GetType() == typeof(StashedStep) && ((StashedStep)previous).IsGreedy) return string.Empty;
                 // The guidance message is appended to the command final system message in this way: _systemMessage (optional. guidance. on constructor) + dbMessage (optional. main msg. on construction) | defaultInstruction(optional. main msg. hardcoded) + _request.Guidance
                 sb.AppendLine()
-                  .AppendLine(guidanceMessageFrom(
-                    previous.Outputs.First().Instruction,
-                    previous.Outputs.First().SerializedResult,
-                    previous.Outputs.First().SchemaForMessage(), // deberia ser opcional
-                    previous.Outputs.First().GuidanceMessage));
+                  .AppendLine(!_stepSettings.WithFullContext ? 
+                    previous.Outputs.First().SerializedResult :
+                    guidanceMessageFrom(
+                        previous.Outputs.First().Instruction,
+                        previous.Outputs.First().SerializedResult,
+                        _stepSettings.WithPrevSchema ? previous.Outputs.First().SchemaForMessage() : null, // deberia ser opcional
+                        previous.Outputs.First().GuidanceMessage)
+                  );
             }
 
             return sb.ToString();
@@ -353,12 +355,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 # CONTEXT: This section contains relevant information about previous instruction. Use the provided data as a guidance to complete your own instruction. Use each section 
 description (wrapped in parenthesis) to understand what does it represent and how can it help you to complete your task but, REMEMBER: your instruction is ALWAYS your priority.
 
+## IMPORTANT: follow this rules in order to generate your response:
+
+- Analyze the previous output and any guidance message from the previous worker to get a better idea of the context and will help you with your task.
+- Do not copy the output format, use it as contextual information but your response MUST BE compliant with your provided JSON schema.
+- Review all the contextual information as a guidance but do not let the previous output format influence your response format (reason about the previous output content, but do not copy the format, follow your JSON schema)
+
 {(!string.IsNullOrEmpty(_runner.Intent) ? $"> CHAIN INTENT (this is the overall goal of the whole chain in a categoric manner. Use it to have a very general idea about the task that the chain is trying to complete): {_runner.Intent}\n" : string.Empty)}
 > USER INPUT (this is the actual user request. Use it to understand what the user is trying to do in general terms): {_runner.UserPrompt}";
 
         protected string guidanceMessageFrom(string instruction, string serialized, string jsonSchema, string? feededInstruction = null)
-         => @$"
-> PREVIOUS INSTRUCTION (use this to have a clear idea of what was exactly the previous worker task and understand its output):
+         => @$"> PREVIOUS INSTRUCTION (use this to have a clear idea of what was exactly the previous worker task and understand its output):
 
  {instruction.Replace(preInstructionTag, "").Trim()}
 
@@ -382,7 +389,10 @@ description (wrapped in parenthesis) to understand what does it represent and ho
 
             //'what is the play about!'
 
-            Request.GuidanceMessage += getContextMessageHeader();
+            //By default splitted steps do not execute commands in their chain
+            // (they trigger subchains of SingleThrowSteps)
+            if(GetType() != typeof(SplitterStep) && !GetType().IsAssignableTo(typeof(SplitterStep)))
+                Request.GuidanceMessage += getContextMessageHeader();
 
             _passCatchTimestamp = DateTime.Now;
 

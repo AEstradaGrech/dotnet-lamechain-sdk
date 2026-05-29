@@ -16,13 +16,21 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
             Boosters = new List<KeyValuePair<string, List<string>>>();
         }
 
-        public StepSettings(PromptCommandRequest request, bool withFullContext = true, bool withPrevSchema = true) : this()
+        public StepSettings(PromptCommandRequest request, bool withFullContext = true, bool withPrevSchema = false) : this()
         {
             WithFullContext = withFullContext;
             WithPrevSchema = withPrevSchema;
             CommandRequest = request;
-            WithFullContext = withFullContext;
-            WithPrevSchema = withPrevSchema;
+        }
+
+        public StepSettings(StepSettings cloned, bool cloneFeeds = true, bool cloneBoosters = true)
+        {
+            WithFullContext = cloned.WithFullContext;
+            WithPrevSchema = cloned.WithPrevSchema;
+            CommandRequest = cloned.CommandRequest.Clone();
+            ChainFeeds = cloneFeeds ? new List<Func<Guid>>(cloned.ChainFeeds) : [];
+            NestFeeds = cloneFeeds ? new Dictionary<string, List<Func<Guid>>>(cloned.NestFeeds) : new Dictionary<string, List<Func<Guid>>>();
+            Boosters = cloneBoosters ? new List<KeyValuePair<string, List<string>>>(cloned.Boosters) : [];
         }
 
         public PromptCommandRequest CommandRequest { get; }
@@ -30,7 +38,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
         public List<Func<Guid>> ChainFeeds { get; set; } 
         public Dictionary<string, List<Func<Guid>>> NestFeeds { get; set; } // feed specific commands in a multicommand (executes nested commands)
         // Additional sources of data to enhance the prompt, add few-shot examples or whatever This will be appended at the end of the system message as "#ADDITIONAL INFORMATION: <rebujito feed message to guide / interpret the feeds>
-        public List<KeyValuePair<string,List<string>>> Boosters { get; set;  }  
+        public List<KeyValuePair<string,List<string>>> Boosters { get; set;  }
+
+        public StepSettings Clone(bool withFeeds = true, bool withBoosters = true) => new StepSettings(cloned: this, withFeeds, withBoosters);
+
         public StepSettings FeedFrom(Func<Guid> id)
         {
             if (!ChainFeeds.Contains(id))
