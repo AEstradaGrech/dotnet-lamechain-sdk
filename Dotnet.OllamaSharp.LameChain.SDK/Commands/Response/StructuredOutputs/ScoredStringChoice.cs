@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs
 {
-    [OllamaJsonOutput("Selection of the best choice from a list based on the query intent along with a confidence score and a justification comment about your selection")]
+    [OllamaJsonOutput("Selection of the best choice from a list based on the query intent along with a confidence score and a justification comment about your selection.")]
     public class ScoredStringChoice : StringChoiceResponse
     {
         [JsonPropertyName("confidence_score")]
@@ -17,7 +17,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs
         [OllamaJsonProperty(Title = "Description", PromptDescription = "A brief yet accurate explanation of your deliverance justifying your selection")]
         [OllamaJsonHint("Analyze the query intent and review carefully all the avaliable options, then reson which one matches the best for the given intent.")]
         [OllamaJsonRequirement("- Around 10-15 words explaining your selected choice")]
-        
         public string Justification { get; set; }
     }
 }

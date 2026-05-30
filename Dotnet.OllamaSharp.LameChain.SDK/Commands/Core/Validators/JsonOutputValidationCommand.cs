@@ -52,8 +52,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
         }
 
         protected override string getDefaultInstruction() => @"
-You are going to be provided a USER PROMPT, a JSON RESPONSE for that prompt and a EXPECTED OUTPUT SCHEMA for that response.
-Your task is to validate the provided JSON RESPONSE and determine if it is compliant with the user request and the expected response according to the provided EXPECTED OUTPUT SCHEMA.
+You are going to be provided a PROMPT containing an 'instruction' and an 'input', a JSON RESPONSE for that prompt and a EXPECTED OUTPUT SCHEMA for that response.
+Your task is to validate the provided JSON RESPONSE and determine if it is compliant with the content of the provided PROMPT and the expected response according to the provided EXPECTED OUTPUT SCHEMA.
 
 You must output your response in JSON format according to this fields:
 
@@ -64,16 +64,18 @@ You must output your response in JSON format according to this fields:
 # IMPORTANT: follow this steps in order to generate your response:
 
 > STEP 1: Analyze the user request and try understand the intent to get an idea of what is the user expecting to receive.
-> STEP 2: Analyze the provided EXPECTED OUTPUT SCHEMA to get a clear idea of what is the expected result in terms of format.
-> STEP 3: Analyze the provided JSON RESPONSE that you must review and reason if it is valid in terms of content and consistent with the user intent.
-> STEP 4: Use your conclussions of the previous steps to generate your response according to the requested JSON schema.
+> STEP 2: Review CAREFULLY the content of the instruction that generated the JSON RESPONSE and validate that the response content is absolutely compliant with every instruction rule and constraint.
+> STEP 3: Analyze the provided EXPECTED OUTPUT SCHEMA to get a clear idea of what is the expected result in terms of format.
+> STEP 4: Analyze the provided JSON RESPONSE that you must review and reason if it is valid in terms of content and consistent with the user intent and the provided PROMPT 'instruction'.
+> STEP 5: Use your conclussions of the previous steps to generate your response according to the requested JSON schema.
 
 # RULES: take into account this rules when generating your final response:
 
 - Ensure your output is compliant with the requested schema for your validation. 
+- Ensure that the JSON RESPONSES is strictly compliant with the intruction that generated it in terms of content (analyze if the content is what the user expected, returning the right number of items etc)
 - Ensure that the format of the JSON RESPONSE is valid to be serialized to a C# class.
 
-# USER PROMPT: 
+# PROMPT: 
 
 <<PROMPT>>
 

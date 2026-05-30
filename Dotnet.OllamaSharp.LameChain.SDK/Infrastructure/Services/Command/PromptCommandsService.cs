@@ -87,9 +87,9 @@ namespace DotnetLlamaSharp.Services.Prompting
 
         public async Task<List<string>> MultiChoice(string prompt, List<string> choices, int maxChoices, string? guidanceMessage = null, CommandSettings settings = null)
         {
-            var command = _factory.GetDbCommand<MultiChoiceCommand, List<string>>(source: null, messageName: null, retrieverLambda: null, guidanceMessage, settings);
+            var command = _factory.GetDbCommand<MultiChoiceCommand, List<string>>(source: null, messageName: null, retrieverLambda: null, null, settings);
 
-            var response = await command.Prompt(new MultiChoiceRequest(maxChoices, choices, prompt, settings.Model));
+            var response = await command.Prompt(new MultiChoiceRequest(maxChoices, choices, message: prompt, guidance: guidanceMessage, model: settings.Model));
 
             return response;
         }

@@ -2,8 +2,10 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.AtomicValues;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
+using OllamaSharp.Models.Chat;
 using System.Text;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
@@ -27,28 +29,50 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
                 throw new InvalidDataException($"{nameof(MultiChoiceCommand)} >> The requested number of selected choices is greater or equal to the available choices");
 
             var promptReq = await getGenerateRequest(multiChoiceReq);
-
+           
             var sb = new StringBuilder();
 
             foreach (var choice in multiChoiceReq.Choices)
                 sb.AppendLine(choice);
 
-            promptReq.System = promptReq.System.Replace("<<MAX_SEL>>", $"{multiChoiceReq.MaxSelections}").Replace("<<CHOICES>>", sb.ToString());
+            //promptReq.System = promptReq.System.Replace("<<MAX_SEL>>", $"{multiChoiceReq.MaxSelections}").Replace("<<CHOICES>>", sb.ToString());
 
-            var response = await _ollama.CommandPrompt<MultiChoiceResponse>(promptReq, _settings.CommandValidations, _settings.ValidationType, validatorFor<MultiChoiceResponse>());
+            //var response = await _ollama.CommandPrompt<MultiChoiceResponse>(promptReq, _settings.CommandValidations, _settings.ValidationType, validatorFor<MultiChoiceResponse>());
+
+
+            var chatReq = new ChatCommandRequest(includeSystem: true, [], promptReq.Prompt, promptReq.Model);
+
+            var response = await _ollama.CommandPrompt<MultiChoiceResponse>(
+                chatReq.ToOllama(_settings.ToOllamaRequest(),
+                systemUpdate: promptReq.System.Replace("<<MAX_SEL>>", $"{multiChoiceReq.MaxSelections}").Replace("<<CHOICES>>", sb.ToString())),
+                _settings.CommandValidations,
+                _settings.ValidationType,
+                validatorFor<MultiChoiceResponse>());
 
             return response.Selected;
         }
-
         protected override string getDefaultInstruction()
-            => @"Analyze the provided list of choices and select up to (but not necessarily) <<MAX_SEL>> options that matches the best with the user request, or an empty list if the user intent is unrelated to 
-any available choice. Output a list of strings containing your selected values (if any) according to the provided JSON schema.
+            => @"Your task is to analyze the provided list of choices and select the choices that match exactly with the request intent (if any) WITHOUT exceeding the MAXIMUM requested selections.
+To do that, follow this steps:
 
-> CHOICES:
+> STEP 1: Analyze the query and extract the intent tho get a clear idea of what you should decide on.
+> STEP 2: Analyze the provided list of choices and reason which of them might be selected according to the intent.
+> STEP 3: Review carefully the MAXIMUM number of requested selections to know exactly the upper limit in case there are many suitable options.
+> STEP 4: Return a list that contains from 0 to the MAXIMUM allowed choices based on your analysis.
+
+# CHOICES:
 
 <<CHOICES>>
 
-#IMPORTANT: review carefully any provided information about the available choices to ensure that you select the most suitable option for the given user query.
+# MAXIMUM SELECTIONS ALLOWED: <<MAX_SEL>>
+
+# IMPORTANT: follow this rules in order to generate your final response:
+
+- ENSURE that you return a list with an amount of values ranging from 0 to the MAXIMUM requested depending on the availability of suitable choices in the provided list.
+- ENSURE that you return an empty list IF there are no choices in the provided list matching the analyzed request intent.
+- ENSURE that you ONLY return choices that are present in the list. DO NOT return items that are NOT PRESENT in the provided choices list.
+- ENSURE that you NEVER exceed the MAXIMUM requested choices.
+- ENSURE that you return ONLY choices that match exactly the request intent or an empty list if there are none.
 ";
     }
 }
