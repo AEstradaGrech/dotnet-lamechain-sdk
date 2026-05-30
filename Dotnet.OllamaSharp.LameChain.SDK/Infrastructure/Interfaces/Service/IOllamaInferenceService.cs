@@ -13,8 +13,8 @@ namespace DotnetLlamaSharp.Domain.Services.Inference
         IAsyncEnumerable<ChatResponseStream?> ChatPromptStream(ChatRequest request);
         Task<EmbedResponse> GetEmbeddings(EmbedRequest request);
         Task<T> StructuredPrompt<T>(string prompt, string model, string? systemGuidance = null, RequestOptions? options = null) where T : class;
-        Task<T> CommandPrompt<T>(GenerateRequest request, int validations = 0, EPromptValidation type = EPromptValidation.REVIEW_ONLY, JsonOutputRefinerCommand<T> validator = null) where T : class;
-        Task<T> CommandPrompt<T>(ChatRequest chatRequest, int validations = 0, EPromptValidation type = EPromptValidation.REVIEW_ONLY, JsonOutputRefinerCommand<T> validator = null) where T : class;
+        Task<T> CommandPrompt<T>(GenerateRequest request, int validations = 0, EPromptValidation type = EPromptValidation.REVIEW_ONLY, JsonOutputRefinerCommand<T> validator = null, bool withJsonInfo = true) where T : class;
+        Task<T> CommandPrompt<T>(ChatRequest chatRequest, int validations = 0, EPromptValidation type = EPromptValidation.REVIEW_ONLY, JsonOutputRefinerCommand<T> validator = null, bool withJsonInfo = true) where T : class;
 
     }
 }

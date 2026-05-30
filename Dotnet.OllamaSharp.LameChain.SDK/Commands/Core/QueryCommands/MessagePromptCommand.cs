@@ -12,12 +12,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
         public MessagePromptCommand(IOllamaInferenceService ollama, string? systemMessage = null, CommandSettings? settings = null) : base(ollama, systemMessage, settings) { }
         public override async Task<ChatMessage> Prompt(PromptCommandRequest request)
         {
-            bool isChat = request.GetType() == typeof(ChatCommandRequest);
-
-            
-            var message =  isChat ?
-                await _ollama.ChatPrompt(((ChatCommandRequest)request).ToOllama(_settings.ToOllamaRequest())) :
-                await _ollama.GeneratePrompt(await getGenerateRequest(request));
+            var message = request.GetType() == typeof(ChatCommandRequest) ?
+                await _ollama.ChatPrompt(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings)) :
+                await _ollama.GeneratePrompt(request.ToOllamaGenerate(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings));
 
             return new ChatMessage(message.Role.ToString(), message.Content);
         }

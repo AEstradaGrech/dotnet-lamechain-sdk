@@ -101,7 +101,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             return JsonSerializer.Deserialize<T>(sb.ToString());
         }
 
-        public async Task<T> CommandPrompt<T>(GenerateRequest request, int validations = 0, EPromptValidation type = EPromptValidation.REVIEW_ONLY, JsonOutputRefinerCommand<T> validator = null) where T : class
+        public async Task<T> CommandPrompt<T>(GenerateRequest request, int validations = 0, EPromptValidation type = EPromptValidation.REVIEW_ONLY, JsonOutputRefinerCommand<T> validator = null, bool withJsonInfo = true) where T : class
         {
             var sb = new System.Text.StringBuilder();
 
@@ -112,7 +112,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                     if (string.IsNullOrEmpty(request.Prompt))
                         throw new InvalidDataException($"{nameof(OllamaInferenceService)} >> {nameof(StructuredPrompt)} >> no messages to send");
 
-                    if (typeof(T).IsAssignableTo(typeof(StructuredOutput)))
+                    if (withJsonInfo && typeof(T).IsAssignableTo(typeof(StructuredOutput)))
                     {
                         var requestModel = Activator.CreateInstance(typeof(T)) as StructuredOutput;
 
@@ -131,7 +131,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
 
                     //has no default | db message. Orchestrates commands with default | db message. uses the ChromaCommands FactoryMethod to get a ChromaRepo for the child commands
                     if (validations > 0 && validator != null)
-                        return await validator.Prompt(new JsonRefineRequest<T> { Prompt = request.Prompt, SystemMessage = request.System, ValidationType = type,  RawOutput = sb.ToString(), Model = request.Model });
+                        return await validator.Prompt(new JsonRefineRequest<T> { ValidatedPrompt = request.Prompt, SystemMessage = request.System, ValidationType = type,  RawOutput = sb.ToString(), Model = request.Model });
                     
                 }
                 catch(StructuredOutputException ex)
@@ -152,7 +152,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             return JsonSerializer.Deserialize<T>(sb.ToString());
         }
 
-        public async Task<T> CommandPrompt<T>(ChatRequest chatRequest, int validations = 0, EPromptValidation type = EPromptValidation.REVIEW_ONLY, JsonOutputRefinerCommand<T> validator = null) where T : class
+        public async Task<T> CommandPrompt<T>(ChatRequest chatRequest, int validations = 0, EPromptValidation type = EPromptValidation.REVIEW_ONLY, JsonOutputRefinerCommand<T> validator = null, bool withJsonInfo = true) where T : class
         {
             var sb = new System.Text.StringBuilder();
 
@@ -166,7 +166,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                     var sysmsg = chatRequest.Messages.FirstOrDefault(m => m.Role == ChatRole.System);
                     var usermsg = chatRequest.Messages.LastOrDefault(m => m.Role == ChatRole.User);
 
-                    if (typeof(T).IsAssignableTo(typeof(StructuredOutput)))
+                    if (withJsonInfo && typeof(T).IsAssignableTo(typeof(StructuredOutput)))
                     {
                         var requestModel = Activator.CreateInstance(typeof(T)) as StructuredOutput;
 
@@ -182,7 +182,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
 
                     //has no default | db message. Orchestrates commands with default | db message. uses the ChromaCommands FactoryMethod to get a ChromaRepo for the child commands
                     if (validations > 0 && validator != null)
-                        return await validator.Prompt(new JsonRefineRequest<T> { Prompt = usermsg.Content, SystemMessage = sysmsg.Content, ValidationType = type, RawOutput = sb.ToString(), Model = chatRequest.Model });
+                        return await validator.Prompt(new JsonRefineRequest<T> { ValidatedPrompt = usermsg.Content, SystemMessage = sysmsg.Content, ValidationType = type, RawOutput = sb.ToString(), Model = chatRequest.Model });
 
                 }
                 catch (StructuredOutputException ex)

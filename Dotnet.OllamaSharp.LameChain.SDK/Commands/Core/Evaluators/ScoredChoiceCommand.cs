@@ -23,16 +23,16 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators
         {
             validateInputRequest<StringChoiceRequest>(request);
 
-            var promptReq = await getGenerateRequest(request);
+            var systemMessage = await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend);
 
             var sb = new StringBuilder();
 
             foreach (var choice in ((StringChoiceRequest)request).Choices)
                 sb.AppendLine($"- {choice}");
 
-            promptReq.System = promptReq.System.Replace("<<CHOICES>>", sb.ToString().Trim());
+            systemMessage = systemMessage.Replace("<<CHOICES>>", sb.ToString().Trim());
 
-            return await _ollama.CommandPrompt<ScoredStringChoice>(promptReq, _settings.CommandValidations, _settings.ValidationType, validatorFor<ScoredStringChoice>());
+            return await _ollama.CommandPrompt<ScoredStringChoice>(request.ToOllamaChat(systemMessage, _settings), _settings.CommandValidations, _settings.ValidationType, validatorFor<ScoredStringChoice>());
         }
 
         protected override string getDefaultInstruction()

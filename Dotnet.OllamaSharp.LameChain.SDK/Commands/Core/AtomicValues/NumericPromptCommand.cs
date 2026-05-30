@@ -19,7 +19,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
 
         public override async Task<float?> Prompt(PromptCommandRequest request)
         {
-            var response = await _ollama.CommandPrompt<NumericResponse>(await getGenerateRequest(request), _settings.CommandValidations, _settings.ValidationType, validatorFor<NumericResponse>());
+            var response = await _ollama.CommandPrompt<NumericResponse>(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), _settings.CommandValidations, _settings.ValidationType, validatorFor<NumericResponse>());
 
             return response.Result;
         }

@@ -25,15 +25,18 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             var promptRequest = (JsonValidationRequest<TModel>)request;
 
-            var cmdRequest = await getGenerateRequest(request);
+            var systemMessage = await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend);
 
-            cmdRequest.System = cmdRequest.System
-                .Replace("<<PROMPT>>", $"- instruction: {promptRequest.SystemMessage}\n- input:{request.Prompt}")
+            systemMessage = systemMessage
+                .Replace("<<PROMPT>>", $"- instruction: {promptRequest.SystemMessage}\n- input:{promptRequest.ValidatedPrompt}")
                 .Replace("<<RESPONSE>>", promptRequest.RawOutput)
                 .Replace("<<SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TModel)).ToJsonString());
- 
-            return await _ollama.CommandPrompt<ScoredBoolResponse>(cmdRequest);
+
+            return promptRequest.UseChatEndpoint ?
+                await _ollama.CommandPrompt<ScoredBoolResponse>(request.ToOllamaChat(systemMessage, _settings)) :
+                await _ollama.CommandPrompt<ScoredBoolResponse>(request.ToOllamaGenerate(systemMessage, _settings));
         }
+
         public override Task<ScoredBoolResponse> PromptSync(PromptCommandRequest request)
         {
             if (request.GetType() != typeof(JsonValidationRequest<TModel>))
@@ -41,14 +44,16 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             var promptRequest = (JsonValidationRequest<TModel>)request;
 
-            var cmdRequest = getGenerateRequest(request).Result;
+            var systemMessage = getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend).Result;
 
-            cmdRequest.System = cmdRequest.System
-                .Replace("<<PROMPT>>", $"- instruction: {promptRequest.SystemMessage}\n- input:{request.Prompt}")
+            systemMessage = systemMessage
+                .Replace("<<PROMPT>>", $"- instruction: {promptRequest.SystemMessage}\n- input:{promptRequest.ValidatedPrompt}")
                 .Replace("<<RESPONSE>>", promptRequest.RawOutput)
                 .Replace("<<SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TModel)).ToJsonString());
 
-            return _ollama.CommandPrompt<ScoredBoolResponse>(cmdRequest);
+            return promptRequest.UseChatEndpoint ?
+                _ollama.CommandPrompt<ScoredBoolResponse>(request.ToOllamaChat(systemMessage, _settings)) :
+                _ollama.CommandPrompt<ScoredBoolResponse>(request.ToOllamaGenerate(systemMessage, _settings));
         }
 
         protected override string getDefaultInstruction() => @"

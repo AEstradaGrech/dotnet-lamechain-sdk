@@ -52,15 +52,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
             if (request.GetType() != typeof(TReq))
                 throw new InvalidOperationException($"{nameof(BasePromptCommand<T>)} >> request of type {request.GetType().Name} is not of type {typeof(TReq)}");
         }
-        protected async Task<GenerateRequest> getGenerateRequest(PromptCommandRequest request, bool withInstruction = true)
-            => new GenerateRequest
-            {
-                Model = string.IsNullOrEmpty(request.Model) ? "qwen2.5:7b" : request.Model,
-                Prompt = request.Prompt,
-                System = withInstruction ? await getPromptInstruction(request.GuidanceMessage) : string.Empty,
-                Stream = false,
-                Options = _settings.ToOllamaRequest()
-            };
        
         public async Task<JsonPromptResult> JsonPrompt(PromptCommandRequest request, bool returnFullInstruction= false, string? preInstruction = null, bool withStringEnums = true)
         {

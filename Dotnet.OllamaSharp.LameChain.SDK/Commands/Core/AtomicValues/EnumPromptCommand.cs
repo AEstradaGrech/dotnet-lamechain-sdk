@@ -22,15 +22,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
             if (type != typeof(int))
                 throw new InvalidOperationException($"{nameof(EnumPromptCommand<TEnum>)} >> invalid ENUM type");
 
-            var promptRequest = await getGenerateRequest(request);
+            var systemMessage = await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend);
 
             var sb = new StringBuilder();
             foreach (var value in values)
                 sb.AppendLine($"{(int)Convert.ChangeType(value, Enum.GetUnderlyingType(typeof(TEnum)))} = {value}");
 
-            promptRequest.System = promptRequest.System.Replace("<<CHOICES>>", sb.ToString().Trim());
+            systemMessage = systemMessage.Replace("<<CHOICES>>", sb.ToString().Trim());
 
-            var response = await _ollama.CommandPrompt<IntegerChoiceResponse>(promptRequest, _settings.CommandValidations, _settings.ValidationType, validatorFor<IntegerChoiceResponse>());
+            var response = await _ollama.CommandPrompt<IntegerChoiceResponse>(request.ToOllamaChat(systemMessage, _settings), _settings.CommandValidations, _settings.ValidationType, validatorFor<IntegerChoiceResponse>());
 
             return (TEnum)Convert.ChangeType(response.Result, type);
         }

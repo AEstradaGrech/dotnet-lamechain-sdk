@@ -82,19 +82,31 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
         private Task<TRefined> reviewResponse(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
         {
             var command = _retrieverLambda == null ?
-                new JsonOutputReviewCommand<TRefined>(ollama, guidanceMessage, _settings):
-                new JsonOutputReviewCommand<TRefined>(ollama, _dbSourceName, "json-review", _retrieverLambda, guidanceMessage, _settings);
+                new JsonOutputReviewCommand<TRefined>(ollama, null, _settings):
+                new JsonOutputReviewCommand<TRefined>(ollama, _dbSourceName, "json-review", _retrieverLambda, null, _settings);
 
-            return command.PromptSync(toValidationRequest<TRefined>(request));
+            var reviewRequest = toValidationRequest<TRefined>(request);
+
+            reviewRequest.GuidanceMessage = guidanceMessage;
+            reviewRequest.ValidatedPrompt = request.ValidatedPrompt;
+            reviewRequest.Prompt = $"Review the provided JSON RESPONSE and return a corrected version according to your instructions. This is the detected problem: {guidanceMessage}. This is the original instruction: {request.ValidatedPrompt}";
+
+            return command.PromptSync(reviewRequest);
         }
 
         private Task<ScoredBoolResponse> validateResponse(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
         {
             var command = _retrieverLambda == null ?
-                new JsonOutputValidationCommand<ScoredBoolResponse>(ollama, guidanceMessage, _settings) :
-                new JsonOutputValidationCommand<ScoredBoolResponse>(ollama, _dbSourceName, "json-validate", _retrieverLambda, guidanceMessage, _settings);
+                new JsonOutputValidationCommand<ScoredBoolResponse>(ollama, null, _settings) :
+                new JsonOutputValidationCommand<ScoredBoolResponse>(ollama, _dbSourceName, "json-validate", _retrieverLambda, null, _settings);
 
-            return command.PromptSync(toValidationRequest<ScoredBoolResponse>(request));
+            var validationRequest = toValidationRequest<ScoredBoolResponse>(request);
+
+            validationRequest.GuidanceMessage = guidanceMessage;
+            validationRequest.ValidatedPrompt = request.ValidatedPrompt;
+            validationRequest.Prompt = "Review the provided 'instrucion / input' pair and the provided output information to evaluate it and score it according to your instructions";
+
+            return command.PromptSync(validationRequest);
         }
 
         private Task<TRefined> validateAndReview(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
@@ -104,7 +116,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             if (validation.Answer) 
                 return Task.FromResult(JsonSerializer.Deserialize<TRefined>(request.RawOutput));
 
-            return reviewResponse(ollama, request, $"# WARNING: a previous reviewer has marked the response as INVALID. Take into account the reason to have a better understanding of the problem. Reason: {validation.Justification}");
+            return reviewResponse(ollama, request, $"# WARNING: a previous reviewer has marked the response as INVALID. Take into account the reason to have a better understanding of the problem. INVALID REASON: {validation.Justification}");
         }
         private Task<TRefined> doubleBool(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
         {

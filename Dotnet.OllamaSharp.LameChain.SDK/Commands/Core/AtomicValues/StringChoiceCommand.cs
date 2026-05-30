@@ -17,7 +17,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
 
         public override async Task<string> Prompt(PromptCommandRequest request)
         {
-            var promptReq = await getGenerateRequest(request);
+            var systemMessage = await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend);
 
             validateInputRequest<StringChoiceRequest>(request);
 
@@ -27,9 +27,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
             foreach (var choice in ((StringChoiceRequest)request).Choices)
                 sb.AppendLine($"- {choice}");
 
-            promptReq.System = promptReq.System.Replace("<<CHOICES>>", sb.ToString());
+            systemMessage = systemMessage.Replace("<<CHOICES>>", sb.ToString());
 
-            var response = await _ollama.CommandPrompt<StringChoiceResponse>(promptReq, _settings.CommandValidations, _settings.ValidationType, validatorFor<StringChoiceResponse>());
+            var response = await _ollama.CommandPrompt<StringChoiceResponse>(request.ToOllamaChat(systemMessage, _settings), _settings.CommandValidations, _settings.ValidationType, validatorFor<StringChoiceResponse>());
 
             return response.Selected;
         }

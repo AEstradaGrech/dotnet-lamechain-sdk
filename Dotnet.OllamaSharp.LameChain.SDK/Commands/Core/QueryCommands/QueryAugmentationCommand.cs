@@ -23,33 +23,33 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
 
             var expanseReq = (RagExpansionRequest)request;
 
-            var promptReq = await getGenerateRequest(request);
+            var systemMessage = await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend);
 
-            promptReq.System += $"\n{request.Prompt}";
+            systemMessage = systemMessage.Replace("<<USER_PROMPT>>",request.Prompt);
 
             var results = new List<string>();
 
             for (int i = 0; i < expanseReq.Results; i++)
             {
-                var result = await getAugmentedQuery(_ollama, promptReq);
+                var result = await getAugmentedQuery(_ollama, request.ToOllamaChat(systemMessage, _settings));
 
                 results.Add(result.Trim());
 
                 if (expanseReq.Results > 1 && expanseReq.UsePrevAsExample && i < expanseReq.MaxExamples)
                 {
                     if (i == 0)
-                        promptReq.System += $"\n\n# EXPECTED OUTPUT EXAMPLES:";
+                        systemMessage += $"\n\n# EXPECTED OUTPUT EXAMPLES:";
                     
-                    promptReq.System += $"\n\n{result}";
+                    systemMessage += $"\n\n{result}";
                 }
             }
 
             return results;
         }
 
-        private async Task<string> getAugmentedQuery(IOllamaInferenceService ollama, GenerateRequest request)
+        private async Task<string> getAugmentedQuery(IOllamaInferenceService ollama, ChatRequest request)
         {
-            var message = await ollama.GeneratePrompt(request);
+            var message = await ollama.ChatPrompt(request);
 
             return message.Content.Trim();
         }
@@ -69,7 +69,7 @@ Follow this steps in order to generate your response:
 - DO NOT chat with the user, output only your simulated user query.
 - In case you are provided some EXPECTED OUTPUT EXAMPLES, use them to get an idea of your how your response should look like, but AVOID REPETITION.
 
-# USER QUERY:
+# USER QUERY: <<USER_QUERY>>
 ";
     }
 }

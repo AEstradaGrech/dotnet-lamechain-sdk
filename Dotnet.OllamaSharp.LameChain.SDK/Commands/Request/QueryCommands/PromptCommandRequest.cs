@@ -1,4 +1,6 @@
-﻿using System.Dynamic;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+using OllamaSharp.Models;
+using OllamaSharp.Models.Chat;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
 {
@@ -15,10 +17,27 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
         public string Prompt { get; set; }
         // an extra instruction appart of the _systemMessage stored on construction. Allows to insert data / guidance from events / LLM interactions that might have happened since the instantiation (a chained prompt, for example)
         public string? GuidanceMessage { get; set; } = null; 
+        public bool IsGuidanceAppend { get; set; }
         public string? Model { get; set; }
 
         public Dictionary<string, string> NestedGuidances = new Dictionary<string, string>();// FOR CHAIN SUPPORT --> Step reads its NestedFeeds list -> if feed is tagged as CMD then it creates a request.GuidanceMessage from the feed and adds it here with the subCommandName&Tag to use it
 
+        public virtual ChatRequest ToOllamaChat(string commandSysmsg, CommandSettings settings = null)
+            => new ChatRequest {
+                Model = string.IsNullOrEmpty(Model) ? settings != null && !string.IsNullOrEmpty(settings.Model) ? settings.Model : "qwen2.5:7b" : Model,
+                Messages = [new Message(ChatRole.System, commandSysmsg), new Message(ChatRole.User, Prompt)],
+                Stream = false,
+                Options = settings.ToOllamaRequest() ?? new RequestOptions()
+            };
+
+        public virtual GenerateRequest ToOllamaGenerate(string commandSysmsg, CommandSettings settings = null)
+            => new GenerateRequest {
+                Model = string.IsNullOrEmpty(Model) ? settings != null && !string.IsNullOrEmpty(settings.Model) ? settings.Model : "qwen2.5:7b" : Model,
+                Prompt = Prompt,
+                System = commandSysmsg,
+                Stream = false,
+                Options = settings.ToOllamaRequest()
+            };
 
         public PromptCommandRequest Clone()
         {

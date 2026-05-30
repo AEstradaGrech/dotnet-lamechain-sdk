@@ -4,7 +4,6 @@ using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
 
-
 namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
 {
     public class BoolPromptCommand : DbPromptCommand<bool>
@@ -18,7 +17,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
         public override async Task<bool> Prompt(PromptCommandRequest request)
         {
             //TODO: --> ValidateWith(sourceName, validatorMsgName) --> DB validator support >> validatorFor<BooleanResponse>(sourceName, validatorMsgName, _retrieverLambda)
-            var response = await _ollama.CommandPrompt<BooleanResponse>(await getGenerateRequest(request), _settings.CommandValidations, _settings.ValidationType, validatorFor<BooleanResponse>());
+            var response = await _ollama.CommandPrompt<BooleanResponse>(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), _settings.CommandValidations, _settings.ValidationType, validatorFor<BooleanResponse>());
 
             return response.Answer;
         }

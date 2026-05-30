@@ -71,11 +71,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
                         $"{systemMessage}\n\n{additionalData}" :
                         $"{additionalData}\n\n{systemMessage}"; // enhanced core message
 
-                // default | dbSys -------------------------------------------------------------------------------------------> core message for simplest 'sysmsg-prompt' usage
-                // (default | dbSys) + guidance (as additional info) ---------------------------------------------------------> enhanced | prompt-guided (isAfterCore) core message
-                // instruction + (default | dbSys) (no guidance) -------------------------------------------------------------> guided core message
-                // afterCore = true --> instruction (as guidance for) + (default | dbSys) + guidance (as additional info) ----> guided enhanced-core-message
-                // afterCore = false --> instruction + guidance (as additional info) + (default | dbSys) ---------------------> enhanced-instruction guided core message
                 return string.IsNullOrEmpty(_systemMessage) ? systemMessage : $"{_systemMessage}\n{systemMessage}";
             }
             catch (Exception ex)

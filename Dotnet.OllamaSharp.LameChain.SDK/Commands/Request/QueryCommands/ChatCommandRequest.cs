@@ -1,4 +1,5 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
 
@@ -15,7 +16,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
         public List<ChatMessage> ChatHistory { get; set; } = new List<ChatMessage>();
         public bool IncludeSystemMessage { get; set; }
 
-        public ChatRequest ToOllama(RequestOptions? options = null, string? systemUpdate = null)
+        /// <summary>
+        /// In this override the original command system message should be already in the ChatHistory, always in the first place
+        /// </summary>
+        /// <param name="systemUpdate"></param>
+        /// <param name="settings"></param>
+        /// <returns></returns>
+        public override ChatRequest ToOllamaChat(string systemUpdate, CommandSettings settings = null)
         {
             if (IncludeSystemMessage && !string.IsNullOrEmpty(systemUpdate))
                 ChatHistory.Add(new ChatMessage(ChatRole.System.ToString(), systemUpdate));
@@ -31,7 +38,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                 Model = Model,
                 Messages = messages,
                 Stream = false,
-                Options = options ?? new RequestOptions()
+                Options = settings.ToOllamaRequest() ?? new RequestOptions()
             };
         }
     }
