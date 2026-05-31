@@ -89,8 +89,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             reviewRequest.GuidanceMessage = guidanceMessage;
             reviewRequest.ValidatedPrompt = request.ValidatedPrompt;
-            reviewRequest.Prompt = $"Review the provided JSON RESPONSE and return a corrected version according to your instructions. This is the detected problem: {guidanceMessage}. This is the original instruction: {request.ValidatedPrompt}";
+            reviewRequest.Prompt = $"Review the provided 'output' and return a corrected version. This is the original 'input' instruction: {request.ValidatedPrompt}.";
 
+            if (!string.IsNullOrEmpty(guidanceMessage))
+                reviewRequest.Prompt += $"This is the detected problem: {guidanceMessage}";
+            //reviewRequest.Prompt += "Correct the JSON RESPONSE content. The JSON RESPONSE output is incorrect, return a correct version. Review the provied 'instruction' and the 'input' and correct the JSON OUTPUT response. Review the INVALID REASON and return a corrected version of the JSON output. Fix the JSON OUTPUT content. Rewrite the content to match the 'input' intent accordingly to its 'instruction";
             return command.PromptSync(reviewRequest);
         }
 
@@ -138,7 +141,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
                 Prompt = request.Prompt,
                 SystemMessage = request.SystemMessage,
                 RawOutput = request.RawOutput,
-                ResponseExamples = request.ResponseExamples
+                ResponseExamples = request.ResponseExamples,
+                UseChatEndpoint = request.UseChatEndpoint
             };
     }
 }

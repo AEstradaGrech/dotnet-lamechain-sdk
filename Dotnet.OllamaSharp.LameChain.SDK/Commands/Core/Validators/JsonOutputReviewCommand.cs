@@ -40,14 +40,34 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             var systemMessage = getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend).Result;
 
             //systemMessage = systemMessage.Replace("<<PROMPT>>", $">> INSTRUCTION TO VALIDATE: {promptRequest.SystemMessage}\n>> INPUT TO VALIDATE: {promptRequest.ValidatedPrompt}").Replace("<<RESPONSE>>", promptRequest.RawOutput).Replace("<<SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TReviewed)).ToJsonString());
-            systemMessage = systemMessage.Replace("<<PROMPT>>", $"- instruction: {promptRequest.SystemMessage}\n- input: {promptRequest.ValidatedPrompt}").Replace("<<RESPONSE>>", promptRequest.RawOutput).Replace("<<SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TReviewed)).ToJsonString());
+            systemMessage = systemMessage.Replace("<<PROMPT>>", $"- input: {promptRequest.ValidatedPrompt}\n- output: {promptRequest.RawOutput}\n- instruction: {promptRequest.SystemMessage}").Replace("<<RESPONSE>>", promptRequest.RawOutput).Replace("<<SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TReviewed)).ToJsonString());
 
             return promptRequest.UseChatEndpoint ?
-                _ollama.CommandPrompt<TReviewed>(request.ToOllamaChat(systemMessage, _settings), validations: 0, type: EPromptValidation.REVIEW_ONLY, null, withJsonInfo: false) :
+                _ollama.CommandPrompt<TReviewed>(request.ToOllamaChat(systemMessage, _settings), validations: 0, type: EPromptValidation.REVIEW_ONLY, null, withJsonInfo: true) :
                 _ollama.CommandPrompt<TReviewed>(request.ToOllamaGenerate(systemMessage, _settings), validations: 0, type: EPromptValidation.REVIEW_ONLY, null, withJsonInfo: true);
         }
 
-        //        protected override string getDefaultInstruction() => @"
+        protected override string getDefaultInstruction() => @"You are a JSON output reviewer. Your task is to review the provided content inside the '<validable-content>' section an correct the content and the format whenever necessary.
+Review the provided 'input' and 'instruction' then analyize what is wrong in the 'output' to return corrected version of it.
+
+- Ensure your output is compliant with the VALID OUTPUT SCHEMA. 
+- Ensure that the 'output' is strictly compliant with the intruction that generated it in terms of content (analyze if the content is correct and reliable, returns the right number of items, etc).
+- Ensure that the format of the'output' is valid to be serialized to a C# class.
+
+<validable-content>
+
+# PROMPT: 
+
+<<PROMPT>>
+
+# VALID OUTPUT SCHEMA:
+
+<<SCHEMA>>
+
+</validable-content>";
+
+
+        //protected override string getDefaultInstruction() => @"
         //You are going to be provided a PROMPT containing an 'instruction' and an 'input', a JSON RESPONSE for that prompt and a EXPECTED OUTPUT SCHEMA for that response.
         //Your task is to validate the provided JSON RESPONSE and determine if it is compliant with the content of the provided PROMPT and the expected response according to the provided EXPECTED OUTPUT SCHEMA.
 
@@ -82,9 +102,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
         //<<SCHEMA>>
 
-        //</validable-content>
+        //</validable-content>";
 
-        //";
         //protected override string getDefaultInstruction() => @"
         //   You are going to be provided  a PROMPT containing an 'instruction + input', a JSON RESPONSE for that prompt and a EXPECTED OUTPUT SCHEMA for that response to validate.
         //   Your task is to review the output, compare it with the expected response and return a corrected version of the JSON RESPONSE
@@ -118,35 +137,35 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
         //   <<SCHEMA>>
         //   //";
 
-        protected override string getDefaultInstruction() => @"
-You are going to be provided a USER PROMPT, a JSON RESPONSE for that prompt and a EXPECTED OUTPUT SCHEMA for that response.
-Your task is to review the output, compare it with the expected response and return a corrected version of the JSON RESPONSE
-or the original version if you consider it is fine.
+        //        protected override string getDefaultInstruction() => @"
+        //You are going to be provided a USER PROMPT, a JSON RESPONSE for that prompt and a EXPECTED OUTPUT SCHEMA for that response.
+        //Your task is to review the output, compare it with the expected response and return a corrected version of the JSON RESPONSE
+        //or the original version if you consider it is fine.
 
-# IMPORTANT: follow this steps in order to generate your response:
+        //# IMPORTANT: follow this steps in order to generate your response:
 
-> STEP 1: Analyze the user request and try understand the intent to get an idea of what is the user expecting to receive.
-> STEP 2: Analyze the provided EXPECTED OUTPUT SCHEMA to get a clear idea of what is the expected result in terms of format.
-> STEP 3: Analyze the provided JSON RESPONSE that you must review and reason if it is valid in terms of content and consistent with the user intent.
-> STEP 4: Take into account your analysis from the previous steps to reason and deliberate if the JSON RESPONSE is compliant with the user intent and the EXPECTED OUTPUT SCHEMA
-> STEP 5: With the result of your deliberation of STEP 4, return the JSON RESPONSE if you think is compliant or a corrected version of it.
+        //> STEP 1: Analyze the user request and try understand the intent to get an idea of what is the user expecting to receive.
+        //> STEP 2: Analyze the provided EXPECTED OUTPUT SCHEMA to get a clear idea of what is the expected result in terms of format.
+        //> STEP 3: Analyze the provided JSON RESPONSE that you must review and reason if it is valid in terms of content and consistent with the user intent.
+        //> STEP 4: Take into account your analysis from the previous steps to reason and deliberate if the JSON RESPONSE is compliant with the user intent and the EXPECTED OUTPUT SCHEMA
+        //> STEP 5: With the result of your deliberation of STEP 4, return the JSON RESPONSE if you think is compliant or a corrected version of it.
 
-# RULES: take into account this rules when generating your final response:
+        //# RULES: take into account this rules when generating your final response:
 
-- Ensure your output is compliant with the requested schema for your validation. 
-- Ensure that the format of the JSON RESPONSE is valid to be serialized to a C# class.
+        //- Ensure your output is compliant with the requested schema for your validation. 
+        //- Ensure that the format of the JSON RESPONSE is valid to be serialized to a C# class.
 
-# USER PROMPT: 
+        //# USER PROMPT: 
 
-<<PROMPT>>
+        //<<PROMPT>>
 
-# JSON RESPONSE:
+        //# JSON RESPONSE:
 
-<<RESPONSE>>
+        //<<RESPONSE>>
 
-# EXPECTED OUTPUT SCHEMA:
+        //# EXPECTED OUTPUT SCHEMA:
 
-<<SCHEMA>>
-";
+        //<<SCHEMA>>
+        //";
     }
 }

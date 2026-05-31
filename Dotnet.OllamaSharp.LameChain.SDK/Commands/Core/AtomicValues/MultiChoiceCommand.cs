@@ -47,7 +47,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
             return response.Selected;
         }
         protected override string getDefaultInstruction()
-            => @"Your task is to analyze the provided list of choices and select the choices that match exactly with the request intent (if any) WITHOUT exceeding the MAXIMUM requested selections.
+            => @"Your task is to analyze the provided list of choices and select the choices that match exactly with the request intent (if any) WITHOUT exceeding the MAXIMUM SELECTION ALLOWED of <<MAX_SEL>> choices.
 To do that, follow this steps:
 
 > STEP 1: Analyze the query and extract the intent tho get a clear idea of what you should decide on.
@@ -55,18 +55,18 @@ To do that, follow this steps:
 > STEP 3: Review carefully the MAXIMUM number of requested selections to know exactly the upper limit in case there are many suitable options.
 > STEP 4: Return a list that contains from 0 to the MAXIMUM allowed choices based on your analysis.
 
-# CHOICES:
+# AVAILABLE CHOICES:
 
 <<CHOICES>>
 
-# MAXIMUM SELECTIONS ALLOWED: <<MAX_SEL>>
+# MAXIMUM SELECTIONS ALLOWED: 0 - <<MAX_SEL>>
 
 # IMPORTANT: follow this rules in order to generate your final response:
 
-- ENSURE that you return a list with an amount of values ranging from 0 to the MAXIMUM requested depending on the availability of suitable choices in the provided list.
+- ENSURE that you return a list with an amount of values ranging from 0 to <<MAX_SEL>> depending on the availability of suitable choices in the provided list.
 - ENSURE that you return an empty list IF there are no choices in the provided list matching the analyzed request intent.
 - ENSURE that you ONLY return choices that are present in the list. DO NOT return items that are NOT PRESENT in the provided choices list.
-- ENSURE that you NEVER exceed the MAXIMUM requested choices.
+- ENSURE that you NEVER RETURN MORE THAN <<MAX_SEL>> choices.
 - ENSURE that you return ONLY choices that match exactly the request intent or an empty list if there are none.
 ";
     }

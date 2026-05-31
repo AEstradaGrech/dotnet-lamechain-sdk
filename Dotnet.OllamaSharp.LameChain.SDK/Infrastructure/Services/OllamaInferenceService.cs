@@ -131,7 +131,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
 
                     //has no default | db message. Orchestrates commands with default | db message. uses the ChromaCommands FactoryMethod to get a ChromaRepo for the child commands
                     if (validations > 0 && validator != null)
-                        return await validator.Prompt(new JsonRefineRequest<T> { ValidatedPrompt = request.Prompt, SystemMessage = request.System, ValidationType = type,  RawOutput = sb.ToString(), Model = request.Model });
+                        return await validator.Prompt(new JsonRefineRequest<T> { ValidatedPrompt = request.Prompt, SystemMessage = request.System, ValidationType = type,  RawOutput = sb.ToString(), Model = request.Model, UseChatEndpoint = true });
                     
                 }
                 catch(StructuredOutputException ex)
@@ -182,7 +182,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
 
                     //has no default | db message. Orchestrates commands with default | db message. uses the ChromaCommands FactoryMethod to get a ChromaRepo for the child commands
                     if (validations > 0 && validator != null)
-                        return await validator.Prompt(new JsonRefineRequest<T> { ValidatedPrompt = usermsg.Content, SystemMessage = sysmsg.Content, ValidationType = type, RawOutput = sb.ToString(), Model = chatRequest.Model });
+                        return await validator.Prompt(new JsonRefineRequest<T> { ValidatedPrompt = usermsg.Content, SystemMessage = sysmsg.Content, ValidationType = type, RawOutput = sb.ToString(), Model = chatRequest.Model, UseChatEndpoint = true });
 
                 }
                 catch (StructuredOutputException ex)
