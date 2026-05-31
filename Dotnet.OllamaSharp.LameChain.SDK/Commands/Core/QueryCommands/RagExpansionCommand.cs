@@ -35,7 +35,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
 
             var systemMessage = await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend);
 
-            systemMessage += systemMessage.Replace("<<USER_PROMPT>>",request.Prompt);
+            systemMessage = systemMessage.Replace("<<USER_PROMPT>>",request.Prompt);
 
             var response = new ChatMessage(ChatRole.Assistant.ToString(), string.Empty);
 

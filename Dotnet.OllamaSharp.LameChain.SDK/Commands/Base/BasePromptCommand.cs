@@ -19,16 +19,16 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
         // check the 'UserIntentCommand (with _default) : MessageCommand (without _default)' to see an example of that
        
         protected IOllamaInferenceService _ollama = null;
-        protected CommandSettings _settings = null;
+        protected CommandSettings? _settings = null;
         public string? SystemMessage => _systemMessage;
-
+        public CommandSettings? CommandSettings => _settings;
         public IOllamaInferenceService BorrowLlama => _ollama;
 
-        public BasePromptCommand() { _settings = new CommandSettings(maxTokens: 600, temperature: 0f, topP: .1f, topK: 10); }
+        public BasePromptCommand() { }
         public BasePromptCommand(IOllamaInferenceService ollama) : this() { _ollama = ollama; }
         public BasePromptCommand(IOllamaInferenceService ollama, string? systemMessage = null, CommandSettings? settings = null) : this(ollama)
         {
-            _settings = settings ?? new CommandSettings();
+            _settings = settings;
             _systemMessage = systemMessage;
         }
 
@@ -53,8 +53,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
                 throw new InvalidOperationException($"{nameof(BasePromptCommand<T>)} >> request of type {request.GetType().Name} is not of type {typeof(TReq)}");
         }
        
-        public async Task<JsonPromptResult> JsonPrompt(PromptCommandRequest request, bool returnFullInstruction= false, string? preInstruction = null, bool withStringEnums = true)
+        public async Task<JsonPromptResult> JsonPrompt(PromptCommandRequest request, CommandSettings? settingsOverride = null, bool returnFullInstruction= false, string? preInstruction = null, bool withStringEnums = true)
         {
+            if (settingsOverride != null)
+                _settings = settingsOverride;
+
             var sysmsg = _systemMessage;
 
             _systemMessage = string.IsNullOrEmpty(preInstruction) ? _systemMessage : $"{preInstruction} {_systemMessage}";

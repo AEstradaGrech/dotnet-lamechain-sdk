@@ -25,7 +25,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
 
             var systemMessage = await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend);
 
-            systemMessage = systemMessage.Replace("<<USER_PROMPT>>",request.Prompt);
+            systemMessage = systemMessage.Replace("<<USER_PROMPT>>",request.Prompt).Replace("<<USER_QUERY>>", request.Prompt);
 
             var results = new List<string>();
 

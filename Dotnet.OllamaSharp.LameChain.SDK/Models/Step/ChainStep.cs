@@ -312,10 +312,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                 sb.AppendLine()
                   .AppendLine(_stepSettings.BoostersFeedText());
 
-            Request.GuidanceMessage += $"\n{sb.ToString().Trim()}";
+            Request.GuidanceMessage += $"\n{sb.ToString()}".Trim();
 
             // JsonPrompt
-            var jsonResult = await _commands[idx].JsonPrompt(Request, returnFullInstruction: false, preInstruction: preInstructionTag); //Skip GuidanceMessage, return only instruction for this step
+            var jsonResult = await _commands[idx].JsonPrompt(Request, _commands[idx].CommandSettings == null ? _runner.DefaultSettings : null, returnFullInstruction: false, preInstruction: preInstructionTag); //Skip GuidanceMessage, return only instruction for this step
 
             _promptedInstruction = jsonResult.Instruction;
 
