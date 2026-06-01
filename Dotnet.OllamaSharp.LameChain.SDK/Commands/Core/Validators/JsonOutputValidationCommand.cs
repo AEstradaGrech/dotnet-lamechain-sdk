@@ -29,9 +29,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             var systemMessage = await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend);
 
             systemMessage = systemMessage
-                .Replace("<<PROMPT>>", $"- instruction: {promptRequest.SystemMessage}\n- input:{promptRequest.ValidatedPrompt}")
-                .Replace("<<RESPONSE>>", promptRequest.RawOutput)
-                .Replace("<<SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TModel)).ToJsonString());
+                   .Replace("<<PROMPT>>", $"- input: {promptRequest.ValidatedPrompt}\n- output: {promptRequest.RawOutput}\n- instruction: {promptRequest.SystemMessage}")
+                   .Replace("<<SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TModel)).ToJsonString());
 
             return promptRequest.UseChatEndpoint ?
                 await _ollama.CommandPrompt<ReasonedBoolResponse>(request.ToOllamaChat(systemMessage, _settings)) :
@@ -51,68 +50,27 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
                    .Replace("<<PROMPT>>", $"- input: {promptRequest.ValidatedPrompt}\n- output: {promptRequest.RawOutput}\n- instruction: {promptRequest.SystemMessage}")
                    .Replace("<<SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TModel)).ToJsonString());
 
-            //systemMessage = systemMessage
-            //    .Replace("<<PROMPT>>", $"- instruction: {promptRequest.SystemMessage}\n- input:{promptRequest.ValidatedPrompt}")
-            //    .Replace("<<RESPONSE>>", promptRequest.RawOutput)
-            //    .Replace("<<SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TModel)).ToJsonString());
-
             return promptRequest.UseChatEndpoint ?
                 _ollama.CommandPrompt<ReasonedBoolResponse>(request.ToOllamaChat(systemMessage, _settings)) :
                 _ollama.CommandPrompt<ReasonedBoolResponse>(request.ToOllamaGenerate(systemMessage, _settings));
         }
 
-        //        protected override string getDefaultInstruction() => @" You are a JSON output validator. Your task is to review the '<validable-content>' section and evaluate the provided 'input', 'output' and 'instruction' to determine if the
-        //the provided 'output' content is correct and consistent with the 'input' and the 'instruction' that generated it, and also validate if it is compliant with the VALIDATED OUTPUT SCHEMA.
-
-        //You must output your response in JSON format according to this fields:
-
-        //- Answer: boolean value to indicate 'OUTPUT IS VALID' or 'OUTPUT IS NOT VALID' in content and format according to the result of your deliberation.
-        //- Justification: a brief yet accurate text explaining the reason of your boolean answer.
-
-        //# RULES: take into account this rules when generating your final response:
-
-        //- Ensure that your 'answer' boolean represents 'VALID OUTPUT CONTENT' or 'INVALID OUTPUT CONTENT (analyze validable content and answer 'true' for valid or 'false' for invalid.'
-        //- Ensure that the provided 'output', is strictly compliant with the 'intruction' that generated it in terms of content (analyze if the content is what the user expected, returning the right number of items etc).
-        //- Ensure your output is compliant with your provided JSON schema. 
-
-        //## IMPORTANT: Your task is to review and validate the provided 'output' and answer 'true' if the content is valid and consistent or 'false' if the content is wrong.
-        //## IMPORTANT: DO NOT answer to the previous 'input', YOUR boolean answer MUST express the result of YOUR VALIDATION.
-
-        //<validable-content>
-
-        //# PROMPT: 
-
-        //<<PROMPT>>
-
-        //# VALIDATED OUTPUT SCHEMA:
-
-        //<<SCHEMA>>
-
-        //</validable-content>
-        //";
-
         protected override string getDefaultInstruction() => @" You are a JSON output validator. Your task is to review the '<validable-content>' section and evaluate the provided 'input', 'output' and 'instruction' to determine if the
 the provided 'output' content is correct and consistent with the 'input' and the 'instruction' that generated it, and also validate if it is compliant with the VALIDATED OUTPUT SCHEMA.
 
-You must output your response in JSON format according to this fields:
+You must output YOUR response in JSON format according to this fields:
 
 - Answer: boolean value to indicate 'OUTPUT IS VALID' or 'OUTPUT IS NOT VALID' in content and format according to the result of your deliberation.
 - Justification: a brief yet accurate text explaining the reason of your boolean answer.
 
-# IMPORTANT: follow this steps in order to generate your response:
-
-> STEP 1: Analyze the provided 'input' and try to understand the intent to get an idea of what is the user expecting to receive.
-> STEP 2: Review CAREFULLY the content of the 'instruction' that generated the provided 'output' and validate that the response content is absolutely compliant with every instruction rule and constraint.
-> STEP 3: Analyze the provided VALIDATED OUTPUT SCHEMA to get a clear idea of what is the expected result in terms of format.
-> STEP 4: Analyze the provided 'output' reason if it is valid in terms of content and consistent with the 'input' and 'instruction' intent.
-> STEP 5: Use your conclussions of the previous steps to generate your response according to your response JSON schema.
-
 # RULES: take into account this rules when generating your final response:
 
-- Ensure your output is compliant with the requested schema for your validation. 
+- Ensure that your 'answer' boolean represents 'VALID OUTPUT CONTENT' or 'INVALID OUTPUT CONTENT (analyze validable content and answer 'true' for valid or 'false' for invalid.'
 - Ensure that the provided 'output', is strictly compliant with the 'intruction' that generated it in terms of content (analyze if the content is what the user expected, returning the right number of items etc).
-- Ensure that your 'answer' boolean represnts 'VALID OUTPUT CONTENT' or 'INVALID OUTPUT CONTENT'
-- Ensure that the format of the validated 'output' is valid to be serialized to a C# class.
+- Ensure that YOUR output is compliant with YOUR provided JSON schema. 
+
+## IMPORTANT: Your task is to review and validate the provided 'output' and answer 'true' if the content is valid and consistent or 'false' if the content is wrong.
+## IMPORTANT: DO NOT answer to the previous 'input', YOUR boolean answer MUST express the result of YOUR VALIDATION.
 
 <validable-content>
 
@@ -125,43 +83,6 @@ You must output your response in JSON format according to this fields:
 <<SCHEMA>>
 
 </validable-content>
-";
-
-        //        protected override string getDefaultInstruction() => @"
-        //You are going to be provided a PROMPT containing an 'instruction' and an 'input', a JSON RESPONSE for that prompt and a EXPECTED OUTPUT SCHEMA for that response.
-        //Your task is to validate the provided JSON RESPONSE and determine if it is compliant with the content of the provided PROMPT and the expected response according to the provided EXPECTED OUTPUT SCHEMA.
-
-        //You must output your response in JSON format according to this fields:
-
-        //- Answer: boolean value to indicate 'VALID' or 'NOT VALID' according to the result of your deliberation.
-        //- Justification: a brief text (not more than 10 words) summarizing the reason of your boolean answer.
-        //- Confidence: a float value ranging from 0.0 to 1.0 to indicate how sure you are about your answer.
-
-        //# IMPORTANT: follow this steps in order to generate your response:
-
-        //> STEP 1: Analyze the user request and try understand the intent to get an idea of what is the user expecting to receive.
-        //> STEP 2: Review CAREFULLY the content of the instruction that generated the JSON RESPONSE and validate that the response content is absolutely compliant with every instruction rule and constraint.
-        //> STEP 3: Analyze the provided EXPECTED OUTPUT SCHEMA to get a clear idea of what is the expected result in terms of format.
-        //> STEP 4: Analyze the provided JSON RESPONSE that you must review and reason if it is valid in terms of content and consistent with the user intent and the provided PROMPT 'instruction'.
-        //> STEP 5: Use your conclussions of the previous steps to generate your response according to the requested JSON schema.
-
-        //# RULES: take into account this rules when generating your final response:
-
-        //- Ensure your output is compliant with the requested schema for your validation. 
-        //- Ensure that the JSON RESPONSES is strictly compliant with the intruction that generated it in terms of content (analyze if the content is what the user expected, returning the right number of items etc)
-        //- Ensure that the format of the JSON RESPONSE is valid to be serialized to a C# class.
-
-        //# PROMPT: 
-
-        //<<PROMPT>>
-
-        //# JSON RESPONSE:
-
-        //<<RESPONSE>>
-
-        //# EXPECTED OUTPUT SCHEMA:
-
-        //<<SCHEMA>>
-        //";
+        ";
     }
 }

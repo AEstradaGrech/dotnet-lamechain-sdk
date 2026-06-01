@@ -24,6 +24,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
         {
             validateInputRequest<JsonRefineRequest<TRefined>>(request);
 
+            if (string.IsNullOrEmpty(request.Model) && _settings != null)
+                request.Model = string.IsNullOrEmpty(_settings.ValidatorModel) ? _settings.Model : _settings.ValidatorModel;
+
             var validationReq = (JsonRefineRequest<TRefined>)request;
 
             ReasonedBoolResponse boolValidation = null;
@@ -53,6 +56,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
         public override Task<TRefined> PromptSync(PromptCommandRequest request)
         {
             validateInputRequest<JsonRefineRequest<TRefined>>(request);
+
+            if (string.IsNullOrEmpty(request.Model) && _settings != null)
+                request.Model = string.IsNullOrEmpty(_settings.ValidatorModel) ? _settings.Model : _settings.ValidatorModel;
 
             var validationReq = (JsonRefineRequest<TRefined>)request;
 
@@ -138,7 +144,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
         JsonValidationRequest<TValResult> toValidationRequest<TValResult>(JsonRefineRequest<TRefined> request)
             => new JsonValidationRequest<TValResult> {
-                Model = request.Model,
+                Model = string.IsNullOrEmpty(request.Model) ? _settings.ValidatorModel : request.Model,
                 Prompt = request.Prompt,
                 SystemMessage = request.SystemMessage,
                 RawOutput = request.RawOutput,

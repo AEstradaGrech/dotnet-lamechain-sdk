@@ -449,7 +449,7 @@ public async Task<ChainResult> ParallelChainExample(ChainedPrompt request)
                         // In this case I'm adding semi-random data to the bias the generated character base profile towards specific styles.
                         // But ideally you would add here well processed sources (in this example it could be real human-made character concepts made by the game studio artists
                             "Use the below data to bias your final response towards that style, ambience, topic or vibe",
-                            await _langSearch.SearchRankedTexts(new RankedPageRequest { Count = 6, Query = "Don Pablo o La vida del buscón. Lazarillo de Tormes, sinopsis." }, returnSnippet: true)),
+                            await _langSearch.SearchWebTexts(new WebSearchRequest("Don Pablo o La vida del buscón. Lazarillo de Tormes, sinopsis.", 5), returnSnippet: false, resultsClamp: 100)),
                     feedFwd: "Use this profile as an inspiration for your final character profile, but adapt it to the game lore") // Guide the refining / summarizing step to leverage the output of the different branches and get more consistent results
             ])
         // Now that the chain has been splitted in 3 branches, it is possible to work on each branch indepently by piping commands that will be executed on each recieved previous output
@@ -467,7 +467,7 @@ public async Task<ChainResult> ParallelChainExample(ChainedPrompt request)
         // In this example, it could be more content produced by the game studio staff (like scene scripts or even quest scripts, the idea
         // is to add get results that are aligned with the game lore so the final junction step does not hallucinate and add content from it's training dataset
         .WithRebujito(
-            await _langSearch.SearchRankedTexts(new RankedPageRequest { Count = 3, Query = "Revuelta de los Comuneros. Rebelion de las Germanias" }, returnSnippet: false),
+            await _langSearch.SearchWebTexts(new WebSearchRequest("Revuelta de los Comuneros. Rebelion de las Germanias", results: 3), returnSnippet: false),
             guidance: "Use this data as a source of style references and add merge them in your final response along with the generated game lore. Output your response in always in English despite the source language.", // It is possible to add guidance instruction about the rebujito content to help the lLM to use it
             feedDose: 100)
         .Join(
