@@ -11,7 +11,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.AtomicValues
             Choices = choices;
         }
 
-        public StringChoiceRequest(List<string> choices, string message, string? guidance = null, string? model = null) : base(message, guidance, model)
+        public StringChoiceRequest(List<string> choices, string message, string? guidance = null, bool isGuidanceAppend = false, string? model = null) 
+            : base(message, guidance, isGuidanceAppend, model)
         {
             Choices = choices;
         }

@@ -14,5 +14,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configur
         public int CommandValidations { get; set; } = 0;
         public EPromptValidation ValidationType { get; set; }
         public bool UseDefaultCommandMessage { get; set; }
+        public string? ValidatorModel { get; set; }
     }
 }

@@ -2,8 +2,10 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.AtomicValues;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
 using Microsoft.Extensions.Options;
@@ -68,14 +70,14 @@ namespace DotnetLlamaSharp.Services.Prompting
         
 
         //TODO: DefaultMessageVersion for:
-        public async Task<TEnum?> EnumChoice<TEnum>(string prompt, string? guidanceMessage = null, CommandSettings settings = null) where TEnum : struct, Enum
+        public async Task<TEnum?> EnumChoice<TEnum>(string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null) where TEnum : struct, Enum
         {
             var command = _factory.GetEnumChoiceCommand<TEnum>(source: null, messageName: null, retrieverLambda: null, guidanceMessage, settings);
 
             return await command.Prompt(new PromptCommandRequest(prompt));
         }
 
-        public async Task<string> StringChoice(string prompt, List<string> choices, string? guidanceMessage = null, CommandSettings settings = null)
+        public async Task<string> StringChoice(string prompt, List<string> choices, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null)
         {
             //DefaultSetup
             var command = _factory.GetDbCommand<StringChoiceCommand, string>(source: null, messageName: null, retrieverLambda: null, guidanceMessage, settings);
@@ -85,7 +87,7 @@ namespace DotnetLlamaSharp.Services.Prompting
             return response;
         }
 
-        public async Task<List<string>> MultiChoice(string prompt, List<string> choices, int maxChoices, string? guidanceMessage = null, CommandSettings settings = null)
+        public async Task<List<string>> MultiChoice(string prompt, List<string> choices, int maxChoices, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null)
         {
             var command = _factory.GetDbCommand<MultiChoiceCommand, List<string>>(source: null, messageName: null, retrieverLambda: null, null, settings);
 
@@ -94,33 +96,44 @@ namespace DotnetLlamaSharp.Services.Prompting
             return response;
         }
 
-        public async Task<bool> BooleanChoice(string prompt, string? guidanceMessage = null, CommandSettings settings = null)
+        public async Task<bool> BooleanChoice(string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null)
         {
-            var command = _factory.GetDbCommand<BoolPromptCommand, bool>(source: null, messageName: null, retrieverLambda: null, guidanceMessage, settings);
+            var command = _factory.GetDbCommand<BoolPromptCommand, bool>(source: null, messageName: null, retrieverLambda: null, guidanceMessage: null, settings);
 
-            return await command.Prompt(new PromptCommandRequest(prompt, settings.Model));
+            return await command.Prompt(new PromptCommandRequest(prompt, guidanceMessage, isGuidanceAppend: isGuidanceAppend, settings.Model));
         }
 
-        public async Task<string> StringBoolChoice(string prompt, string? guidanceMessage = null, CommandSettings settings = null)
-            => await BooleanChoice(prompt, guidanceMessage, settings) ? "YES" : "NO";
+        public async Task<string> StringBoolChoice(string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null)
+            => await BooleanChoice(prompt, guidanceMessage, isGuidanceAppend, settings) ? "YES" : "NO";
 
-        public async Task<float?> NumericResult(string prompt, string? guidanceMessage = null, CommandSettings settings = null)
+        public async Task<float?> NumericResult(string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null)
         {
-            var command = _factory.GetNumericPromptCommand(source: null, messageName: null, retrieverLambda: null, guidanceMessage, settings);
+            var command = _factory.GetNumericPromptCommand(source: null, messageName: null, retrieverLambda: null, guidanceMessage: null, settings);
 
-            return await command.Prompt(new PromptCommandRequest(prompt, settings.Model));
+            return await command.Prompt(new PromptCommandRequest(prompt, guidanceMessage, isGuidanceAppend: isGuidanceAppend, settings.Model));
         }
 
-        public async Task<ScoredBoolResponse> ScoredBool(string prompt, string? guidanceMessage = null, CommandSettings settings = null)
+        public async Task<ScoredBoolResponse> ScoredBool(string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null)
             => await DbPromptCommand<ScoredBoolCommand, ScoredBoolResponse>(
-                new PromptCommandRequest(prompt), messageSource: null, messageName: null, retriever: null, guidanceMessage, settings);
+                new PromptCommandRequest(prompt, guidanceMessage, isGuidanceAppend), messageSource: null, messageName: null, retriever: null, guidanceMessage: null, settings);
 
-        public async Task<ScoredStringChoice> ScoredChoice(List<string> choices, string prompt, string? guidanceMessage = null, CommandSettings settings = null)
+        public async Task<ScoredStringChoice> ScoredChoice(List<string> choices, string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null)
             => await DbPromptCommand<ScoredChoiceCommand, ScoredStringChoice>(
-                new StringChoiceRequest(choices, prompt, settings.Model), messageSource: null, messageName: null, retriever: null, guidanceMessage, settings);
+                new StringChoiceRequest(choices, prompt, guidanceMessage, isGuidanceAppend, settings.Model), messageSource: null, messageName: null, retriever: null, guidanceMessage: null, settings);
 
         public TCommand GetDbCommand<TCommand, TResult>(string source, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, PromptSettings? settings = null) where TCommand : DbPromptCommand<TResult>, new()
                 => _factory.GetDbCommand<TCommand, TResult>(source, messageName, retriever, guidanceMessage, settings);
 
+        public async Task<ReasonedBoolResponse> ReasonedBool(string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null)
+            => await DbPromptCommand<ReasonedBoolCommand, ReasonedBoolResponse>(
+                new PromptCommandRequest(prompt, guidanceMessage, isGuidanceAppend), messageSource: null, messageName: null, retriever: null, guidanceMessage: null, settings);
+
+        public async Task<ReasonedScoreResponse> ReasonedScore(string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null)
+            => await DbPromptCommand<ReasonedScoreCommand, ReasonedScoreResponse>(
+                new PromptCommandRequest(prompt, guidanceMessage, isGuidanceAppend), messageSource: null, messageName: null, retriever: null, guidanceMessage: null, settings);
+
+        public async Task<ScoredResponse> ScoredPrompt(string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null)
+            => await DbPromptCommand<ScoredResponseCommand, ScoredResponse>(
+                new PromptCommandRequest(prompt, guidanceMessage, isGuidanceAppend), messageSource: null, messageName: null, retriever: null, guidanceMessage: null, settings);
     }
 }

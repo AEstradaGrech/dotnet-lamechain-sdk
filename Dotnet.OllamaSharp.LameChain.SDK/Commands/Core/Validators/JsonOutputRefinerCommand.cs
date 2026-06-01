@@ -2,6 +2,7 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
@@ -25,7 +26,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             var validationReq = (JsonRefineRequest<TRefined>)request;
 
-            ScoredBoolResponse boolValidation = null;
+            ReasonedBoolResponse boolValidation = null;
             switch(validationReq.ValidationType)
             {
                 case (EPromptValidation.REVIEW_ONLY):
@@ -35,7 +36,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
                     boolValidation = await validateResponse(_ollama, validationReq);
 
                     if (!boolValidation.Answer)
-                        throw new InvalidDataException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(validateResponse)} >> VALIDATION FAIL - REASON: {boolValidation.Justification} >> CONFIDENCE: {boolValidation.Score}");
+                        throw new InvalidDataException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(validateResponse)} >> VALIDATION FAIL - REASON: {boolValidation.Justification}");
 
                     else return JsonSerializer.Deserialize<TRefined>(validationReq.RawOutput);
                 
@@ -55,7 +56,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             var validationReq = (JsonRefineRequest<TRefined>)request;
 
-            ScoredBoolResponse boolValidation = null;
+            ReasonedBoolResponse boolValidation = null;
             switch (validationReq.ValidationType)
             {
                 case (EPromptValidation.REVIEW_ONLY):
@@ -65,7 +66,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
                     boolValidation = validateResponse(_ollama, validationReq).Result;
 
                     if (!boolValidation.Answer)
-                        throw new InvalidDataException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(validateResponse)} >> VALIDATION FAIL - REASON: {boolValidation.Justification} >> CONFIDENCE: {boolValidation.Score}");
+                        throw new InvalidDataException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(validateResponse)} >> VALIDATION FAIL - REASON: {boolValidation.Justification}");
 
                     else return Task.FromResult(JsonSerializer.Deserialize<TRefined>(validationReq.RawOutput));
 
@@ -89,7 +90,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             reviewRequest.GuidanceMessage = guidanceMessage;
             reviewRequest.ValidatedPrompt = request.ValidatedPrompt;
-            reviewRequest.Prompt = $"Review the provided 'output' and return a corrected version. This is the original 'input' instruction: {request.ValidatedPrompt}.";
+            reviewRequest.Prompt = $"Review the provided 'output' and return a corrected version. This is the original 'input' : {request.ValidatedPrompt}.";
 
             if (!string.IsNullOrEmpty(guidanceMessage))
                 reviewRequest.Prompt += $"This is the detected problem: {guidanceMessage}";
@@ -97,17 +98,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             return command.PromptSync(reviewRequest);
         }
 
-        private Task<ScoredBoolResponse> validateResponse(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
+        private Task<ReasonedBoolResponse> validateResponse(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
         {
             var command = _retrieverLambda == null ?
-                new JsonOutputValidationCommand<ScoredBoolResponse>(ollama, null, _settings) :
-                new JsonOutputValidationCommand<ScoredBoolResponse>(ollama, _dbSourceName, "json-validate", _retrieverLambda, null, _settings);
+                new JsonOutputValidationCommand<ReasonedBoolResponse>(ollama, null, _settings) :
+                new JsonOutputValidationCommand<ReasonedBoolResponse>(ollama, _dbSourceName, "json-validate", _retrieverLambda, null, _settings);
 
-            var validationRequest = toValidationRequest<ScoredBoolResponse>(request);
+            var validationRequest = toValidationRequest<ReasonedBoolResponse>(request);
 
             validationRequest.GuidanceMessage = guidanceMessage;
             validationRequest.ValidatedPrompt = request.ValidatedPrompt;
-            validationRequest.Prompt = "Review the provided 'instrucion / input' pair and the provided output information to evaluate it and score it according to your instructions";
+            validationRequest.Prompt = "Is the provided output content VALID? (anwer true or false).";
 
             return command.PromptSync(validationRequest);
         }
@@ -130,7 +131,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             var validation = validateResponse(ollama, request).Result;
 
             if(!validation.Answer)
-                throw new InvalidDataException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(validateResponse)} >> VALIDATION FAIL - REASON: {validation.Justification} >> CONFIDENCE: {validation.Score}");
+                throw new InvalidDataException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(validateResponse)} >> VALIDATION FAIL - REASON: {validation.Justification}");
 
             return Task.FromResult(review);
         }

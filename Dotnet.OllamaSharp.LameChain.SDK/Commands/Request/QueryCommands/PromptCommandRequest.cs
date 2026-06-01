@@ -13,7 +13,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
             Model = model;
         }
 
-        public PromptCommandRequest(string message, string? guidanceMessage, string? model = null) : this(message, model) { GuidanceMessage = guidanceMessage; }
+        public PromptCommandRequest(string message, string? guidanceMessage, bool isGuidanceAppend = false, string? model = null) : this(message, model) 
+        {
+            IsGuidanceAppend = isGuidanceAppend;
+            GuidanceMessage = guidanceMessage; 
+        }
         public string Prompt { get; set; }
         // an extra instruction appart of the _systemMessage stored on construction. Allows to insert data / guidance from events / LLM interactions that might have happened since the instantiation (a chained prompt, for example)
         public string? GuidanceMessage { get; set; } = null; 

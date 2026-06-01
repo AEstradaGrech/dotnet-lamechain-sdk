@@ -20,17 +20,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands
         {
         }
 
-        //TODO:
-        //public SmartQueryCommand(IOllamaInferenceService ollama, IEmbeddingsService generator,
-        //  DbQuerySettings{
-        //      Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<SimilarSearchResult>>> QueryFunction,
-        //      Func<string, string, Task<string> Retriever,
-        //      
-        //  })
-        //    : base(ollama, generator, settings.QueryFunction, settings.Retriever)
-        //{
-        //}
-
         public override async Task<List<string>> Prompt(PromptCommandRequest request)
         {
             validateInputRequest<SmartQueryRequest>(request);

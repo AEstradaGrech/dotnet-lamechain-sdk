@@ -109,10 +109,12 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             {
                 try
                 {
+                    sb = new System.Text.StringBuilder();
+
                     if (string.IsNullOrEmpty(request.Prompt))
                         throw new InvalidDataException($"{nameof(OllamaInferenceService)} >> {nameof(StructuredPrompt)} >> no messages to send");
 
-                    if (withJsonInfo && typeof(T).IsAssignableTo(typeof(StructuredOutput)))
+                    if (i == 0 && withJsonInfo && typeof(T).IsAssignableTo(typeof(StructuredOutput)))
                     {
                         var requestModel = Activator.CreateInstance(typeof(T)) as StructuredOutput;
 
@@ -160,13 +162,15 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             {
                 try
                 {
+                    sb = new System.Text.StringBuilder();
+
                     if (chatRequest.Messages.Count() == 0)
                         throw new InvalidDataException($"{nameof(OllamaInferenceService)} >> {nameof(StructuredPrompt)} >> no messages to send");
 
                     var sysmsg = chatRequest.Messages.FirstOrDefault(m => m.Role == ChatRole.System);
                     var usermsg = chatRequest.Messages.LastOrDefault(m => m.Role == ChatRole.User);
 
-                    if (withJsonInfo && typeof(T).IsAssignableTo(typeof(StructuredOutput)))
+                    if (i == 0 && withJsonInfo && typeof(T).IsAssignableTo(typeof(StructuredOutput)))
                     {
                         var requestModel = Activator.CreateInstance(typeof(T)) as StructuredOutput;
 

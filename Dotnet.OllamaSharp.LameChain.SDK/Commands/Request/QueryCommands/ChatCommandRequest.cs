@@ -8,7 +8,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
     public class ChatCommandRequest : PromptCommandRequest
     {
         public ChatCommandRequest() : base() { }
-        public ChatCommandRequest(string message, string? guidanceMessage, string? model = null) : base(message, guidanceMessage, model) { ChatHistory = new List<ChatMessage>(); }
+        public ChatCommandRequest(string message, string? guidanceMessage, bool isGuidanceAppend = false, string? model = null) : base(message, guidanceMessage, isGuidanceAppend, model) { ChatHistory = new List<ChatMessage>(); }
         public ChatCommandRequest(bool includeSystem, List<ChatMessage> messages, string message, string? model = null) : base(message, model)
         {
             ChatHistory = messages;

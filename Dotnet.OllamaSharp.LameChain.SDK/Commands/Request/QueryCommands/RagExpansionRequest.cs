@@ -3,10 +3,10 @@
     public class RagExpansionRequest : PromptCommandRequest
     {
         public RagExpansionRequest() : base () { }
-        public RagExpansionRequest(string message, string? guidanceMessage, string? model = null) : base(message, guidanceMessage, model) { }
+        public RagExpansionRequest(string message, string? guidanceMessage, bool isGuidanceAppend, string? model = null) : base(message, guidanceMessage, isGuidanceAppend, model) { }
 
-        public RagExpansionRequest(int expansions, string message, bool withFewShot = false, int maxExamples = 1, string? guidanceMessage = null, string? model = null) 
-            : this(message, guidanceMessage, model) 
+        public RagExpansionRequest(int expansions, string message, bool withFewShot = false, int maxExamples = 1, string? guidanceMessage = null, bool isGuidanceAppend = false, string? model = null) 
+            : this(message, guidanceMessage, isGuidanceAppend, model) 
         {
             Results = expansions;
             MaxExamples = maxExamples;
