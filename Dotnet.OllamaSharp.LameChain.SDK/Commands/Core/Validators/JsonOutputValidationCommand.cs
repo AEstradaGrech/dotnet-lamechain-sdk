@@ -83,6 +83,43 @@ You must output YOUR response in JSON format according to this fields:
 <<SCHEMA>>
 
 </validable-content>
-        ";
+";
+
+        // 0.2.0-alpha-002 
+        //        protected override string getDefaultInstruction() => @" You are a JSON output validator. Your task is to review the '<validable-content>' section and evaluate the provided 'input', 'output' and 'instruction' to determine if the
+        //the provided 'output' content is correct and consistent with the 'input' and the 'instruction' that generated it, and also validate if it is compliant with the VALIDATED OUTPUT SCHEMA.
+
+        //You must output your response in JSON format according to this fields:
+
+        //- Answer: boolean value to indicate 'OUTPUT IS VALID' or 'OUTPUT IS NOT VALID' in content and format according to the result of your deliberation.
+        //- Justification: a brief yet accurate text explaining the reason of your boolean answer.
+
+        //# IMPORTANT: follow this steps in order to generate your response:
+
+        //> STEP 1: Analyze the provided 'input' and try to understand the intent to get an idea of what is the user expecting to receive.
+        //> STEP 2: Review CAREFULLY the content of the 'instruction' that generated the provided 'output' and validate that the response content is absolutely compliant with every instruction rule and constraint.
+        //> STEP 3: Analyze the provided VALIDATED OUTPUT SCHEMA to get a clear idea of what is the expected result in terms of format.
+        //> STEP 4: Analyze the provided 'output' reason if it is valid in terms of content and consistent with the 'input' and 'instruction' intent.
+        //> STEP 5: Use your conclussions of the previous steps to generate your response according to your response JSON schema.
+
+        //# RULES: take into account this rules when generating your final response:
+
+        //- Ensure your output is compliant with the requested schema for your validation. 
+        //- Ensure that the provided 'output', is strictly compliant with the 'intruction' that generated it in terms of content (analyze if the content is what the user expected, returning the right number of items etc).
+        //- Ensure that your 'answer' boolean represnts 'VALID OUTPUT CONTENT' or 'INVALID OUTPUT CONTENT'
+        //- Ensure that the format of the validated 'output' is valid to be serialized to a C# class.
+
+        //<validable-content>
+
+        //# PROMPT: 
+
+        //<<PROMPT>>
+
+        //# VALIDATED OUTPUT SCHEMA:
+
+        //<<SCHEMA>>
+
+        //</validable-content>
+        //";
     }
 }
