@@ -22,6 +22,13 @@ namespace DotnetLlamaSharp.Services.Prompting
             _settings = settings.Value;
         }
 
+        // Generic factory methods
+        public TCommand GetCommand<TCommand, TResult>(string? guidanceMessage = null, CommandSettings? settings = null) where TCommand : BasePromptCommand<TResult>, new()
+              => _factory.GetCommand<TCommand, TResult>(guidanceMessage, settings);
+
+        public TCommand GetDbCommand<TCommand, TResult>(string source, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, CommandSettings? settings = null) where TCommand : DbPromptCommand<TResult>, new()
+                => _factory.GetDbCommand<TCommand, TResult>(source, messageName, retriever, guidanceMessage, settings);
+
         /// <summary>
         /// Usage: Commands with NO db dependency (DbCommand inheritance) and no Instruction neither (uses the default hardcoded message, if any)
         ///        The it will use --> system = request.SystemMessage (as instruction / guidance)
@@ -120,9 +127,6 @@ namespace DotnetLlamaSharp.Services.Prompting
         public async Task<ScoredStringChoice> ScoredChoice(List<string> choices, string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null)
             => await DbPromptCommand<ScoredChoiceCommand, ScoredStringChoice>(
                 new StringChoiceRequest(choices, prompt, guidanceMessage, isGuidanceAppend, settings.Model), messageSource: null, messageName: null, retriever: null, guidanceMessage: null, settings);
-
-        public TCommand GetDbCommand<TCommand, TResult>(string source, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, PromptSettings? settings = null) where TCommand : DbPromptCommand<TResult>, new()
-                => _factory.GetDbCommand<TCommand, TResult>(source, messageName, retriever, guidanceMessage, settings);
 
         public async Task<ReasonedBoolResponse> ReasonedBool(string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null)
             => await DbPromptCommand<ReasonedBoolCommand, ReasonedBoolResponse>(

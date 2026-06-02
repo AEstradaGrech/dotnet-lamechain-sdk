@@ -18,8 +18,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services
         Task<TResult> DbPromptCommand<TCommand, TResult>(PromptCommandRequest request, string messageSource, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, CommandSettings settings = null)
             where TCommand : DbPromptCommand<TResult>, new();
 
-        TCommand GetDbCommand<TCommand, TResult>(string messageSource, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, PromptSettings? settings = null)
+        TCommand GetDbCommand<TCommand, TResult>(string messageSource, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, CommandSettings? settings = null)
             where TCommand : DbPromptCommand<TResult>, new();
+        TCommand GetCommand<TCommand, TResult>(string? guidanceMessage = null, CommandSettings? settings = null)
+           where TCommand : BasePromptCommand<TResult>, new();
 
         Task<TEnum?> EnumChoice<TEnum>(string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null) where TEnum : struct, Enum;
         Task<bool> BooleanChoice(string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null);
@@ -27,7 +29,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services
         Task<string> StringChoice(string prompt, List<string> choices, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null);
         Task<List<string>> MultiChoice(string prompt, List<string> choices, int maxChoices, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null);
         Task<float?> NumericResult(string prompt, string? guidanceMessage = null, bool isGuidanceAppend = false, CommandSettings settings = null);
-
         Task<ReasonedBoolResponse> ReasonedBool(string prompt, string? instrucion = null, bool isGuidanceAppend = false, CommandSettings settings = null);
         Task<ReasonedScoreResponse> ReasonedScore(string prompt, string? instrucion = null, bool isGuidanceAppend = false, CommandSettings settings = null);
         Task<ScoredResponse> ScoredPrompt(string prompt, string? instrucion = null, bool isGuidanceAppend = false, CommandSettings settings = null);
