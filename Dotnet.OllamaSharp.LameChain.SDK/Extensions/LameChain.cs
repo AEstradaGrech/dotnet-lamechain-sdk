@@ -7,6 +7,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Steps;
+using Microsoft.Extensions.Logging;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 {
@@ -283,6 +284,24 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return step;
         }
 
+        //public static SingleThrowStep UseBroadcaster(this SingleThrowStep step, Action<Guid, string, LogLevel> broadcaster)
+        //{
+        //    if(step.IsRunning)
+        //    {
+        //        step.Runner.onBroadcast += broadcaster.;
+        //    }
+
+        //    return step;
+        //}
+        public static SingleThrowStep UseBroadcaster(this SingleThrowStep step, Action<Guid, string, LogLevel> broadcaster)
+        {
+            if (step.IsRunning)
+            {
+                step.Runner.onBroadcast += broadcaster;
+            }
+
+            return step;
+        }
         public static async Task<ChainResult> ThenExecuteAsync(this SingleThrowStep step, bool withFinalMessage = false, bool withReplay = false, CommandSettings finalMsgSettings = null)
             => await step.ExecuteChainAsync(withFinalMessage, withReplay, finalMsgSettings);
 

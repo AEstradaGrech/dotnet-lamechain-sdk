@@ -8,6 +8,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs;
+using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Schema;
@@ -17,9 +18,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 {
     public abstract class ChainStep : IChaineable
     {
-
-        public delegate void OnRunNotify(ForgeLog log, bool appendLogs = true); //communicate / persist data during execution
+        public delegate void OnRunNotify(Guid runnerId, string message, LogLevel level);
         public event OnRunNotify onRunNotify;
+
+        public delegate void OnFinishNotify(ForgeLog log, bool appendLogs = true); //communicate / persist data during execution
+        public event OnFinishNotify onFinishNotify;
 
         public delegate void OnReportReplay(ReplayLog log);
         public event OnReportReplay onReportReplay;
@@ -68,8 +71,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
        
         //Checks that _cmds.Count > 0 & the input type of step to ensure that the pieces match (single from single, collector from multi or pipe, multi from single, pipe from multi or pipe
         public abstract bool CanBeForged(IChaineable previous);
+
+        public void notify(string message, LogLevel level = LogLevel.Information)
+        {
+            if (onRunNotify != null)
+                onRunNotify(_id, $"{GetType().Name} >> {DateTime.Now} >> {message}", level);
+        }
+
         protected void onRunBegin(IChaineable previous)
         {
+            notify($"{nameof(onRunBegin)}");
+
             if (!IsFirstStep() && !IsFirstSubstep())
             {
                 if (!IsRunning && !hasCatchedThrow(previous))
@@ -81,7 +93,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
         protected virtual async Task runStep(IChaineable previous) 
         {
-            onRunBegin(previous);    
+            onRunBegin(previous);
+
+            notify($"{nameof(runStep)}");
 
             await forgeLinkForPlug(previous);
 
@@ -126,7 +140,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
         public ChainRunner Drop()
         {
-            
             var reference = _runner;
             _runner = null;
             return reference;
@@ -154,12 +167,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             _forgeLog.FeedForwardMessage = _feedForwardInstruction;
             _forgeLog.RunnersLog = _instructionsLog;
             
-            onRunNotify(_forgeLog);
+            onFinishNotify(_forgeLog);
         }
 
         protected void sendForgeLog(ForgeLog log, bool updateRunnersLog = true)
         {
-            onRunNotify(log, updateRunnersLog);
+            onFinishNotify(log, updateRunnersLog);
         }
         public SingleThrowStep ThrowTo(bool swapRunner, IJsoneable command, StepSettings recieverSettings, string? feedForwardInstruction = null)
         {
@@ -314,12 +327,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             Request.GuidanceMessage += $"\n{sb.ToString()}".Trim();
 
+            notify($"{nameof(forgeLink)} >> FORGING CHAIN LINK");
             // JsonPrompt
             var jsonResult = await _commands[idx].JsonPrompt(Request, _commands[idx].CommandSettings == null ? _runner.DefaultSettings : null, returnFullInstruction: false, preInstruction: preInstructionTag); //Skip GuidanceMessage, return only instruction for this step
 
             _promptedInstruction = jsonResult.Instruction;
 
             _instructionsLog.Add(_promptedInstruction);
+
+            notify($"{nameof(forgeLink)} >> LINK FORGED >> SYSTEM MESSAGE: \n{_promptedInstruction}");
 
             var link = new ChainLink(_id, _promptedInstruction, jsonResult.RawJson, JsonSerializerOptions.Default.GetJsonSchemaAsNode(jsonResult.Type), jsonResult.Type, feedForwardMessage: _feedForwardInstruction);
 
@@ -383,7 +399,8 @@ description (wrapped in parenthesis) to understand what does it represent and ho
 
             _runner.OnDropTo(this, previous);
 
-            onRunNotify += _runner.OnRunnerNotification;
+            onRunNotify += _runner.OnRunnerNotify;
+            onFinishNotify += _runner.OnRunnerFinished;
             
             checkCanForge(previous);
 
@@ -395,6 +412,8 @@ description (wrapped in parenthesis) to understand what does it represent and ho
                 Request.GuidanceMessage += getContextMessageHeader();
 
             _passCatchTimestamp = DateTime.Now;
+
+            notify($"{nameof(hasCatchedThrow)} >> CATCHED AT {_passCatchTimestamp}");
 
             return IsRunning;
         }
@@ -430,6 +449,8 @@ description (wrapped in parenthesis) to understand what does it represent and ho
 
             onSupportIncoming += current.Runner.OnSupporterResponse;
             onReportReplay += current.Runner.OnReplayReport;
+
+            notify($"{nameof(FollowRunner)} >> FOLLOWING {current.Id}");
         }
 
         public bool IsReady() => IsRunning && _stepSettings != null && Request != null && _runner.CanRun();

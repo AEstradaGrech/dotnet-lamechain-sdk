@@ -6,6 +6,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
+using Microsoft.Extensions.Logging;
 using OllamaSharp.Models.Chat;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
@@ -60,8 +61,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                 if (_runner.RunnedInstructions.Count != 0) //It is recieving a Throw with the original ChainRunner or a clone (it is a FIRST SUBRUNNER, then has 'prev guidance')
                     Request.GuidanceMessage += getContextMessageHeader(); // IF the request has a Guidance from the instantiation it will be inserted in-between the CMD.Instruction (maps to cmd._systemMessage) and the STEP.Context
 
-                onRunNotify += _runner.OnRunnerNotification; // write stuff to runner. This is always triggered AFTER forgeLink or when appending subchain results
+                onFinishNotify += _runner.OnRunnerFinished; // write stuff to runner. This is always triggered AFTER forgeLink or when appending subchain results
                 onReportReplay += _runner.OnReplayReport;
+                onRunNotify += _runner.OnRunnerNotify;
 
                 _runner.SetReady(this);
             }
@@ -74,40 +76,75 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
         public async Task<ChainResult> ExecuteChainAsync(bool withFinalMessage = false, bool withReplay = false, CommandSettings? finalMsgSettings = null)
         {
+            notify($"{nameof(ExecuteChainAsync)} >> BEGINNING CHAIN EXECUTION");
+
             var firstStep = getFirstStep(current: this);
 
             if (!firstStep.IsReady())
+            {
+                notify($"{nameof(ExecuteChainAsync)} :: {nameof(firstStep.IsReady)} >> CHAIN CRASH >> FIRST STEP NOT READY", LogLevel.Critical);
+
                 throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(ExecuteChainAsync)} >> {nameof(firstStep.IsReady)} >> FIRST STEP IS NOT READY :: ABORTING CHAIN");
-            
+            }
+
             var finalStep = await firstStep.Forge(null); // Rename ? .Run(cmd) & (runner.Go(previous: null) | runner.Play(previous)
 
-            var typedResult = finalStep.Outputs.First().SerializedResult;
+            notify($"{nameof(ExecuteChainAsync)} >> CHAIN FINISHED");
+
+            if (!finalStep.Outputs.Any())
+            {
+                notify($"{nameof(ExecuteChainAsync)} >> CHAIN ERROR >> OUTPUT RESULTS GENERATED", LogLevel.Critical);
+
+                throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(ExecuteChainAsync)} >> CHAIN ERROR >> OUTPUT RESULTS GENERATED");
+            }
+
+            if (string.IsNullOrEmpty(finalStep.Outputs.First().SerializedResult))
+            {
+                notify($"{nameof(ExecuteChainAsync)} >> CHAIN ERROR >> NO SERIALIZED RESULT FOUND", LogLevel.Critical);
+
+                throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(ExecuteChainAsync)} >> CHAIN ERROR >> NO SERIALIZED RESULT FOUND");
+            }
 
             var finalMessage = new ChatMessage(ChatRole.Assistant.ToString(), string.Empty);
 
             ChainRunner finalRunner = null;
             if (withFinalMessage)
             {
-                var finalInstruction = getDefaultFinalInstruction();
-                var finalizer = ExpandTo<MessagePromptCommand, ChatMessage>(
-                    instruction: finalInstruction.SystemMessage, 
-                    finalMsgSettings ?? finalStep.Runner.DefaultSettings,
-                    new StepSettings(new PromptCommandRequest(
-                        message: finalInstruction.Prompt,
-                        guidanceMessage: string.IsNullOrEmpty(finalStep.Runner.FwdSystemMessage) ? string.Empty : $"## USER PREFERENCES: {finalStep.Runner.FwdSystemMessage}\n") 
-                    )
-                );
+                try
+                {
+                    notify($"{nameof(ExecuteChainAsync)} >> REQUESTING CHAIN FINAL MESSAGE");
 
-                var jsonMessage = await finalizer.Forge(finalStep);
+                    var finalInstruction = getDefaultFinalInstruction();
 
-                finalMessage = jsonMessage.GetOutputAs<ChatMessage>();
+                    var finalizer = ExpandTo<MessagePromptCommand, ChatMessage>(
+                        instruction: finalInstruction.SystemMessage,
+                        finalMsgSettings ?? finalStep.Runner.DefaultSettings,
+                        new StepSettings(new PromptCommandRequest(
+                            message: finalInstruction.Prompt,
+                            guidanceMessage: string.IsNullOrEmpty(finalStep.Runner.FwdSystemMessage) ? string.Empty : $"## USER PREFERENCES: {finalStep.Runner.FwdSystemMessage}\n")
+                        )
+                    );
 
-                finalRunner = jsonMessage.Drop();
+                    var jsonMessage = await finalizer.Forge(finalStep);
+
+                    notify($"{nameof(ExecuteChainAsync)} >> ON FINAL MESSAGE GENERATED >> CHAIN FINISHED");
+
+                    finalMessage = jsonMessage.GetOutputAs<ChatMessage>();
+
+                    finalRunner = jsonMessage.Drop();
+                }
+                catch(Exception ex)
+                {
+                    notify($"{nameof(ExecuteChainAsync)} >> FINAL MESSAGE KO >> EXCEPTION: {ex.Message}", LogLevel.Critical);
+                    notify($"{nameof(ExecuteChainAsync)} >> FINAL MESSAGE ABORT >> RETURNING CHAIN RESULT: {ex.Message}", LogLevel.Warning);
+                    finalMessage.Content = "AN ERROR HAS OCCURED WHILE GENERATING THE FINAL MESSAGE";
+                    finalRunner = finalStep.Drop();
+                }
             }
 
             else finalRunner = finalStep.Drop();
 
-            return new ChainResult(withReplay ? finalRunner.GetReplays() : [], jsonResult: typedResult, finalStep.Outputs.First().JsonSchema, chainInput: firstStep.Input, stepsLog: finalRunner.RunnedInstructions, processedResult: finalMessage);
+            return new ChainResult(withReplay ? finalRunner.GetReplays() : [], jsonResult: finalStep.Outputs.First().SerializedResult, finalStep.Outputs.First().JsonSchema, chainInput: firstStep.Input, stepsLog: finalRunner.RunnedInstructions, processedResult: finalMessage);
         }
 
         public override async Task<IChaineable> Forge(IChaineable previous)

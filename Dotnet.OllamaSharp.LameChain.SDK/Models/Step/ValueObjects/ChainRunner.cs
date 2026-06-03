@@ -1,6 +1,7 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs;
+using Microsoft.Extensions.Logging;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
 {
@@ -25,12 +26,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
             RunnedInstructions = cloneRunnedInstructions ? new List<string>(cloned.RunnedInstructions) : new List<string>();
             onReplayRequest = null;
             onSupportRequest = null;
-
+            onBroadcast = null;
             //Enable chain feeds for subchains
             //the pattern recursively does 'tryCheckThisForged - requestFromPrevChain' until the log is found in any cloned ChainRunner
             // WG: check mulithreading-shared-objects
             onChainFeedRequest += cloned.OnFeedRequest;
-
+            onMainChainNotify += cloned.OnRunnerNotify;
+            //upstream += cloned.OnRunnerNotify
             cloned.onChainFeedResponse += OnFeedResponse;
         }
         public delegate void OnSupporterRequest(Guid runnedId);
@@ -40,8 +42,16 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
         public event OnChainFeedResponse onChainFeedResponse;
         public delegate void OnChainFeedRequest(Guid runnerLogId);
         public event OnChainFeedRequest onChainFeedRequest;
+
+        public delegate void OnMainChainNotify(Guid id, string message, LogLevel level);
+        public event OnMainChainNotify onMainChainNotify;
+        // onUpstreamNotify <- RELAY SUBCHAIN MESSAGES TO MAINCHAIN (WITH THE BROADCASTER, WHICH IS NOT CLONED)
+
         public delegate void OnReplay();
         public event OnReplay onReplayRequest;
+
+        
+        public Action<Guid, string, LogLevel> onBroadcast;
 
         private IChaineable _current;
         private List<ForgeLog> _forgedSteps;
@@ -110,10 +120,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
         {
             if (TryFindForged(id, out var log))
                 onChainFeedResponse(log);
-
-
         }
+        public void OnRunnerNotify(Guid runnerId, string message, LogLevel level = LogLevel.Information)
+        {
+            if(onBroadcast != null)
+                onBroadcast.Invoke(runnerId, message, level);
 
+            if (onMainChainNotify != null)
+                onMainChainNotify.Invoke(runnerId, message, level);
+        }
         public void OnFeedResponse(ForgeLog feedLog)
         {
             if (_current != null) return;
@@ -122,13 +137,20 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
                 _chainFeeds.Add(feedLog);
         }
 
-        public void OnRunnerNotification(ForgeLog log, bool updateRunnersLog = true)
+        public void OnRunnerFinished(ForgeLog log, bool updateRunnersLog = true)
         {
-
             _forgedSteps.Add(log);
 
             if (updateRunnersLog)
+            {
                 RunnedInstructions.AddRange(log.RunnersLog);
+
+                if(onBroadcast != null)
+                    onBroadcast.Invoke(log.RunnerId, $"ON STEP FINISHED >> LINK FORGE TIMESTAMP: {log.ForgeTimestamp}", LogLevel.Information);
+
+                if (onMainChainNotify != null)
+                    onMainChainNotify.Invoke(log.RunnerId, $"ON STEP FINISHED >> LINK FORGE TIMESTAMP: {log.ForgeTimestamp}", LogLevel.Information);
+            }
         }
 
         public List<ReplayLog> GetReplays()
