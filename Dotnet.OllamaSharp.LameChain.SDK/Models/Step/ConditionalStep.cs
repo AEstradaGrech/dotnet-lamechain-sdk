@@ -41,6 +41,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
             //Copy outputs to pass to the truebranch, the next one or return them as chain END (04/06/26 not it is valid)
             _outputs.AddRange(previous.Outputs);
             _promptedInstruction = previous.PromptedInstruction; // Keep consitency of the chain by passing the instruction that generated the passed outputs
+
+            if (string.IsNullOrEmpty(_feedForwardInstruction) && !string.IsNullOrEmpty(previous.FeedForwardInstruction))
+                _feedForwardInstruction = previous.FeedForwardInstruction;
+
             if (_condition())
             {
                 notify($"{nameof(runStep)} >> CONDITION PASSED >> SWAPPING CHAINS");

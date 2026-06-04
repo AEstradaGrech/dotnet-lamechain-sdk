@@ -11,14 +11,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs
             Instruction = instruction;
             SerializedResult = jsonResult;
             JsonSchema = result;
-            GuidanceMessage = feedForwardMessage;
+            ForwardGuidance = feedForwardMessage;
             SerializedType = serializedType;
         }
         public Guid StepId { get; set; }
         public string Instruction { get; set; }
         public string SerializedResult { get; set; } // THE RESULT SERIALIZED TO JSON (seems weird for ChatMessageCommands, but it is meant to store any kind of complex StructuredOutput with many types and/or properties)
         public JsonNode JsonSchema { get; set; } // WHAT IS THE RESULT IN LLM TERMS. PASS TO LLM AGAIN TO REPEAT, SERIALIZE AND PASS TO SYSTEM FOR CONTEXT ABOUT PREV STEP
-        public string? GuidanceMessage { get; set;  } // What to do with the result. This is for the NEXT STEP TOO
+        public string? ForwardGuidance { get; set;  } // What to do with the result. This is for the NEXT STEP TOO
         public Type SerializedType { get; set; }
         public bool IsValid() => !string.IsNullOrEmpty(SerializedResult) && JsonSchema != null; // Message && Deserializable
         

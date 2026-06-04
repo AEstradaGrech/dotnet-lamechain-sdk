@@ -156,11 +156,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             var feedFwdSb = new StringBuilder();
             _branches.SelectMany(branch =>
                 branch.Outputs.Select(link =>
-                    new { link.Instruction, link.GuidanceMessage }))
+                    new { link.Instruction, link.ForwardGuidance }))
                     .ToList()
                     .ForEach(item => {
                         promptSb.AppendLine(item.Instruction);
-                        feedFwdSb.AppendLine(item.GuidanceMessage);
+                        feedFwdSb.AppendLine(item.ForwardGuidance);
                     });
 
             _promptedInstruction += $"\n{promptSb.ToString().Trim()}";

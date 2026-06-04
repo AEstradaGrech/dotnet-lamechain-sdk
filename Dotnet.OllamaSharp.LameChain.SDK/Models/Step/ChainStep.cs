@@ -265,15 +265,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             if (!IsFirstStep() && previous.IsForged)
             {
                 if (previous.GetType() == typeof(StashedStep) && ((StashedStep)previous).IsGreedy) return string.Empty;
-                // The guidance message is appended to the command final system message in this way: _systemMessage (optional. guidance. on constructor) + dbMessage (optional. main msg. on construction) | defaultInstruction(optional. main msg. hardcoded) + _request.Guidance
+                
                 sb.AppendLine()
                   .AppendLine(!_stepSettings.WithFullContext ? 
                     previous.Outputs.First().SerializedResult :
                     guidanceMessageFrom(
                         previous.Outputs.First().Instruction.Replace(preInstructionTag, "").Trim(),
                         previous.Outputs.First().SerializedResult,
-                        _stepSettings.WithPrevSchema ? previous.Outputs.First().SchemaForMessage() : null, // deberia ser opcional
-                        previous.Outputs.First().GuidanceMessage)
+                        _stepSettings.WithPrevSchema ? previous.Outputs.First().SchemaForMessage() : null,
+                        previous.Outputs.First().ForwardGuidance)
                   );
             }
 
@@ -297,7 +297,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             _promptedInstruction = jsonResult.Instruction;
 
-            _instructionsLog.Add(_promptedInstruction);
+            if(!string.IsNullOrEmpty(_promptedInstruction))
+                _instructionsLog.Add(_promptedInstruction);
 
             notify($"{nameof(forgeLink)} >> LINK FORGED >> SYSTEM MESSAGE: \n{_promptedInstruction}");
 

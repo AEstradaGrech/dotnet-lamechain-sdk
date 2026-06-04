@@ -28,8 +28,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
                 await base.runStep(previous);
 
                 // Keep the chain context consistency by passing the instruction that generated the stored item
-                if (_outputs.Count() > 0)
+                if (_outputs.Count() > 0) // TODO: AND IT IS A STOREABLE ONLY COMMAND THAT PRODUCES NO OUTPUT
+                {
                     _outputs.First().Instruction = previous.PromptedInstruction;
+                    _outputs.First().ForwardGuidance = previous.FeedForwardInstruction;
+                }
             }
             catch(Exception ex)
             {
