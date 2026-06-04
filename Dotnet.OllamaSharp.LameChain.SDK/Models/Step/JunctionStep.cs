@@ -14,24 +14,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         public override bool CanBeForged(IChaineable previous)
             => previous != null && previous.IsMultiSocket && _commands.Count > 0;
 
-        public override async Task<IChaineable> Forge(IChaineable previous)
+        protected override void appendPreviousContext(StringBuilder sb, IChaineable previous)
         {
-             if (!hasCatchedThrow(previous))
-                throw new InvalidOperationException($"{nameof(JunctionStep)} >> {nameof(Forge)} >> {nameof(hasCatchedThrow)} >> An error has occured while passing the runner. STEP CANNOT BE FORGED");
-
-            // TODO override checkCanForge
-            if (!previous.IsMultiSocket)
-                throw new InvalidOperationException($"{nameof(JunctionStep)} >> BAD CHAIN CONFIGURATION >> PREVIOUS STEP IS NOT MULTISOCKET >> A JunctionStep can only be connected from a SplitterStep (or subclasses of)");
-
-            _runner.RunnedInstructions.Add($"- JOIN: {_id}");
-
             var castedPrev = (SplitterStep)previous;
 
             var outputs = previous.GrouppedOutputs();
 
-            var sb = new StringBuilder();
-
-            foreach(var key in outputs.Keys)
+            foreach (var key in outputs.Keys)
             {
                 var forgedPrevious = castedPrev.GetForgedSubStep(key);
 
@@ -62,14 +51,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                       .AppendLine(guidanceMessageFrom(forgedPrevious.PromptedInstruction, output.SerializedResult, output.SchemaForMessage(), output.GuidanceMessage).Trim());
                 }
             }
+        }
 
-            Request.GuidanceMessage = sb.ToString().Trim();
-            
-            await forgeLink();
+        protected override async Task runStep(IChaineable previous)
+        {
+            // TODO override checkCanForge
+            _runner.RunnedInstructions.Add($"- JOIN: {_id}");
 
-            submitForgeLog();
-
-            return _next != null ? await _next.Forge(this) : this;
+            await base.runStep(previous);
         }
     }
 }

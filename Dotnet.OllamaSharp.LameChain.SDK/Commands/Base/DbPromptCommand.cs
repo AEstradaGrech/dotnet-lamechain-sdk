@@ -38,7 +38,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
             _dbSourceName = messageSourceName;
         }
 
-        // Methor overload for validators that retrieve the validator message from DB (or any other source from the factory method stored in the lambda)
+        // Method overload for validators that retrieve the validator message from DB (or any other source from the factory method stored in the lambda)
         protected virtual JsonOutputRefinerCommand<T> validatorFor<T>(string messageSource, string name, Func<string, string, Task<string>> retriever) 
             where T : class => new JsonOutputRefinerCommand<T>(_ollama, messageSource,name, retriever, null, _settings);
 

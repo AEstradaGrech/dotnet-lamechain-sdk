@@ -1,13 +1,11 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
-using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
-using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Steps;
 using Microsoft.Extensions.Logging;
+using System.Linq.Expressions;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 {
@@ -26,27 +24,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             => Activator.CreateInstance(typeof(TStep), args) as TStep;
         public static SingleThrowStep Then(this SingleThrowStep step, IJsoneable command, StepSettings request, string? feedFwdInstruction = null)
         {
-            /*
-                BASIC API:
-                    - Then(cmd) = 1 x inpt / 1 x opt --> Appends every prev link as it is to the sysmsg (not cxt-len safe)
-                    - Tap([]) = splits the chain by plugging-in N commands that will run in parallel and generates N output links
-                    - Split(cmd, [cmds]) = similar to Tap, but runs first a desired command then fans-out the result to the plugged commands and generates 1 x Plugged Output
-                    - Pipe(cmd) = OnForge, executes the command on each prev out link. It is a SplitterStep extension. Generates 1 x prevOut.Num LINKS
-                    - Join(cmd) = OnForge, generates a single output using the prevLinks and a Joining Command. This is a 'controlled' merge
-                    - Feed<TJoiner>([cmds]) = OnForge executes every cmd with the prevOutput and generates 1 SINGLE output with it. Is a 1 step Split & Join
-                    - Feed<TJoiner>(piped, [cmds]) = OnForge executes every cmd with the prevOutput, executes the piped cmd on every splitter cmd and joins the result with the TJoiner generating 1 SINGLE output with it. Is a 1 step Split & Pipe & Join
-                    - Loop(times: N, cmd) do N times the input command with the prev output
-                    - Branch(A, B, decisorCmd) --> on runtime evaluates decision and forges(A) or (B) SWAPPING the step AND CONTINUEING
-                   
-                                 ------B`4 ---
-                                |  ,-- B`2 ---|
-                               FEED --- B`3 - THEN --(b)--        
-                                |              |         |
-                       |- B  -- B` --- B" -----|         |
-                    A  -  C  -- C` --- C" ---- D --(a)-- E -- OPT 
-                 START   TAP  PIPE   PIPE    JOIN   THEN          
-             */
-
             var nextStep = step.ExpandTo(command, request, feedFwdInstruction);
 
             step.Link(nextStep, isForward: true, isTwoWay: true);
@@ -208,28 +185,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return step;
         }
 
-        public static ConditionalStep ThenIf(this SingleThrowStep step, StepInstruction evaluator, StepInstruction thenInstruction, out SingleThrowStep trueBranch, bool isGreedy = false, bool isIsolated = true)
-        {
-            var conditional = step.AsConditional(evaluator);
-
-            trueBranch = step.ExpandTo(thenInstruction.Command, thenInstruction.StepSettings, thenInstruction.FeedFwdInstruction);
-
-            conditional.IfTrueThen(trueBranch);
-
-            return conditional;
-        }
-
-        public static ConditionalStep StashIf(this SingleThrowStep step, StepInstruction evaluator, StepInstruction stashInstruction, bool isGreedy = false, bool isIsolated = true)
-        {
-            var conditional = step.AsConditional(evaluator);
-
-            var trueBranch = step.ToStash(stashInstruction, isGreedy, isIsolated);
-
-            conditional.IfTrueThen(trueBranch);
-
-            return conditional;
-        }
-
         public static TStep ForwardFirstType<TStep>(this ChainStep step) where TStep : ChainStep
         {
             var firstStep = step.GetFirstStep();
@@ -239,9 +194,94 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 
             return firstStep as TStep;
         }
-        public static ConditionalStep StashIf(this SingleThrowStep step, StepInstruction evaluator, StashedStep trueBranch)
+
+
+        public static SmartConditionalStep ThenIf(this SingleThrowStep step, StepInstruction evaluator, StepInstruction thenInstruction)
         {
-            var conditional = step.AsConditional(evaluator);
+            var conditional = step.ToSmartConditional(evaluator);
+           
+            var trueBranch = step.ExpandTo(thenInstruction.Command, thenInstruction.StepSettings, thenInstruction.FeedFwdInstruction);
+
+            conditional.IfTrueThen(trueBranch);
+
+            step.Link(conditional, isForward: true, isTwoWay: true);
+
+            return conditional;
+        }
+
+        public static SmartConditionalStep ThenIf(this SingleThrowStep step, StepInstruction evaluator, SingleThrowStep trueBranch)
+        {
+            var conditional = step.ToSmartConditional(evaluator);
+
+            conditional.IfTrueThen(trueBranch);
+
+            step.Link(conditional, isForward: true, isTwoWay: true);
+
+            return conditional;
+        }
+
+        public static ConditionalStep ThenIf(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StepInstruction thenInstruction, string? conditionFeedFwd = null)
+        {
+            var conditional = step.ToConditional(condition, conditionSettings, conditionFeedFwd);
+            
+            var trueBranch = step.ExpandTo(thenInstruction.Command, thenInstruction.StepSettings, thenInstruction.FeedFwdInstruction);
+
+            conditional.IfTrueThen(trueBranch);
+
+            step.Link(conditional, isForward: true, isTwoWay: true);
+
+            return conditional;
+        }
+
+        public static ConditionalStep ThenIf(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, SingleThrowStep trueBranch, string? conditionFeedFwd = null)
+        {
+            var conditional = step.ToConditional(condition, conditionSettings, conditionFeedFwd);
+
+            if(trueBranch != null)
+                conditional.IfTrueThen(trueBranch);
+
+            step.Link(conditional, isForward: true, isTwoWay: true);
+
+            return conditional;
+        }
+
+        public static SingleThrowStep Store<TStored>(this SingleThrowStep step, StepInstruction storeInstruction) where TStored : class
+        {
+            var store = step.AsStore<TStored>(storeInstruction);
+
+            step.Link(store, isForward: true, isTwoWay: true);
+
+            return store;
+        }
+
+        public static ConditionalStep StoreIf<TPrev>(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StoredStep<TPrev> trueBranch, string? conditionFeedFwd = null) where TPrev : class
+        {
+            var conditional = step.ToConditional(condition, conditionSettings, conditionFeedFwd);
+
+            if (trueBranch != null)
+                conditional.IfTrueThen(trueBranch);
+
+            step.Link(conditional, isForward: true, isTwoWay: true);
+
+            return conditional;
+        }
+
+        public static SmartConditionalStep StashIf(this SingleThrowStep step, StepInstruction evaluator, StepInstruction stashInstruction, bool isGreedy = false, bool isIsolated = true)
+        {
+            var conditional = step.ToSmartConditional(evaluator);
+
+            var trueBranch = step.ToStash(stashInstruction, isGreedy, isIsolated);
+
+            conditional.IfTrueThen(trueBranch);
+
+            step.Link(conditional, isForward: true, isTwoWay: true);
+
+            return conditional;
+        }
+
+        public static SmartConditionalStep StashIf(this SingleThrowStep step, StepInstruction evaluator, StashedStep trueBranch)
+        {
+            var conditional = step.ToSmartConditional(evaluator);
 
             conditional.IfTrueThen(trueBranch);
 
@@ -284,37 +324,26 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return step;
         }
 
-        //public static SingleThrowStep UseBroadcaster(this SingleThrowStep step, Action<Guid, string, LogLevel> broadcaster)
-        //{
-        //    if(step.IsRunning)
-        //    {
-        //        step.Runner.onBroadcast += broadcaster.;
-        //    }
-
-        //    return step;
-        //}
         public static SingleThrowStep UseBroadcaster(this SingleThrowStep step, Action<Guid, string, LogLevel> broadcaster)
         {
             if (step.IsRunning)
-            {
                 step.Runner.onBroadcast += broadcaster;
-            }
-
+            
             return step;
         }
         public static async Task<ChainResult> ThenExecuteAsync(this SingleThrowStep step, bool withFinalMessage = false, bool withReplay = false, CommandSettings finalMsgSettings = null)
             => await step.ExecuteChainAsync(withFinalMessage, withReplay, finalMsgSettings);
 
-        public static ChainStep Then<TCommand, TResult>(this ChainStep step, string? instruction, CommandSettings commandSettings, StepSettings? stepRequest = null, string? feedFwdInstruction = null) 
-            where TCommand : BasePromptCommand<TResult>, new() 
-            where TResult : class
-        {
-            var nextStep = step.ExpandTo<TCommand, TResult>(instruction, commandSettings, stepRequest);
+        //public static ChainStep Then<TCommand, TResult>(this ChainStep step, string? instruction, CommandSettings commandSettings, StepSettings? stepRequest = null, string? feedFwdInstruction = null) 
+        //    where TCommand : BasePromptCommand<TResult>, new() 
+        //    where TResult : class
+        //{
+        //    var nextStep = step.ExpandTo<TCommand, TResult>(instruction, commandSettings, stepRequest);
 
-            step.Link(nextStep, isForward: true, isTwoWay: true);
+        //    step.Link(nextStep, isForward: true, isTwoWay: true);
 
-            return nextStep as ChainStep;
-        }
+        //    return nextStep as ChainStep;
+        //}
 
     }
 }

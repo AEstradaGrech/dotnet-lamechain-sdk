@@ -1,22 +1,27 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
-using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Steps;
+using System.Linq.Expressions;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
 {
+    /// <summary>
+    /// Triggers the execution of a subchain if a certain condition is met on the evaluated type
+    /// </summary>
+    /// <typeparam name="TEvaluated"></typeparam>
     public class ConditionalStep : SingleThrowStep
     {
+        //private Expression<Func<TEvaluated, bool>> _condition;
         public IChaineable TrueBranchRunner;
-
+        private Func<bool> _condition;
         public ConditionalStep() : base() { }
 
-        public ConditionalStep(StepInstruction instruction) : base(instruction) { }
-        public ConditionalStep(ScoredBoolCommand command, StepSettings request, string? feedFwdInstruction = null) : base(command, request, feedFwdInstruction) 
+
+        public ConditionalStep(Expression<Func<bool>> evaluator, StepSettings stepSettings, string? feedFwdInstruction = null) : base(stepSettings, feedFwdInstruction)
         {
-           
+            _condition = evaluator.Compile();
         }
 
         public void IfTrueThen(IChaineable trueBranch)
@@ -25,25 +30,28 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
         }
 
         public override bool CanBeForged(IChaineable previous)
-            => IsReady() && IsChained(isForwardCheck: true) && TrueBranchRunner != null;
+            => IsRunning && IsChained(isForwardCheck: false) && TrueBranchRunner != null && _condition != null;
 
-        public override async Task<IChaineable> Forge(IChaineable previous)
+        protected override async Task runStep(IChaineable previous)
         {
-            await runStep(previous);
+            onRunBegin(previous);
 
-            if (Outputs.Count == 0)
-                throw new InvalidOperationException($"{nameof(ConditionalStep)} >> {nameof(Forge)} >> An error has occured while running the EvaluatorCommand >> INVALID CHAIN RUN");
+            notify($"{nameof(runStep)}");
             
-            var evaluation = GetOutputAs<ScoredBoolResponse>();
+            //Copy outputs to pass to the truebranch, the next one or return them as chain END (04/06/26 not it is valid)
+            _outputs.AddRange(previous.Outputs);
 
-            if (evaluation.Answer)
+            if (_condition())
             {
-                TrueBranchRunner.GetLastStep().Link(_next, isForward: true, isTwoWay: true);
+                notify($"{nameof(runStep)} >> CONDITION PASSED >> SWAPPING CHAINS");
+
+                if (IsChained(isForwardCheck: true))
+                    TrueBranchRunner.GetLastStep().Link(_next, isForward: true, isTwoWay: true);
 
                 Link(TrueBranchRunner, isForward: true, isTwoWay: true);
             }
-            //Chain again
-            return await _next.Forge(this);
+
+            notify($"{nameof(runStep)} >> CONDITION NOT PASSED >> CONTINUEING CHAIN");
         }
     }
 }

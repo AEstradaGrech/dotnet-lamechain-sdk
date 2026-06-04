@@ -14,6 +14,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
             ChainFeeds = new List<Func<Guid>>();
             NestFeeds = new Dictionary<string, List<Func<Guid>>>();
             Boosters = new List<KeyValuePair<string, List<string>>>();
+            CommandRequest = new PromptCommandRequest();
         }
 
         public StepSettings(PromptCommandRequest request, bool withFullContext = true, bool withPrevSchema = false) : this()

@@ -73,7 +73,7 @@ namespace DotnetLlamaSharp.Services.Prompting
         public async Task<TResult> DbPromptCommand<TCommand, TResult>(PromptCommandRequest request, string messageSource, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, CommandSettings settings = null)
             where TCommand : DbPromptCommand<TResult>, new()
                => await _factory.GetDbCommand<TCommand, TResult>(messageSource, messageName, retriever, guidanceMessage, settings)
-                                 .Prompt(request);
+                                .Prompt(request);
         
 
         //TODO: DefaultMessageVersion for:

@@ -2,6 +2,7 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Steps;
+using System.Text;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
 {
@@ -42,26 +43,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
 
         public override bool CanBeForged(IChaineable previous) => IsReady() && (IsFirstStep() ? IsChained() : IsChained(isForwardCheck: null));
 
-        public override async Task<IChaineable> Forge(IChaineable previous)
+        protected override void appendPreviousContext(StringBuilder sb, IChaineable previous)
         {
-            onRunBegin(previous);
-         
-            if(_isIsolated)
-            {
-                Request.GuidanceMessage = string.Empty;
-
-                await forgeLink();
-            }
-
-            else await forgeLinkForPlug(previous);
-
-            submitForgeLog();
-
-            var result = _outputs.First();
-
-            var sources = GetOutputAs<List<string>>();
-
-            return await _next.Forge(this);
+            if (!_isIsolated)
+                base.appendPreviousContext(sb, previous);
         }
     }
 }

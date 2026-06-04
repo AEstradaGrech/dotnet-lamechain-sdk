@@ -19,7 +19,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         {
             _commands.Add(instruction.Command);
         }
-        public SingleThrowStep(IJsoneable command, StepSettings request, string? feedFwdInstruction = null) : base(request, feedFwdInstruction)
+
+        /// <summary>
+        /// Constructor for steps with no main command but that execute some orchestration logic (like ConditionalSteps)
+        /// </summary>
+        /// <param name="settings"></param>
+        /// <param name="feedForwardMessage"></param>
+        public SingleThrowStep(StepSettings settings, string? feedForwardMessage = null) : base(settings, feedForwardMessage) { }
+
+        public SingleThrowStep(IJsoneable command, StepSettings stepSettings, string? feedFwdInstruction = null) : base(stepSettings, feedFwdInstruction)
         {
             _commands.Add(command);
         }
@@ -70,6 +78,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             // else is .SubChain()
         }
+
+        public override async Task<IChaineable> Forge(IChaineable previous)
+        {
+            await runStep(previous);
+
+            return _next != null ? await _next.Forge(this) : this;
+        }
+
         // All runners MUST check if they are in possession of the ChainRunner (IsRunner) and... (<step-type-check>)
         public override bool CanBeForged(IChaineable previous)
             => IsRunning && previous == null ? _commands.Count > 0 : !previous.IsMultiSocket;
@@ -87,7 +103,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                 throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(ExecuteChainAsync)} >> {nameof(firstStep.IsReady)} >> FIRST STEP IS NOT READY :: ABORTING CHAIN");
             }
 
-            var finalStep = await firstStep.Forge(null); // Rename ? .Run(cmd) & (runner.Go(previous: null) | runner.Play(previous)
+            var finalStep = await firstStep.Forge(null);
 
             notify($"{nameof(ExecuteChainAsync)} >> CHAIN FINISHED");
 
@@ -145,13 +161,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             else finalRunner = finalStep.Drop();
 
             return new ChainResult(withReplay ? finalRunner.GetReplays() : [], jsonResult: finalStep.Outputs.First().SerializedResult, finalStep.Outputs.First().JsonSchema, chainInput: firstStep.Input, stepsLog: finalRunner.RunnedInstructions, processedResult: finalMessage);
-        }
-
-        public override async Task<IChaineable> Forge(IChaineable previous)
-        {
-            await runStep(previous);
-
-            return _next != null ? await _next.Forge(this) : this;
         }
 
         private Instruction getDefaultFinalInstruction()

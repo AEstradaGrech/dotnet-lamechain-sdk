@@ -9,6 +9,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Models.Step;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs;
 using Microsoft.Extensions.Logging;
+using System.Linq.Expressions;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Schema;
@@ -97,7 +98,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             notify($"{nameof(runStep)}");
 
-            await forgeLinkForPlug(previous);
+            await forgeLink(previous);
 
             submitForgeLog();
         }
@@ -113,6 +114,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             _stepSettings = settings ?? new StepSettings(); 
             _feedForwardInstruction = feedForwardMessage;
         }
+
         public void Link(IChaineable step, bool isForward, bool isTwoWay)
         {
             if (isForward)
@@ -215,13 +217,20 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             return Activator.CreateInstance(typeof(StashedStep), instruction.Command, instruction.StepSettings, isGreedy, isIsolated, instruction.FeedFwdInstruction) as StashedStep;
         }
 
-        public ConditionalStep AsConditional(StepInstruction instruction)
+        public ConditionalStep ToConditional(Expression<Func<bool>> condition, StepSettings stepSettings, string? feedFwd = null)
+            => Activator.CreateInstance(typeof(ConditionalStep), condition, stepSettings, feedFwd) as ConditionalStep;
+
+        public StoredStep<TStored> AsStore<TStored>(StepInstruction instruction) where TStored : class
+           => Activator.CreateInstance(typeof(StoredStep<TStored>), instruction) as StoredStep<TStored>;
+
+        public SmartConditionalStep ToSmartConditional(StepInstruction instruction)
         {
             if (instruction.Command.GetType() != typeof(ScoredBoolCommand) && !instruction.Command.GetType().IsSubclassOf(typeof(ScoredBoolCommand)))
-                throw new InvalidDataException($"{nameof(ConditionalStep)} >> {instruction.Command.GetType().Name} >> A ConditionalStep command must be a ScoredBoolCommand or a subclass of it");
+                throw new InvalidDataException($"{nameof(SmartConditionalStep)} >> {instruction.Command.GetType().Name} >> A SmartConditionalStep command must be a ScoredBoolCommand or a subclass of it");
 
-            return Activator.CreateInstance(typeof(ConditionalStep), instruction.Command, instruction.StepSettings, instruction.FeedFwdInstruction) as ConditionalStep;
+            return Activator.CreateInstance(typeof(SmartConditionalStep), instruction.Command, instruction.StepSettings, instruction.FeedFwdInstruction) as SmartConditionalStep;
         }
+
 
         public TDeserialized GetOutputAs<TDeserialized>() where TDeserialized : class
             => IsForged ? JsonSerializer.Deserialize<TDeserialized>(Outputs.First().SerializedResult,getSerializerOptions()) ??
@@ -270,62 +279,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             return sb.ToString();
         }
-        protected async Task forgeLinkForPlug(IChaineable previous, int plugIdx = 0)
-        {
-            // any context injected / generated previously in the step process + default previous context mesage
-            Request.GuidanceMessage += string.IsNullOrEmpty(Request.GuidanceMessage) ? getStepGuidanceMessage(previous) : $"\n{getStepGuidanceMessage(previous)}";
-            //_request.Feeds.Foreach guid => _request.GuidanceMessage += _runner.TryFind(out guid)
-            await forgeLink(plugIdx);
-        }
-
-        protected async Task forgeLink(int idx = 0)
+        
+        protected async Task forgeLink(IChaineable previous, int idx = 0)
         {
             if (idx >= _commands.Count) return;
 
-            //TODO: v2 -> If FIRST RUNNER -> user prompt ELSE _request.Prompt ?? default 'Complete the specfified... ' <- Si se pasa algo en el StepRequest, pues eso. Si no esto y que haga lo que pueda
             Request.Prompt = IsFirstStep() && _runner.RunnedInstructions.Count == 0 ? 
                 _runner.UserPrompt : !string.IsNullOrEmpty(Request.Prompt.Trim()) ? 
                 Request.Prompt :
                 "Complete the specified instruction. Do not chat with the user, just output the requested data as described.";
-            
-            var sb = new StringBuilder();
-            
-            _stepSettings.ChainFeeds.ForEach(runnerId => sb.Append(getPreviousContextFromLog(runnerId(), _stepSettings.WithFullContext, _stepSettings.WithPrevSchema)));
 
-            _stepSettings.NestFeeds.Keys.ToList().ForEach(key => {
-                var split = key.Split("-");
-                if(split.Length > 1)
-                {
-                    bool isForStep = split.Length == 3;
-                    //STEP format = StepGuid-cmdtagForRepeats-STEP (differentiate from Default & store target ID
-                    //CMD format (default) CMDNAME-TagForReapeats (no id, many nested commands of the same type
-                   
-                    if (isForStep)
-                    {
-                        var feedId = new Guid(split[0]);
-
-                        _stepSettings.NestFeeds[key].ForEach(id =>  sb.AppendLine(getPreviousContextFromLog(feedId, _stepSettings.WithFullContext, _stepSettings.WithPrevSchema)));
-                    }
-                    else
-                    {
-                        var reqSb = new StringBuilder();
-                            
-                        _stepSettings.NestFeeds[key].ForEach(id => reqSb.AppendLine(getPreviousContextFromLog(id(), _stepSettings.WithFullContext, _stepSettings.WithPrevSchema)));
-
-                        Request.NestedGuidances.Add(key, reqSb.ToString());
-                    }
-                }
-                else
-                {
-                    // Try pass for CMD 0
-                }
-            });
-
-            if(_stepSettings.Boosters.Count > 0)
-                sb.AppendLine()
-                  .AppendLine(_stepSettings.BoostersFeedText());
-
-            Request.GuidanceMessage += $"\n{sb.ToString()}".Trim();
+            setupRequestContext(previous);
 
             notify($"{nameof(forgeLink)} >> FORGING CHAIN LINK");
             // JsonPrompt
@@ -344,6 +308,90 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             _forgeLog.ForgeTimestamp = DateTime.Now;
             _forgeLog.JsonResult = jsonResult.RawJson;
             _forgeLog.JsonSchema = link.SchemaForMessage();
+        }
+
+        // Override as many methods you need to skip some message sections (for example, if you don't need the previous context)
+        protected void setupRequestContext(IChaineable previous)
+        {
+            var sb = new StringBuilder();
+
+            appendPreviousContext(sb, previous);
+
+            appendNestedFeeds(sb);
+
+            appendBoosters(sb);
+
+            Request.GuidanceMessage += $"\n{sb.ToString()}".Trim();
+        }
+
+        /// <summary>
+        /// Adds the context from the previous step. OVERRIDE to SKIP or process differently
+        /// </summary>
+        /// <param name="sb"></param>
+        /// <param name="previous"></param>
+        protected virtual void appendPreviousContext(StringBuilder sb, IChaineable previous)
+        {
+            if (!IsFirstStep() && GetType() != typeof(SplitterStep) && !GetType().IsAssignableTo(typeof(SplitterStep)))
+                Request.GuidanceMessage += getContextMessageHeader();
+
+            if(previous != null)
+                Request.GuidanceMessage += string.IsNullOrEmpty(Request.GuidanceMessage) ? getStepGuidanceMessage(previous) : $"\n{getStepGuidanceMessage(previous)}";
+        }
+
+        /// <summary>
+        /// Adds the context from the previous steps configured in the feed. OVERRIDE to SKIP or process differently
+        /// </summary>
+        /// <param name="sb"></param>
+        protected virtual void appendFeeds(StringBuilder sb)
+        {
+            _stepSettings.ChainFeeds.ForEach(runnerId => sb.Append(getPreviousContextFromLog(runnerId(), _stepSettings.WithFullContext, _stepSettings.WithPrevSchema)));
+        }
+
+        /// <summary>
+        /// Add the context to specific SubchainSteps or to specific Step commands (passed in the main command request and processed in the command 'Prompt(request)' as needed)
+        /// OVERRIDE to SKIP or treat differently;
+        /// </summary>
+        /// <param name="sb"></param>
+        protected virtual void appendNestedFeeds(StringBuilder sb)
+        {
+            _stepSettings.NestFeeds.Keys.ToList().ForEach(key => {
+                var split = key.Split("-");
+                if (split.Length > 1)
+                {
+                    bool isForStep = split.Length == 3;
+                    //STEP format = StepGuid-cmdtagForRepeats-STEP (differentiate from Default & store target ID
+                    //CMD format (default) CMDNAME-TagForReapeats (no id, many nested commands of the same type
+
+                    if (isForStep)
+                    {
+                        var feedId = new Guid(split[0]);
+
+                        _stepSettings.NestFeeds[key].ForEach(id => sb.AppendLine(getPreviousContextFromLog(feedId, _stepSettings.WithFullContext, _stepSettings.WithPrevSchema)));
+                    }
+                    else
+                    {
+                        var reqSb = new StringBuilder();
+
+                        _stepSettings.NestFeeds[key].ForEach(id => reqSb.AppendLine(getPreviousContextFromLog(id(), _stepSettings.WithFullContext, _stepSettings.WithPrevSchema)));
+
+                        Request.NestedGuidances.Add(key, reqSb.ToString());
+                    }
+                }
+                else
+                {
+                    // Try pass for CMD 0
+                }
+            });
+        }
+        /// <summary>
+        /// Add the text context from the configured boosts. OVERRIDE to SKIP or process differently
+        /// </summary>
+        /// <param name="sb"></param>
+        protected virtual void appendBoosters(StringBuilder sb)
+        {
+            if (_stepSettings.Boosters.Count > 0)
+                sb.AppendLine()
+                  .AppendLine(_stepSettings.BoostersFeedText());
         }
 
         private string getPreviousContextFromLog(Guid runnerId, bool withFullContext = true, bool withPrevSchema = true)
@@ -408,8 +456,6 @@ description (wrapped in parenthesis) to understand what does it represent and ho
 
             //By default splitted steps do not execute commands in their chain
             // (they trigger subchains of SingleThrowSteps)
-            if(GetType() != typeof(SplitterStep) && !GetType().IsAssignableTo(typeof(SplitterStep)))
-                Request.GuidanceMessage += getContextMessageHeader();
 
             _passCatchTimestamp = DateTime.Now;
 

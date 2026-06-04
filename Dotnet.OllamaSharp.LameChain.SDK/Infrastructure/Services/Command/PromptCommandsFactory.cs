@@ -110,5 +110,15 @@ namespace DotnetLlamaSharp.Services.Prompting
 
         public IPrompteable<Message> GetPrompteableMessage(string? systemMessage = null, CommandSettings? settings = null)
             => Activator.CreateInstance(typeof(MessagePromptCommand), _ollama, systemMessage, settings) as IPrompteable<Message>;
+
+        public StoreableCommand<TStored> GetStoreable<TStored>(Func<TStored, string, Task<TStored>> storingLambda) where TStored : class
+            => Activator.CreateInstance(typeof(StoreableCommand<TStored>), storingLambda) as StoreableCommand<TStored>;
+
+        public StoreableCommand<TStored> GetStoreableLlama<TStored>(Func<TStored, string, Task<TStored>> storingLambda, string? llamaGuidance = null, CommandSettings? settings = null) where TStored : class
+            => Activator.CreateInstance(typeof(StoreableCommand<TStored>), _ollama, storingLambda, llamaGuidance, settings) as StoreableCommand<TStored>;
+
+        public StoreableCommand<TStored> GetStoreableLlama<TStored>(Func<TStored, string, Task<TStored>> storingLambda, string source, string messageName, 
+            Func<string, string, Task<string>> retrieverLambda, string? llamaGuidance = null, CommandSettings? settings = null) where TStored : class
+            => Activator.CreateInstance(typeof(StoreableCommand<TStored>), _ollama, storingLambda, source, messageName, retrieverLambda, llamaGuidance, settings) as StoreableCommand<TStored>;
     }
 }

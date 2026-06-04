@@ -9,13 +9,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
     {
         public ChatCommandRequest() : base() { }
         public ChatCommandRequest(string message, string? guidanceMessage, bool isGuidanceAppend = false, string? model = null) : base(message, guidanceMessage, isGuidanceAppend, model) { ChatHistory = new List<ChatMessage>(); }
-        public ChatCommandRequest(bool includeSystem, List<ChatMessage> messages, string message, string? model = null) : base(message, model)
+        public ChatCommandRequest(string message, List<ChatMessage> messages, bool includeSystem = true,  string? model = null) : base(message, model)
         {
             ChatHistory = messages;
             IncludeSystemMessage = includeSystem;
         }
         public List<ChatMessage> ChatHistory { get; set; } = new List<ChatMessage>();
-        public bool IncludeSystemMessage { get; set; }
+        public bool IncludeSystemMessage { get; set; } = true;
 
         /// <summary>
         /// In this override the original command system message should be already in the ChatHistory, always in the first place

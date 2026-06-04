@@ -25,6 +25,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services
             where TCommand : SourceableCommand;
         TCommand GetEmbeddedSourceable<TCommand>(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<ILameSearchResult>>> queryFunction, string? llamaGuidance = null, CommandSettings? settings = null)
             where TCommand : VectorSearchSourceable;
+
+        StoreableCommand<TStored> GetStoreable<TStored>(Func<TStored, string, Task<TStored>> storingLambda) where TStored : class;
+        StoreableCommand<TStored> GetStoreableLlama<TStored>(Func<TStored, string, Task<TStored>> storingLambda, string? llamaGuidance = null, CommandSettings? settings = null) where TStored : class;
+        StoreableCommand<TStored> GetStoreableLlama<TStored>(Func<TStored, string, Task<TStored>> storingLambda, string source, string messageName, 
+            Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, CommandSettings? settings = null) where TStored : class;
+
         MessagePromptCommand GetMessagePromptCommand(string? systemMessage = null, CommandSettings? settings = null);
 
         // With Default setup
