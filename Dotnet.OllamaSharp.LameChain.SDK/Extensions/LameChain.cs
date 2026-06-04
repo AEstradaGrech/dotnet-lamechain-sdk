@@ -32,16 +32,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return nextStep;
         }
 
-        public static ChainStep ThenExecute(this SingleThrowStep step, out ChainResult result, bool withFinalMessage = true)
-        {
-            result = step.ExecuteChainAsync(withFinalMessage)
-                .ConfigureAwait(continueOnCapturedContext: false)
-                .GetAwaiter()
-                .GetResult();
-
-            return step;
-        }
-
         // Expose ChainSteps to FeedAlsoFrom([Guid]) to pass chain results past the
         // Next step
         public static SingleThrowStep ExposeThisId(this SingleThrowStep step, out Func<Guid> id)

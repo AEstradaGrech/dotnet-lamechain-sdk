@@ -52,13 +52,5 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                 }
             }
         }
-
-        protected override async Task runStep(IChaineable previous)
-        {
-            // TODO override checkCanForge
-            _runner.RunnedInstructions.Add($"- JOIN: {_id}");
-
-            await base.runStep(previous);
-        }
     }
 }

@@ -8,16 +8,16 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Response
     public class ChainResult
     {
         public ChainResult() { }
-        public ChainResult(string jsonResult, JsonNode resultSchema, string chainInput)
+        public ChainResult(object result, JsonNode resultSchema, string chainInput)
         {
-            Json = jsonResult;
+            Result = result;
             Schema = resultSchema;
             InputPrompt = chainInput;
             Message = null;
             SystemInstructions = new ChatMessage(ChatRole.System.ToString(), string.Empty);
         }
 
-        public ChainResult(string jsonResult, JsonNode resultSchema, string chainInput, List<string> stepsLog, ChatMessage? processedResult = null) : this(jsonResult, resultSchema, chainInput) 
+        public ChainResult(object result, JsonNode resultSchema, string chainInput, List<string> stepsLog, ChatMessage? processedResult = null) : this(result, resultSchema, chainInput) 
         {
             ChainStepsLog = stepsLog;
             Message = processedResult;
@@ -27,14 +27,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Response
                     SystemInstructions.Content += $"\n{stepsLog[i]}";
         }
 
-        public ChainResult( List<ReplayLog> logs, string jsonResult, JsonNode resultSchema, string chainInput, List<string> stepsLog, ChatMessage? processedResult = null) 
-            : this(jsonResult, resultSchema, chainInput, stepsLog, processedResult)
+        public ChainResult( List<ReplayLog> logs, object result, JsonNode resultSchema, string chainInput, List<string> stepsLog, ChatMessage? processedResult = null) 
+            : this(result, resultSchema, chainInput, stepsLog, processedResult)
         {
             ChainLogs = logs;
         }
         public ChatMessage? Message { get; set; }
         public ChatMessage SystemInstructions { get; set; }
-        public string Json { get; set; }
+        public object Result { get; set; }
         public JsonNode Schema { get; set; }
         public string InputPrompt { get; set; }
         public List<string> ChainStepsLog { get; set; }

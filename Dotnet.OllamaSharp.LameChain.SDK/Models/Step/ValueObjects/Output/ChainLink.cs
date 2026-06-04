@@ -1,11 +1,13 @@
-﻿using System.Text.Json;
+﻿using Microsoft.Extensions.AI;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs
 {
     public class ChainLink
     {
-        public ChainLink(Guid stepId, string instruction, string jsonResult, JsonNode result, Type serializedType, string? feedForwardMessage = null)
+        public ChainLink(Guid stepId, string instruction, string jsonResult, JsonNode result, Type serializedType, JsonSerializerOptions deserializerOptions, string? feedForwardMessage = null)
         {
             StepId = stepId;
             Instruction = instruction;
@@ -13,6 +15,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs
             JsonSchema = result;
             ForwardGuidance = feedForwardMessage;
             SerializedType = serializedType;
+            DeserializerOptions = deserializerOptions;
         }
         public Guid StepId { get; set; }
         public string Instruction { get; set; }
@@ -20,12 +23,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs
         public JsonNode JsonSchema { get; set; } // WHAT IS THE RESULT IN LLM TERMS. PASS TO LLM AGAIN TO REPEAT, SERIALIZE AND PASS TO SYSTEM FOR CONTEXT ABOUT PREV STEP
         public string? ForwardGuidance { get; set;  } // What to do with the result. This is for the NEXT STEP TOO
         public Type SerializedType { get; set; }
+        public JsonSerializerOptions DeserializerOptions { get; }
         public bool IsValid() => !string.IsNullOrEmpty(SerializedResult) && JsonSchema != null; // Message && Deserializable
         
         public string SchemaForMessage() => IsValid() ? 
             JsonSerializer.Serialize(JsonSchema) : 
             "[CONTEXT ERROR: MISSING DATA]"; //Tell the LLM there is an error in this section so it does not hallucinate the response because it is instructed to review an empty section
         
-        public object TypedResult() => JsonSerializer.Deserialize(SerializedResult, SerializedType) ?? throw new InvalidOperationException($"Failed to deserialize JSON to type {SerializedType.Name}");
+        public object ResultObject() => JsonSerializer.Deserialize(SerializedResult, SerializedType, DeserializerOptions) ?? throw new InvalidOperationException($"Failed to deserialize JSON to type {SerializedType.Name}");
+  
     }
 }

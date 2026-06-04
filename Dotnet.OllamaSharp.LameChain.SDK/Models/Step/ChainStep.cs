@@ -302,7 +302,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             notify($"{nameof(forgeLink)} >> LINK FORGED >> SYSTEM MESSAGE: \n{_promptedInstruction}");
 
-            var link = new ChainLink(_id, _promptedInstruction, jsonResult.RawJson, JsonSerializerOptions.Default.GetJsonSchemaAsNode(jsonResult.Type), jsonResult.Type, feedForwardMessage: _feedForwardInstruction);
+            var link = new ChainLink(_id, _promptedInstruction, jsonResult.RawJson, JsonSerializerOptions.Default.GetJsonSchemaAsNode(jsonResult.Type), jsonResult.Type, deserializerOptions: jsonResult.SerializerOptions, feedForwardMessage: _feedForwardInstruction);
 
             _outputs.Add(link);
 
@@ -318,11 +318,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             appendPreviousContext(sb, previous);
 
+            if (sb.Length > 0)
+                sb.AppendLine();
+
             appendNestedFeeds(sb);
+
+            if (sb.Length > 0)
+                sb.AppendLine();
 
             appendBoosters(sb);
 
-            Request.GuidanceMessage += $"\n{sb.ToString()}".Trim();
+            Request.GuidanceMessage += $"{sb.ToString().Trim()}";
         }
 
         /// <summary>
@@ -416,8 +422,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         }
 
         public string getContextMessageHeader()
-            => !IsRunning ? string.Empty : @$"
-# CONTEXT: This section contains relevant information about previous instruction. Use the provided data as a guidance to complete your own instruction. Use each section 
+            => !IsRunning ? string.Empty : @$"# CONTEXT: This section contains relevant information about previous instruction. Use the provided data as a guidance to complete your own instruction. Use each section 
 description (wrapped in parenthesis) to understand what does it represent and how can it help you to complete your task but, REMEMBER: your instruction is ALWAYS your priority.
 
 ## IMPORTANT: follow this rules in order to generate your response:
@@ -438,7 +443,7 @@ description (wrapped in parenthesis) to understand what does it represent and ho
 
 {(string.IsNullOrEmpty(jsonSchema) ? string.Empty : $"> PREVIOUS OUTPUT SCHEMA (use this to understand the previous output json model):\n\n{jsonSchema}")}
 
-{(string.IsNullOrEmpty(feededInstruction) ? string.Empty : $"> GUIDANCE MESSAGE FROM PREVIOUS WORKER (this states what the previous worker expects you to do with his output data): {feededInstruction}")}";
+{(string.IsNullOrEmpty(feededInstruction) ? string.Empty : $"> GUIDANCE MESSAGE FROM PREVIOUS WORKER (this states what the previous worker expects you to do with his output data): {feededInstruction}")}".Trim();
 
         public bool hasCatchedThrow(IChaineable previous)
         {

@@ -66,9 +66,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                 _runner = runner;
                 _passCatchTimestamp = DateTime.Now;
 
-                if (_runner.RunnedInstructions.Count != 0) //It is recieving a Throw with the original ChainRunner or a clone (it is a FIRST SUBRUNNER, then has 'prev guidance')
-                    Request.GuidanceMessage += getContextMessageHeader(); // IF the request has a Guidance from the instantiation it will be inserted in-between the CMD.Instruction (maps to cmd._systemMessage) and the STEP.Context
-
                 onFinishNotify += _runner.OnRunnerFinished; // write stuff to runner. This is always triggered AFTER forgeLink or when appending subchain results
                 onReportReplay += _runner.OnReplayReport;
                 onRunNotify += _runner.OnRunnerNotify;
@@ -160,7 +157,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             else finalRunner = finalStep.Drop();
 
-            return new ChainResult(withReplay ? finalRunner.GetReplays() : [], jsonResult: finalStep.Outputs.First().SerializedResult, finalStep.Outputs.First().JsonSchema, chainInput: firstStep.Input, stepsLog: finalRunner.RunnedInstructions, processedResult: finalMessage);
+            return new ChainResult(withReplay ? finalRunner.GetReplays() : [], result: finalStep.Outputs.First().ResultObject(), finalStep.Outputs.First().JsonSchema, chainInput: firstStep.Input, stepsLog: finalRunner.RunnedInstructions, processedResult: finalMessage);
         }
 
         private Instruction getDefaultFinalInstruction()

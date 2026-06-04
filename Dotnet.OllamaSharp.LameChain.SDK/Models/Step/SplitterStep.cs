@@ -98,7 +98,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             }))));
 
             //It is a .TAP with no command for the main command (this)
-            handleNonSplittedStepData(previous.Id);
+            summarizeSplitterExecution(previous.Id);
 
             submitForgeLog();
 
@@ -150,7 +150,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             });
         }
 
-        protected void handleNonSplittedStepData(Guid previousId)
+        protected void summarizeSplitterExecution(Guid previousId)
         {
             var promptSb = new StringBuilder();
             var feedFwdSb = new StringBuilder();

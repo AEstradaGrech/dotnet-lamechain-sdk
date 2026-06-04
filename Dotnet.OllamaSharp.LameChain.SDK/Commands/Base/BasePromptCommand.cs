@@ -56,12 +56,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
                 throw new InvalidOperationException($"{nameof(BasePromptCommand<T>)} >> request of type {request.GetType().Name} is not of type {typeof(TReq)}");
         }
        
-        public async Task<JsonPromptResult> JsonPrompt(PromptCommandRequest request, CommandSettings? settingsOverride = null, bool returnFullInstruction= false, string? preInstruction = null, bool withStringEnums = true)
+        public async Task<JsonPromptResult> JsonPrompt(PromptCommandRequest request, CommandSettings? settingsOverride = null, bool returnFullInstruction= false, string? preInstruction = null)
         {
             if (settingsOverride != null)
                 _settings = settingsOverride;
 
-            if(!string.IsNullOrEmpty(_systemMessage))
+            if(!string.IsNullOrEmpty(_systemMessage) && !_systemMessage.Contains(preInstruction))
                 _systemMessage = string.IsNullOrEmpty(preInstruction) ? _systemMessage : $"{preInstruction} {_systemMessage}";
 
             var promptInstruction = await getPromptInstruction(returnFullInstruction ? request.GuidanceMessage : null);
@@ -70,18 +70,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
 
             string jsonResult = string.Empty;
 
-            if (withStringEnums) 
-            {
-                var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+            var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 
-                options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+            options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseUpper));
                 
-                jsonResult = JsonSerializer.Serialize(commandPrompt, options);
-            }
-
-            else jsonResult = JsonSerializer.Serialize(commandPrompt);
-
-            return new JsonPromptResult(promptInstruction, commandPrompt, commandPrompt.GetType(), jsonResult, JsonSerializerOptions.Default.GetJsonSchemaAsNode(commandPrompt.GetType()));
+            jsonResult = JsonSerializer.Serialize(commandPrompt, options);
+            
+            return new JsonPromptResult(promptInstruction, commandPrompt, commandPrompt.GetType(), jsonResult, JsonSerializerOptions.Default.GetJsonSchemaAsNode(commandPrompt.GetType()), options);
         }
 
         // Validators with defaultInstruction & optional guidanceMessage

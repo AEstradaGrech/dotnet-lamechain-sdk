@@ -2,6 +2,7 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
 using DotnetLlamaSharp.Domain.Services.Inference;
+using System.Text.Json;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command
 {
@@ -17,7 +18,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command
         //                            if there is no core message, then it can be used along with the PreInstruction to complement the _systemMessage with new relevant data
         // > dbMessage | default: If it is a DB command that uses a DB instruction or a framework command with a hardcoded defaultInstruction, then that is the core message that might be guided or enhanced dynamically
         //                        Using all the above mentioned options (by setting the value or leaving it empty to compose different system message | messages with different changing sections
-        Task<JsonPromptResult> JsonPrompt(PromptCommandRequest request, CommandSettings? settingsOverride = null, bool returnFullInstruction = false, string? preInstruction = null, bool withStringEnums = true);
+        Task<JsonPromptResult> JsonPrompt(PromptCommandRequest request, CommandSettings? settingsOverride = null, bool returnFullInstruction = false, string? preInstruction = null);
         IOllamaInferenceService BorrowLlama { get; }
         CommandSettings? CommandSettings { get; }
     }

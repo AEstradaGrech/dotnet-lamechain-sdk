@@ -28,7 +28,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
                 outputs[key].ForEach(link =>
                 {
-                    var branch = ThrowTo(swapRunner: true, _commands.First(), _stepSettings.Clone(), _feedForwardInstruction);
+                    var branch = ThrowTo(swapRunner: true, _commands.First(), _stepSettings.Clone());
 
                     _branches.Add(branch);
                     //Maps the Id of the last step in the subchain to the origin of the pipe
@@ -42,7 +42,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                 return branch.Forge(prevsMap[branch.Id]);  
             }))));
 
-            handleNonSplittedStepData(previous.Id);
+            summarizeSplitterExecution(previous.Id);
 
             submitForgeLog();
 
