@@ -42,7 +42,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         // The previous is a SPST
         // It has at least one command to run (should assert it has at least two probably otherwise is a bad / stupid configuration)
         public override bool CanBeForged(IChaineable previous)
-            => IsRunning && previous != null && !previous.IsMultiSocket && _pluggedInstructions.Count > 0;
+            => IsRunning && previous != null && !previous.IsMultiSocket && (_pluggedInstructions.Count > 0 || _branches.Count > 0); // setup from instructions or from subChains
 
         public void Plug(IChaineable branch)
         {
@@ -167,7 +167,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             _feedForwardInstruction += $"\n{feedFwdSb.ToString().Trim()}";
 
             if (_runner.TryFindForged(previousId, out var log))
-                Request.GuidanceMessage += guidanceMessageFrom(log.CommandInstruction, log.JsonResult, log.JsonSchema, log.FeedForwardMessage);
+                Request.GuidanceMessage += guidanceMessageFrom(log.CommandInstruction.Replace(preInstructionTag, "").Trim(), log.JsonResult, log.JsonSchema, log.FeedForwardMessage);
         }
 
         protected override ReplayLog replayFromLog()

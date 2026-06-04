@@ -36,15 +36,18 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
         public virtual Task<T> PromptSync(PromptCommandRequest request) { throw new NotImplementedException("This method is meant to be overriden whenever required"); }
 
         protected virtual string getDefaultInstruction() => "";
-        protected virtual async Task<string> getPromptInstruction(string? additionalData = null, bool isAfterCore = true)
+        protected virtual async Task<string> getPromptInstruction(string? additionalData = null, bool isAppend = true)
         {
             var defaultMessage = getDefaultInstruction();
 
-            return string.IsNullOrEmpty(defaultMessage) ?
-                string.IsNullOrEmpty(additionalData) ? _systemMessage : isAfterCore ? $"{_systemMessage}\n\n{additionalData}" : $"{additionalData}\n\n{_systemMessage}" :
-                string.IsNullOrEmpty(_systemMessage) ? 
-                string.IsNullOrEmpty(additionalData) ? defaultMessage : isAfterCore ? $"{defaultMessage}\n\n{additionalData}" : $"{additionalData}\n\n{defaultMessage}" :
-                $"{_systemMessage}\n" + (string.IsNullOrEmpty(additionalData) ? defaultMessage : isAfterCore ? $"{defaultMessage}\n\n{additionalData}" : $"{additionalData}\n\n{defaultMessage}");
+            if(!string.IsNullOrEmpty(defaultMessage))
+            {
+                var coreMessage = string.IsNullOrEmpty(additionalData) ? defaultMessage : isAppend ? $"{defaultMessage}\n{additionalData}" : $"{additionalData}\n{defaultMessage}";
+
+                return string.IsNullOrEmpty(_systemMessage) ? coreMessage : $"{_systemMessage}\n{coreMessage}";
+            }
+
+            else return string.IsNullOrEmpty(additionalData) ? _systemMessage : isAppend ? $"{_systemMessage}\n{additionalData}" : $"{additionalData}\n{_systemMessage}";
         }
         
         protected void validateInputRequest<TReq>(PromptCommandRequest request) where TReq : PromptCommandRequest
@@ -58,15 +61,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
             if (settingsOverride != null)
                 _settings = settingsOverride;
 
-            var sysmsg = _systemMessage;
-
-            _systemMessage = string.IsNullOrEmpty(preInstruction) ? _systemMessage : $"{preInstruction} {_systemMessage}";
+            if(!string.IsNullOrEmpty(_systemMessage))
+                _systemMessage = string.IsNullOrEmpty(preInstruction) ? _systemMessage : $"{preInstruction} {_systemMessage}";
 
             var promptInstruction = await getPromptInstruction(returnFullInstruction ? request.GuidanceMessage : null);
 
             var commandPrompt = await Prompt(request);
-
-            _systemMessage = sysmsg;
 
             string jsonResult = string.Empty;
 
@@ -78,6 +78,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
                 
                 jsonResult = JsonSerializer.Serialize(commandPrompt, options);
             }
+
             else jsonResult = JsonSerializer.Serialize(commandPrompt);
 
             return new JsonPromptResult(promptInstruction, commandPrompt, commandPrompt.GetType(), jsonResult, JsonSerializerOptions.Default.GetJsonSchemaAsNode(commandPrompt.GetType()));

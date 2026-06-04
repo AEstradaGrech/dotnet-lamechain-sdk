@@ -270,7 +270,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                   .AppendLine(!_stepSettings.WithFullContext ? 
                     previous.Outputs.First().SerializedResult :
                     guidanceMessageFrom(
-                        previous.Outputs.First().Instruction,
+                        previous.Outputs.First().Instruction.Replace(preInstructionTag, "").Trim(),
                         previous.Outputs.First().SerializedResult,
                         _stepSettings.WithPrevSchema ? previous.Outputs.First().SchemaForMessage() : null, // deberia ser opcional
                         previous.Outputs.First().GuidanceMessage)
@@ -405,7 +405,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                   .AppendLine(!withFullContext ?
                     forged.JsonResult :
                     guidanceMessageFrom(
-                        forged.CommandInstruction,
+                        forged.CommandInstruction.Replace(preInstructionTag, "").Trim(),
                         forged.JsonResult,
                         withPrevSchema ? forged.JsonSchema : null,
                         forged.FeedForwardMessage)
@@ -429,9 +429,7 @@ description (wrapped in parenthesis) to understand what does it represent and ho
 > USER INPUT (this is the actual user request. Use it to understand what the user is trying to do in general terms): {_runner.UserPrompt}";
 
         protected string guidanceMessageFrom(string instruction, string serialized, string jsonSchema, string? feededInstruction = null)
-         => @$"> PREVIOUS INSTRUCTION (use this to have a clear idea of what was exactly the previous worker task and understand its output):
-
- {instruction.Replace(preInstructionTag, "").Trim()}
+         => @$"{(string.IsNullOrEmpty(instruction.Trim()) ? string.Empty : $"> PREVIOUS INSTRUCTION (use this to have a clear idea of what was exactly the previous worker task and understand its output):\n{instruction.Trim()}")}
 
 > PREVIOUS OUTPUT (this is the raw json output of the previous instruction):
 

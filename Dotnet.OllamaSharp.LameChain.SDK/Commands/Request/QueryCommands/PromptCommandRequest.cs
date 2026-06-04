@@ -7,15 +7,18 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
     public class PromptCommandRequest
     {
         public PromptCommandRequest() { }
-        public PromptCommandRequest(string message, string? model = null) 
+
+        // By default it is expected a command with _systemMessage + req.Guidance + core message (db || hardcoded)
+        // In case there is no DB || Hardcoded message, change 'isGuidanceAppend' to true so the context is added to the _system instruction
+        public PromptCommandRequest(string message, bool isGuidanceAppend = false, string? model = null) 
         {
+            IsGuidanceAppend = isGuidanceAppend;
             Prompt = message;
             Model = model;
         }
 
-        public PromptCommandRequest(string message, string? guidanceMessage, bool isGuidanceAppend = false, string? model = null) : this(message, model) 
+        public PromptCommandRequest(string message, string? guidanceMessage, bool isGuidanceAppend = false, string? model = null) : this(message, isGuidanceAppend, model) 
         {
-            IsGuidanceAppend = isGuidanceAppend;
             GuidanceMessage = guidanceMessage; 
         }
         public string Prompt { get; set; } = string.Empty;

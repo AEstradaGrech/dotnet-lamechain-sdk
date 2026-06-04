@@ -73,18 +73,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
 
                 return string.IsNullOrEmpty(_systemMessage) ? systemMessage : $"{_systemMessage}\n{systemMessage}";
             }
-            catch (Exception ex)
+            catch (Exception ex) // 04-06-26 --> commands can work with no system message because now there are commands with no LLM logic like Sourceables & Storeables
             {
                 // default hardcoded message (if any) + any guidance message from constructor
                 var defaultMessage = $"{(string.IsNullOrEmpty(_systemMessage) ? "" : $"{_systemMessage}\n")}{getDefaultInstruction()}";
 
-                if (string.IsNullOrEmpty(defaultMessage))
-                    throw ex;
-
                 if (!string.IsNullOrEmpty(additionalData))
                     defaultMessage = $"{defaultMessage}\n{additionalData}";
 
-                return defaultMessage;
+                return defaultMessage.Trim();
             }
             
         }

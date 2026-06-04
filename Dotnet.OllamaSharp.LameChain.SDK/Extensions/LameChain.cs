@@ -1,4 +1,5 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step;
@@ -81,6 +82,24 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
         public static SplitterStep Tap(this SingleThrowStep step, List<StepInstruction> instructions, StepSettings? plugSettings = null)
         {
             var split = step.Plug(instructions, plugSettings);
+
+            step.Link(split, isForward: true, isTwoWay: true);
+
+            return split;
+        }
+
+        /// <summary>
+        /// Allows to parallelize multiple subchains (#WIP)
+        /// </summary>
+        /// <param name="step"></param>
+        /// <param name="subchains"></param>
+        /// <param name="plugSettings"></param>
+        /// <returns></returns>
+        public static SplitterStep Tap(this SingleThrowStep step, List<SingleThrowStep> subchains, StepSettings? plugSettings = null)
+        {
+            var split = step.Plug([], plugSettings);
+
+            subchains.ForEach(chain => split.Plug(chain));
 
             step.Link(split, isForward: true, isTwoWay: true);
 
@@ -196,11 +215,19 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
         }
 
 
-        public static SmartConditionalStep ThenIf(this SingleThrowStep step, StepInstruction evaluator, StepInstruction thenInstruction)
+        /// <summary>
+        /// Executes ONE SingleThrowStep if a SmartCondition (LLM evaluation) is met
+        /// </summary>
+        /// <typeparam name="TStep"></typeparam>
+        /// <param name="step"></param>
+        /// <param name="evaluator"></param>
+        /// <param name="trueInstruction"></param>
+        /// <returns></returns>
+        public static SmartConditionalStep ThenIf<TStep>(this SingleThrowStep step, StepInstruction evaluator, StepInstruction trueInstruction) where TStep : SingleThrowStep
         {
             var conditional = step.ToSmartConditional(evaluator);
            
-            var trueBranch = step.ExpandTo(thenInstruction.Command, thenInstruction.StepSettings, thenInstruction.FeedFwdInstruction);
+            var trueBranch = step.ExpandTo<TStep>(trueInstruction);
 
             conditional.IfTrueThen(trueBranch);
 
@@ -209,6 +236,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return conditional;
         }
 
+        /// <summary>
+        /// Executes a Subchain if an LLM evaluation condition is met
+        /// </summary>
+        /// <param name="step"></param>
+        /// <param name="evaluator"></param>
+        /// <param name="trueBranch"></param>
+        /// <returns></returns>
         public static SmartConditionalStep ThenIf(this SingleThrowStep step, StepInstruction evaluator, SingleThrowStep trueBranch)
         {
             var conditional = step.ToSmartConditional(evaluator);
@@ -220,11 +254,21 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return conditional;
         }
 
-        public static ConditionalStep ThenIf(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StepInstruction thenInstruction, string? conditionFeedFwd = null)
+        /// <summary>
+        /// Allows to execute ONE single throw step of any type if the Func condition is met
+        /// </summary>
+        /// <typeparam name="TStep"></typeparam>
+        /// <param name="step"></param>
+        /// <param name="condition"></param>
+        /// <param name="conditionSettings"></param>
+        /// <param name="trueInstruction"></param>
+        /// <param name="conditionFeedFwd"></param>
+        /// <returns></returns>
+        public static ConditionalStep ThenIf<TStep>(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StepInstruction trueInstruction, string? conditionFeedFwd = null) where TStep : SingleThrowStep
         {
             var conditional = step.ToConditional(condition, conditionSettings, conditionFeedFwd);
-            
-            var trueBranch = step.ExpandTo(thenInstruction.Command, thenInstruction.StepSettings, thenInstruction.FeedFwdInstruction);
+
+            ChainStep trueBranch = step.ExpandTo<TStep>(trueInstruction); 
 
             conditional.IfTrueThen(trueBranch);
 
@@ -233,6 +277,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return conditional;
         }
 
+        /// <summary>
+        /// Allows to execute a Subchain if the Func condition is met
+        /// </summary>
+        /// <param name="step"></param>
+        /// <param name="condition"></param>
+        /// <param name="conditionSettings"></param>
+        /// <param name="trueBranch"></param>
+        /// <param name="conditionFeedFwd"></param>
+        /// <returns></returns>
         public static ConditionalStep ThenIf(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, SingleThrowStep trueBranch, string? conditionFeedFwd = null)
         {
             var conditional = step.ToConditional(condition, conditionSettings, conditionFeedFwd);
@@ -245,6 +298,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return conditional;
         }
 
+        /// <summary>
+        /// Executes a Stored Step with Storeable Command to persist an object of type TStored (which should be the type of the PREVIOUS OUTPUT to store
+        /// </summary>
+        /// <typeparam name="TStored"></typeparam>
+        /// <param name="step"></param>
+        /// <param name="storeInstruction"></param>
+        /// <returns></returns>
         public static SingleThrowStep Store<TStored>(this SingleThrowStep step, StepInstruction storeInstruction) where TStored : class
         {
             var store = step.AsStore<TStored>(storeInstruction);
@@ -254,6 +314,40 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return store;
         }
 
+        /// <summary>
+        /// Executes ONE Stored Step with Storeable Command to persist an object of type TStored (which should be the type of the PREVIOUS OUTPUT to store
+        /// if the Func condition is met
+        /// </summary>
+        /// <typeparam name="TPrev"></typeparam>
+        /// <param name="step"></param>
+        /// <param name="condition"></param>
+        /// <param name="conditionSettings"></param>
+        /// <param name="trueInstruction"></param>
+        /// <param name="conditionFeedFwd"></param>
+        /// <returns></returns>
+        public static ConditionalStep StoreIf<TPrev>(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StepInstruction trueInstruction, string? conditionFeedFwd = null) where TPrev : class
+        {
+            var conditional = step.ToConditional(condition, conditionSettings, conditionFeedFwd);
+
+            var trueBranch = step.AsStore<TPrev>(trueInstruction);
+
+            conditional.IfTrueThen(trueBranch);
+
+            step.Link(conditional, isForward: true, isTwoWay: true);
+
+            return conditional;
+        }
+
+        /// <summary>
+        /// Executes a Subchain that must start with a StoredStep of type TPrev (then can be chained with any type of step. This ensures that the 'current' chain result is stored before triggering the subchain)
+        /// </summary>
+        /// <typeparam name="TPrev"></typeparam>
+        /// <param name="step"></param>
+        /// <param name="condition"></param>
+        /// <param name="conditionSettings"></param>
+        /// <param name="trueBranch"></param>
+        /// <param name="conditionFeedFwd"></param>
+        /// <returns></returns>
         public static ConditionalStep StoreIf<TPrev>(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StoredStep<TPrev> trueBranch, string? conditionFeedFwd = null) where TPrev : class
         {
             var conditional = step.ToConditional(condition, conditionSettings, conditionFeedFwd);
@@ -266,6 +360,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return conditional;
         }
 
+        /// <summary>
+        /// Executes ONE StashedStep and a SourceableCommand to create a data source that can be reused during the chain execution if a LLM evaluation is met
+        /// </summary>
+        /// <param name="step"></param>
+        /// <param name="evaluator"></param>
+        /// <param name="stashInstruction"></param>
+        /// <param name="isGreedy"></param>
+        /// <param name="isIsolated"></param>
+        /// <returns></returns>
         public static SmartConditionalStep StashIf(this SingleThrowStep step, StepInstruction evaluator, StepInstruction stashInstruction, bool isGreedy = false, bool isIsolated = true)
         {
             var conditional = step.ToSmartConditional(evaluator);
@@ -279,6 +382,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return conditional;
         }
 
+        /// <summary>
+        /// Executes a Subchain that must begin with a StashedStep and a SourceableCommand to create a data source that can be reused during the chain execution if a LLM evaluation is met
+        /// </summary>
+        /// <param name="step"></param>
+        /// <param name="evaluator"></param>
+        /// <param name="trueBranch"></param>
+        /// <returns></returns>
         public static SmartConditionalStep StashIf(this SingleThrowStep step, StepInstruction evaluator, StashedStep trueBranch)
         {
             var conditional = step.ToSmartConditional(evaluator);
@@ -290,6 +400,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return conditional;
         }
 
+        /// <summary>
+        /// Executes a StashedStep and a SourceableCommand to create a data source that can be reused during chain execution, allowing to configure the stash settings and outputting the ID to configure it as a feed)
+        /// </summary>
+        /// <param name="step"></param>
+        /// <param name="stashInstruction"></param>
+        /// <param name="stashId"></param>
+        /// <param name="isGreedy"></param>
+        /// <param name="isIsolated"></param>
+        /// <returns></returns>
         public static StashedStep Stash(this SingleThrowStep step, StepInstruction stashInstruction, out Func<Guid> stashId, bool isGreedy = false, bool isIsolated = true)
         {
             var stash = step.ToStash(stashInstruction, isGreedy, isIsolated);
@@ -297,17 +416,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             step.Link(stash, isForward: true, isTwoWay: true);
 
             stashId = stash.GetRunnerId;
-
-            return stash;
-        }
-
-        public static StashedStep Stash(this SplitterStep step, StepInstruction stashInstruction, out Guid stashId)
-        {
-            var stash = step.ToStash(stashInstruction);
-
-            step.Link(stash, isForward: true, isTwoWay: true);
-
-            stashId = stash.Id;
 
             return stash;
         }
@@ -331,6 +439,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             
             return step;
         }
+       
         public static async Task<ChainResult> ThenExecuteAsync(this SingleThrowStep step, bool withFinalMessage = false, bool withReplay = false, CommandSettings finalMsgSettings = null)
             => await step.ExecuteChainAsync(withFinalMessage, withReplay, finalMsgSettings);
 

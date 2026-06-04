@@ -26,6 +26,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
                 ((StoreableCommandRequest<TPrev>)Request).Stored = stored;
 
                 await base.runStep(previous);
+
+                // Keep the chain context consistency by passing the instruction that generated the stored item
+                if (_outputs.Count() > 0)
+                    _outputs.First().Instruction = previous.PromptedInstruction;
             }
             catch(Exception ex)
             {
