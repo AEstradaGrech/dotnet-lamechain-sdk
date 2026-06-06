@@ -134,6 +134,15 @@ despite the source / gathering process.
 
 (Note: the main purpose of these kind of commands is to create StashedSteps with reusable sources of data)
 
+### Storeable Commands
+
+If the purpose of a Sourceable Command is to retrieve data from a source and make it available to the chain, the purpose of Storeable Commands is just the opposite:
+store the output of a step in a external source. 
+
+This are generic commands that store a lambda function with this signature: Task<TStored> mthdName(TStored item, string collection) (right now the sdk is designed for documental dbs like mongo or Estrada.ChromaDb.Repos)
+
+A Storeable Command must always return the result of the insert, which should be the stored object with its database id, so it can be passed as context to the next step.
+
 #### Core Commands
 
 The framework includes ready-to-use core commands for common use cases, including simple chat, RAG-style prompts, and structured output generation.
@@ -264,10 +273,25 @@ A stash is not greedy by default (so the next one will read the stash as it woul
 it is isolated from the previous (so recieves no output 
 from the previous in its prompt), but you can configure this params according to your needs.
 
-#### Conditional Step
+#### Store
+
+A Store is a type of step that is used to persist chain data. It can be the output of the chain or any 
+intermediate step whose output you want to store immediately in case the chain fails to complete.
+
+This type of steps will always deserialize the output of the previous step and will try to store it using the 
+storing lambda passed on costruction and then forward the insert result to the next step.
+
+#### Conditional
+
+A conditional step inserts the configured step or subchain if a boolean Expression evaluates to true. This steps are useful to add simple branching logic
+to your chain without using the LLM. They recieve an Expression<Func<bool>> as input param and execute the compiled expression during chain execution
+to swap the alternate branch into the mainchain if the condition evaluates to true, else it continues the original main branch.
+
+#### Smart Conditional
 
 A conditional step executes a ScoredBoolEvaluation command to swap or not the configured 'TrueBranch' into the main chain or continueing
-with the main chain if evaluates to false, passing along the justification comment to keep the chain context consistency
+with the main chain if evaluates to false, passing along the justification comment to keep the chain context consistency. It is the 
+'smart' equivalent to the ConditionalStep but using the LLM to perform the evaluation.
 
 #### `MultiThrowStep`
 
@@ -297,53 +321,55 @@ All steps also support feed configuration, allowing them to:
 
 Steps are mutable and can clone or expand themselves via fluent methods.
 
-Example mutation methods:
+Current step mutation methods:
 
 ```csharp
-// Expand is for SingleThrowSteps
-public SingleThrowStep ExpandTo(IJsoneable command, StepSettings? stepSettings, string? feedForwardInstruction = null)
-    => Activator.CreateInstance(typeof(SingleThrowStep), command, stepSettings, feedForwardInstruction) as SingleThrowStep;
 
-public SingleThrowStep ExpandTo<TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings? settings, string? feedForwardInstruction = null)
-    where TCommand : BasePromptCommand<TResult>, new()
-    => ExpandTo(Activator.CreateInstance(typeof(TCommand), Commands.First().BorrowLlama, instruction, commandSettings) as IJsoneable, settings, feedForwardInstruction);
+    public SingleThrowStep ExpandTo(IJsoneable command, StepSettings? stepSettings, string? feedForwardInstruction = null)
+        => Activator.CreateInstance(typeof(SingleThrowStep), command, stepSettings, feedForwardInstruction) as SingleThrowStep;
 
-public TStep ExpandTo<TStep>(IJsoneable command, StepSettings? request, string? feedForwardInstruction = null)
-    where TStep : ChainStep
-    => Activator.CreateInstance(typeof(TStep), command, request, feedForwardInstruction) as TStep;
+    public SingleThrowStep ExpandTo<TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings? settings, string? feedForwardInstruction = null) where TCommand : BasePromptCommand<TResult>, new()
+        => ExpandTo(Activator.CreateInstance(typeof(TCommand), Commands.First().BorrowLlama, instruction, commandSettings) as IJsoneable, settings, feedForwardInstruction);
 
-public TStep ExpandTo<TStep, TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings settings, string? feedForwardInstruction = null)
-    where TCommand : BasePromptCommand<TResult>, new()
-    where TStep : ChainStep
-    => ExpandTo<TStep>(Activator.CreateInstance(typeof(TCommand), Commands.First().BorrowLlama, instruction, commandSettings) as IJsoneable, settings, feedForwardInstruction);
+    public TStep ExpandTo<TStep>(IJsoneable command, StepSettings? request, string? feedForwardInstruction = null) where TStep : ChainStep
+        => Activator.CreateInstance(typeof(TStep), command, request, feedForwardInstruction) as TStep;
+    
+    public TStep ExpandTo<TStep>(StepInstruction instruction) where TStep : ChainStep
+        => Activator.CreateInstance(typeof(TStep), instruction) as TStep;
 
-// for Tap() chained steps
-public SplitterStep Plug(List<StepInstruction> instructions, StepSettings? request, string? splitterFeedFwd = null)
-  => Activator.CreateInstance(typeof(SplitterStep), instructions, request, splitterFeedFwd) as SplitterStep;
+    public TStep ExpandTo<TStep, TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings settings, string? feedForwardInstruction = null)
+        where TCommand : BasePromptCommand<TResult>, new()
+        where TStep : ChainStep
+            => ExpandTo<TStep>(Activator.CreateInstance(typeof(TCommand), Commands.First().BorrowLlama, instruction, commandSettings) as IJsoneable, settings, feedForwardInstruction);
 
-// for SplitThrough() chained steps
-public SplitterStep SplitTo(StepInstruction splitted, List<StepInstruction> instructions)
-  => Activator.CreateInstance(typeof(SplitterStep), splitted, instructions) as SplitterStep;
+    public SplitterStep Plug(List<StepInstruction> instructions, StepSettings? request, string? splitterFeedFwd = null)
+        => Activator.CreateInstance(typeof(SplitterStep), instructions, request, splitterFeedFwd) as SplitterStep;
+    
+    public SplitterStep SplitTo(StepInstruction splitted, List<StepInstruction> instructions)
+        => Activator.CreateInstance(typeof(SplitterStep),  splitted, instructions) as SplitterStep;
 
-// For piped steps
-public TStep ExpandTo<TStep>(StepInstruction instruction) where TStep : ChainStep
-    => Activator.CreateInstance(typeof(TStep), instruction) as TStep;
+    public StashedStep ToStash(StepInstruction instruction, bool isGreedy = false, bool isIsolated = true)
+    {
+        if (!instruction.Command.GetType().IsAssignableTo(typeof(SourceableCommand)))
+            throw new InvalidOperationException($"{nameof(ChainStep)} >> {nameof(ToStash)} >> INVALID STEP CONFIGURATION >> The configured command type ({instruction.Command.GetType().Name}) is not a {typeof(SourceableCommand)} or any subclass of it");
 
-public StashedStep ToStash(StepInstruction instruction, bool isGreedy = false, bool isIsolated = true)
-{
-    if (!instruction.Command.GetType().IsAssignableTo(typeof(SourceableCommand)))
-        throw new InvalidOperationException($"{nameof(ChainStep)} >> {nameof(ToStash)} >> INVALID STEP CONFIGURATION >> The configured command type ({instruction.Command.GetType().Name}) is not a {typeof(SourceableCommand)} or any subclass of it");
+        return Activator.CreateInstance(typeof(StashedStep), instruction.Command, instruction.StepSettings, isGreedy, isIsolated, instruction.FeedFwdInstruction) as StashedStep;
+    }
 
-    return Activator.CreateInstance(typeof(StashedStep), instruction.Command, instruction.StepSettings, isGreedy, isIsolated, instruction.FeedFwdInstruction) as StashedStep;
-}
+    public ConditionalStep ToConditional(Expression<Func<bool>> condition, StepSettings stepSettings, string? feedFwd = null)
+        => Activator.CreateInstance(typeof(ConditionalStep), condition, stepSettings, feedFwd) as ConditionalStep;
 
-public ConditionalStep AsConditional(StepInstruction instruction)
-{
-    if (instruction.Command.GetType() != typeof(ScoredBoolCommand) && !instruction.Command.GetType().IsSubclassOf(typeof(ScoredBoolCommand)))
-        throw new InvalidDataException($"{nameof(ConditionalStep)} >> {instruction.Command.GetType().Name} >> A ConditionalStep command must be a ScoredBoolCommand or a subclass of it");
+    public StoredStep<TStored> AsStore<TStored>(StepInstruction instruction) where TStored : class
+        => Activator.CreateInstance(typeof(StoredStep<TStored>), instruction) as StoredStep<TStored>;
 
-    return Activator.CreateInstance(typeof(ConditionalStep), instruction.Command, instruction.StepSettings, instruction.FeedFwdInstruction) as ConditionalStep;
-}
+    public SmartConditionalStep ToSmartConditional(StepInstruction instruction)
+    {
+        if (instruction.Command.GetType() != typeof(ScoredBoolCommand) && !instruction.Command.GetType().IsSubclassOf(typeof(ScoredBoolCommand)))
+            throw new InvalidDataException($"{nameof(SmartConditionalStep)} >> {instruction.Command.GetType().Name} >> A SmartConditionalStep command must be a ScoredBoolCommand or a subclass of it");
+
+        return Activator.CreateInstance(typeof(SmartConditionalStep), instruction.Command, instruction.StepSettings, instruction.FeedFwdInstruction) as SmartConditionalStep;
+    }
+
 ```
 
 ## Fluent Extensions
@@ -375,7 +401,11 @@ It exposes only the methods that make sense for the current step type.
 - `.Pipe(...)` runs a command over multiple outputs
 - `.Join(...)` merges branch results into one output
 - `.Stash(...)` adds a stashed step to use it as feed source in the chain
-- `.StashIf(...)` adds a stash step that can be subchained IF a ScoredBoolCommand condition is passed, else continues the chain
+- `.Store(...)` adds a stored step to persist the previous output outside the chain
+- `.ThenIf(...)` adds a conditional or smart conditional step that executes a branch if a boolean condition is met
+- `.StashIf(...)` adds a stash step that can be subchained IF a boolean condition is passed, else continues the chain
+- `.StoreIf(...)` adds a stored step that will be executed IF a boolean condition is passed
+- `.ForwardFirstType<TStep>(...)` sets / returns the first step of a subchain. Use this to 'close' a subchain that starts with one TStep and ends with another type
 - `.ExposeThisId(...)` captures step IDs for later feeding
 - `.ExposeThisStep(...)` captures step for later feeding.
 - `.WithRebujito(...)` boosts context with extra sources
@@ -408,6 +438,7 @@ public async Task<ChainResult> ParallelChainExample(ChainedPrompt request)
             defaultSettings: request.Settings, // default settings for all the chain. If you don't pass individual settings to a command, this will be used instead
             finalSysMessage: "Ensure you output your answer in old castillian spanish style, but be consistent with the provided context data.", //This is just to demonstrate how to use the Final Message. Let's say you are doing some tests about how should the character speak in the game
             chainIntent: "Create game character") // This will be passed to all steps so every LLM request has a clear idea of what is the final task / overall goal
+        .UseBroadcaster(GetBroadcastAction())
         .ExposeThisId(out var startId)
         .Then(
             _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
@@ -433,18 +464,23 @@ public async Task<ChainResult> ParallelChainExample(ChainedPrompt request)
                     new StepSettings(new StringChoiceRequest(
                         choices: ["Germaners", "Comuneros", "Tercio Imperial" ],
                         message: "Select a game faction for the character", // Enforce the instruction if you get hallucinations with dumb models or maybe the context adds too much noise and misleads the LLM
+                        isGuidanceAppend: true, // I'm using the command default instruction so I set this param to true to append the chain context 
                         model: null))
                         .FeedFrom(startId), // This is just to demonstrate an individual feed in a splitted step from a previous process different than the previous
-                    feedFwd: "Use this game related data to ground your profile to the game lore"), // Help the next worker focus on its task when you start to add too much content to the LLM's context window (for example joining three outputs, like in the next step)
+                    feedFwd: "# IMPORTANT: the provided faction name MUST be the character faction"), // Help the next worker focus on its task when you start to add too much content to the LLM's context window (for example joining three outputs, like in the next step)
                 new StepInstruction(
                     _factory.GetEnumChoiceCommand<EGameLocations>( // You can use other type of AtomicValue command for quick selections based on your app code. values  Here I'm using an AtomicValue command that selects an app enum value based on the instruction.
                         guidanceMessage: "Select a game location from the available list for the game character you are creating. Use the provided data to select the location that fits best with the profile."),
-                    new StepSettings(new PromptCommandRequest(message: "Select a game location for the character as stated in your instruction")),
-                    feedFwd: "Use the selected location as the character's place of birth"), // Every parallel branch can add its own Feed Forward message to help the next step to understand / use the output of its instruction
+                    new StepSettings(
+                        new PromptCommandRequest(
+                            message: "Select a game location for the character as stated in your instruction", 
+                            isGuidanceAppend: true)
+                        ),
+                    feedFwd: "# IMPORTANT: THIS IS THE CHARACTER PLACE OF ORIGIN. Use the selected location as the character's place of birth"), // Every parallel branch can add its own Feed Forward message to help the next step to understand / use the output of its instruction
                 new StepInstruction(
                     _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
-                        instruction:"Generate a background story or profile for the character you are creating. Use the provided data to figure out what kind of character my ne appropriate in terms of style, mood, vibe..."),
-                    settings: new StepSettings(new PromptCommandRequest(message: ""))
+                        instruction:"Generate a background story or profile for the character you are creating. Use the provided data to figure out what kind of character might appropriate in terms of style, mood, vibe..."),
+                    settings: new StepSettings(new PromptCommandRequest(message: "", isGuidanceAppend : true))
                         .WithDataBoost( // Steps can be boosted by feeding the output of previous steps but also by adding external string sources.
                         // In this case I'm adding semi-random data to the bias the generated character base profile towards specific styles.
                         // But ideally you would add here well processed sources (in this example it could be real human-made character concepts made by the game studio artists
@@ -460,8 +496,8 @@ public async Task<ChainResult> ParallelChainExample(ChainedPrompt request)
             _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
                 instruction: "Review the content so far and combine it with the provided sources in a very short story plot (around 50 words)",
                 settings: request.Settings),
-            pipedSettings: new StepSettings(new PromptCommandRequest(message: "")),
-            pipeFeedFwd: "Review all the sources and get a consistent overview of the expected character profile.")
+            pipedSettings: new StepSettings(new PromptCommandRequest(message: "", isGuidanceAppend: true)),
+            pipeFeedFwd: "Review all the sources and get a consistent overview of the expected character profile. #IMPORTANT: use the character 'Faction' and game place of origin to generate your profile")
         // You can add rebujitos of data to influence the outputs of each branch of the pipe if you need.
         // In this case I'm simulating more style biasing without filtering it, but ideally you would add business content that you would like to apply on each branch.
         // In this example, it could be more content produced by the game studio staff (like scene scripts or even quest scripts, the idea
@@ -473,8 +509,11 @@ public async Task<ChainResult> ParallelChainExample(ChainedPrompt request)
         .Join(
             new StepInstruction(
                 _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
-                    instruction: "Generate a full character profile (400-500 words) with the provided data. Include a background story, a psychological profile and a 'usual routines' section"),
-                settings: new StepSettings(new PromptCommandRequest(message: "Generate the requested character profile")) // Enforce the instruction (specially if you are using small local models and the context window is relatively filled)
+                    instruction: "Generate a full character profile (400-500 words) with the provided data. Review the character Faction and place of origin, you MUST include those in your profile. Include a background story, a psychological profile and a 'usual routines' section"),
+                settings: new StepSettings(
+                    new PromptCommandRequest(
+                        message: "Generate the requested character profile",
+                        isGuidanceAppend: true)) // Enforce the instruction (specially if you are using small local models and the context window is relatively filled)
                     .FeedFrom(thenId) // Feed the name and age to ensure it uses the one generated at this step (dumb models may have alucinated with the background story and the rebujito feeds)
             )
         )
@@ -496,63 +535,134 @@ This example demonstrates how can you use LameChain to build a 'smart' rag that 
 
 ```csharp
 
-      public async Task<ChainResult> SmartRagChain(SimpleCommandRequest request)
-            => await LameChain
-                .StartWith(new StepInstruction(
-                    _factory.GetCommand<UserIntentCommand, ChatMessage>(systemMessage: "", request.Settings),
-                    new StepSettings(new PromptCommandRequest(request.Prompt)),
-                    feedFwd: "Use the generated User Intent to guide you in your task"),
-                    request.Settings, //Default Settings for all the chains
-                    finalSysMessage: "", // There is no need to fill this since there is no user final message required
-                    chainIntent: "")
-                .StashIf(new StepInstruction(
-                    _factory.GetCommand<ScoredBoolCommand, ScoredBoolResponse>(
-                        systemMessage: $"Your task is to determine whether the provided User Intent is related to any of the Collections of the list below"),
-                    new StepSettings(new PromptCommandRequest(""))
-                        .WithDataBoost("AVAILABLE COLLECTIONS:", await getChromaCollectionChoices(withChatCollections: false)),
-                    feedFwd: "Use this data as a reliable source to answer the user"),
-                    trueBranch: LameChain.SubChainWith<StashedStep>(
-                        new StepInstruction(
-                            _factory.GetSourceable<RagExpansionCommand>(),
-                            new StepSettings(new RagExpansionRequest(expansions: 1, request.Prompt))
-                        ),
-                        false,
-                        true
-                     )
-                    .ExposeThisStep(out var ragExpansion)
-                    .Stash(new StepInstruction(
-                        _factory.GetSourceable<QueryAugmentationCommand>(),
-                        new StepSettings(new RagExpansionRequest(expansions: 3, request.Prompt, withFewShot: true, 2))),
-                        out var queryAugmentId,
-                        isGreedy: true,
-                        isIsolated: true)
-                    .Stash(new StepInstruction(
-                        _factory.GetEmbeddedSourceable<SmartQuerySourceable>(
-                            _chromaService.SimilaritySearch, 
-                            llamaGuidance: "Select ONLY the 'COLLECTION NAME' value of the provided list OR empty list if there are no collections relevant for the user query."
-                        ), // appended to Core Message (default | db)
-                        new StepSettings(
-                            new SmartQueryRequest(
-                                request.Prompt,
-                                collectionChoices: await getChromaCollectionChoices(withChatCollections: false),
-                                maxChoices: 1,
-                                resultsPerChoice: 3,
-                                guidanceMessage: string.Empty, // this is overwritten by prev_ctx so leave it empty
-                                dimensions: 512,
-                                model: "nomic-embed-text",
-                                filters: null),
-                            withFullContext: false,
-                            withPrevSchema: false
-                            ).WithNestedFeed(nameof(MultiChoiceCommand), [ragExpansion.WhoIsPrevious], isForStep: false) //This is the only way of feeding a subranch nested COMMAND (not a step substep) from the owning step
-                        ), //Chroma metadata filters 
-                        out var smartQueryId)
-                    .ChainFeedsFrom([ragExpansion.GetRunnerId, queryAugmentId])
-                    .ForwardFirstType<StashedStep>()
-                 )
-                .Then(_factory.GetCommand<RagQueryCommand, ChatMessage>(systemMessage: request.SystemMessage),
-                      new StepSettings(new PromptCommandRequest(request.Prompt)))
-                .ChainFeedsFrom([smartQueryId])
-                .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
+    public async Task<ChainResult> SmartRagChain(SimpleCommandRequest request)
+        => await LameChain
+            .StartWith(new StepInstruction(
+                _factory.GetCommand<UserIntentCommand, ChatMessage>(systemMessage: "", request.Settings),
+                new StepSettings(new PromptCommandRequest(request.Prompt)),
+                feedFwd: "Use the generated User Intent to guide you in your task"),
+                request.Settings, //Default Settings for all the chains
+                finalSysMessage: "", // There is no need to fill this since there is no user final message required
+                chainIntent: "")
+            .UseBroadcaster(GetBroadcastAction())
+            .StashIf(new StepInstruction(
+                _factory.GetCommand<ScoredBoolCommand, ScoredBoolResponse>(
+                    systemMessage: $"Your task is to determine whether the provided User Intent is related to any of the Collections of the list below"),
+                new StepSettings(new PromptCommandRequest(""))
+                    .WithDataBoost("AVAILABLE COLLECTIONS:", await getChromaCollectionChoices(withChatCollections: false)),
+                feedFwd: "Use this data as a reliable source to answer the user"),
+                trueBranch: LameChain.SubChainWith<StashedStep>(
+                    new StepInstruction(
+                        _factory.GetSourceable<RagExpansionCommand>(),
+                        new StepSettings(new RagExpansionRequest(expansions: 1, request.Prompt))
+                    ),
+                    false, //TODO: StashSettings : StepSettings & StepWithCustomParamsSettings : StepSettings y quitar esta guarrada
+                    true
+                    )
+                .ExposeThisStep(out var ragExpansion)
+                .Stash(new StepInstruction(
+                    _factory.GetSourceable<QueryAugmentationCommand>(),
+                    new StepSettings(new RagExpansionRequest(expansions: 3, request.Prompt, withFewShot: true, 2))),
+                    out var queryAugmentId,
+                    isGreedy: true,
+                    isIsolated: true)
+                .Stash(new StepInstruction(
+                    _factory.GetEmbeddedSourceable<SmartQuerySourceable>(
+                        _chromaService.SimilaritySearch,
+                        llamaGuidance: "Select ONLY the 'COLLECTION NAME' value of the provided list OR empty list if there are no collections relevant for the user query."
+                    ), // appended to Core Message (default | db)
+                    new StepSettings(
+                        new SmartQueryRequest(
+                            request.Prompt,
+                            collectionChoices: await getChromaCollectionChoices(withChatCollections: false), // add a formated catalogue of DB collections with descriptions and topics to help the LLM decide
+                            maxChoices: 1,
+                            resultsPerChoice: 3,
+                            guidanceMessage: string.Empty, // this is overwritten by prev_ctx so leave it empty
+                            dimensions: 512,
+                            model: "nomic-embed-text",
+                            filters: null),
+                        withFullContext: false,
+                        withPrevSchema: false
+                        )// A nested feed is a feed that should go to a sub step or a sub command inside a step
+                            // In this case Im passing the result of the ScoredBool (with the justification comment) to the MultiChoice command that selects the best available collections.
+                            // This will help the LLM decide and will retur more accurate results when there are overlapping collection topics
+                        .WithNestedFeed(nameof(MultiChoiceCommand), [ragExpansion.WhoIsPrevious], isForStep: false) //This is the only way of feeding a subranch nested COMMAND (not a step substep) from the owning step
+                    ), 
+                    out var smartQueryId)
+                // Feed the VectorSearch command (which is the 'main' command of the SmartQueryCommand)
+                // with the expansion stashes
+                .ChainFeedsFrom([ragExpansion.GetRunnerId, queryAugmentId])
+                // At this point you are working with the last subchain step
+                // so you have to finish the subchain by passing the first step to be linked properly with the ConditionalStep
+                // use this method to do that and cast it to the right type (this feature is still under development)
+                .ForwardFirstType<StashedStep>() 
+                )
+            .Then(_factory.GetCommand<RagQueryCommand, ChatMessage>(systemMessage: request.SystemMessage),
+                    new StepSettings(new ChatCommandRequest(request.Prompt, request.SystemMessage)))
+            .ChainFeedsFrom([smartQueryId]) // retrieve the output of the SmartQueryCommand that made the query with the expansions
+            .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
+
+```
+
+Here are more simple (and conceptual) examples of usage for conditional steps and stores:
+
+```csharp
+
+public async Task<ChainResult> ConditionalChainExamples(CommandChatRequest request)
+{           
+    // Use Store<TPrevious> to retrieve and store the result of a step using a lambda with your required logic
+    // Here I'm saving the new generated assistant message in Chroma
+    var result = await LameChain
+        .StartWith(new StepInstruction(
+            _factory.GetCommand<MessagePromptCommand, ChatMessage>(systemMessage: request.SystemMessage, request.Settings),
+            new StepSettings(new ChatCommandRequest(request.Prompt, request.ChatHistory))),
+            request.Settings //Default Settings for all the chains
+        )
+        .UseBroadcaster(GetBroadcastAction()) // Add an Action with the right signature to process the broadcasted chain events (logging them or storing them)
+        .Store<ChatMessage>(
+            new StepInstruction(
+                _factory.GetStoreable<ChatMessage>(_chromaService.OnNewChatMessage),
+                new StepSettings(new StoreableCommandRequest<ChatMessage>(collectionName: $"ChatBot-{_apiSettings.DefaultUserName}"))
+            )
+        )
+        .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
+
+    // Store a ChainStep result IF a boolean Expression is met (no LLM routing)
+    result = await LameChain
+        .StartWith(new StepInstruction(
+            _factory.GetCommand<MessagePromptCommand, ChatMessage>(systemMessage: request.SystemMessage, request.Settings),
+            new StepSettings(new ChatCommandRequest(request.Prompt, request.ChatHistory))),
+            request.Settings, //Default Settings for all the chains
+            finalSysMessage: "" // There is no need to fill neither this or the chainIntent since there is no user final message required
+        )
+        .UseBroadcaster(GetBroadcastAction())
+        .ThenIf<StoredStep<ChatMessage>>(() => request.ChatHistory.Count > 10, // This is a simple example of how to use the Expressions to pass conditions that will be evaluated on chain execution to run the 'True' branch or not 
+            new StepSettings(), // this are the conditional step settings. You probably won't need them in unless you are using the LLM in the lambda your are passing. You can use them to feed data as usual and use it in the step logic as needed
+            new StepInstruction(
+                _factory.GetStoreable<ChatMessage>(_chromaService.OnNewChatMessage), // In this example I'm just storing a chat conversation using Chroma without too much processing. Pass a function adapted to the chain model and your logic here
+                new StepSettings(new StoreableCommandRequest<ChatMessage>(collectionName: $"ChatBot-{_apiSettings.DefaultUserName}"))
+            )
+        )
+        .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
+
+    // This is a more explicit / readable usage of the Fluent API to work with StoredSteps.
+    result = await LameChain
+        .StartWith(new StepInstruction(
+            _factory.GetCommand<MessagePromptCommand, ChatMessage>(systemMessage: request.SystemMessage, request.Settings),
+            new StepSettings(new ChatCommandRequest(request.Prompt, request.ChatHistory))),
+            request.Settings)
+        .UseBroadcaster(GetBroadcastAction())
+        .StoreIf<ChatMessage>(() => request.ChatHistory.Count > 10,
+            new StepSettings(),
+            new StepInstruction(
+                _factory.GetStoreable<ChatMessage>(_chromaService.OnNewChatMessage),
+                new StepSettings(new StoreableCommandRequest<ChatMessage>(collectionName: $"ChatBot-{_apiSettings.DefaultUserName}"))
+            )
+        )
+        .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
+
+    return result;
+}
 
 ```
 

@@ -21,8 +21,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             => Activator.CreateInstance(typeof(TStep), firstInstruction,
                 new ChainRunner(firstInstruction.StepSettings.CommandRequest.Prompt, defaultSettings, finalSysMessage, chainIntent))
                 as TStep;
+        
         public static TStep SubChainWith<TStep>(params object?[]? args) where TStep : SingleThrowStep // null will use the Main ChainRunner's Defaultsettings
             => Activator.CreateInstance(typeof(TStep), args) as TStep;
+        
         public static SingleThrowStep Then(this SingleThrowStep step, IJsoneable command, StepSettings request, string? feedFwdInstruction = null)
         {
             var nextStep = step.ExpandTo(command, request, feedFwdInstruction);
@@ -40,6 +42,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 
             return step;
         }
+        
         public static SplitterStep ExposeThisId(this SplitterStep step, out Func<Guid> id)
         {
             id = step.GetRunnerId;
@@ -53,6 +56,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 
             return step;
         }
+        
         public static SplitterStep ExposeThisStep(this SplitterStep step, out SplitterStep exposed)
         {
             exposed = step;
