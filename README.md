@@ -134,7 +134,7 @@ despite the source / gathering process.
 
 (Note: the main purpose of these kind of commands is to create StashedSteps with reusable sources of data)
 
-### Storeable Commands
+#### Storeable Commands
 
 If the purpose of a Sourceable Command is to retrieve data from a source and make it available to the chain, the purpose of Storeable Commands is just the opposite:
 store the output of a step in a external source. 
@@ -284,7 +284,7 @@ storing lambda passed on costruction and then forward the insert result to the n
 #### Conditional
 
 A conditional step inserts the configured step or subchain if a boolean Expression evaluates to true. This steps are useful to add simple branching logic
-to your chain without using the LLM. They recieve an Expression<Func<bool>> as input param and execute the compiled expression during chain execution
+to your chain without using the LLM. They recieve an `Expression<Func<bool>>` as input param and execute the compiled expression during chain execution
 to swap the alternate branch into the mainchain if the condition evaluates to true, else it continues the original main branch.
 
 #### Smart Conditional
@@ -380,14 +380,27 @@ It exposes only the methods that make sense for the current step type.
 ### Basic chain API
 
 ```csharp
+
 .StartWith(StepInstruction firstInstruction, CommandSettings defaultSettings, string? finalSysMessage = null, string? chainIntent = null)
+.SubChainWith<TStep>(params object?[]? args)
 .Then(this SingleThrowStep step, IJsoneable command, StepSettings request, string? feedFwdInstruction = null)
+.ThenIf(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, SingleThrowStep trueBranch, string? conditionFeedFwd = null)
+.ThenIf<TStep>(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StepInstruction trueInstruction, string? conditionFeedFwd = null)
+.ThenIf(this SingleThrowStep step, StepInstruction evaluator, SingleThrowStep trueBranch)
+.ThenIf<TStep>(this SingleThrowStep step, StepInstruction evaluator, StepInstruction trueInstruction)
 .Tap(this SingleThrowStep step, List<StepInstruction> instructions, StepSettings? plugSettings = null)
 .SplitThrough(this SingleThrowStep step, StepInstruction splitted, List<StepInstruction> instructions)
 .Pipe(this SplitterStep step, IJsoneable command, StepSettings pipedSettings, string? pipeFeedFwd = null)
 .Join(this SplitterStep step, StepInstruction instruction)
+.Store<TStored>(this SingleThrowStep step, StepInstruction storeInstruction)
+.StoreIf<TPrev>(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StoredStep<TPrev> trueBranch, string? conditionFeedFwd = null)
+.Stash(this SingleThrowStep step, StepInstruction stashInstruction, out Func<Guid> stashId, bool isGreedy = false, bool isIsolated = true)
+.StashIf(this SingleThrowStep step, StepInstruction evaluator, StashedStep trueBranch)
+.ForwardFirstType<TStep>(this ChainStep step)
 .ExposeThisId(this SingleThrowStep step, out Guid id)
 .WithRebujito(this SingleThrowStep | SplitterStep step, List<string> sources, string? guidance = null, int? feedDose = null)
+.ChainFeedsFrom(this SplitterStep | SplitterStep step, List<Func<Guid>> steps, string? guidance = null)
+.UseBroadcaster(this SingleThrowStep step, Action<Guid, string, LogLevel> broadcaster)
 .ThenExecuteAsync(this SingleThrowStep step, bool withFinalMessage = false, bool withReplay = false, CommandSettings finalMsgSettings = null)
 ```
 
@@ -395,6 +408,7 @@ It exposes only the methods that make sense for the current step type.
 
 - `.StartWith(...)` begins a new chain
 - `.SubChainWith(...)` begins a new sub chain
+- `.UseBroadcaster(...)` adds a C# Action that will recieve any broadcasted event from the chain steps to log them or store
 - `.Then(...)` continues a single-output chain
 - `.Tap(...)` splits into parallel command branches
 - `.SplitThrough(...)` fans one output into several commands
@@ -411,6 +425,74 @@ It exposes only the methods that make sense for the current step type.
 - `.WithRebujito(...)` boosts context with extra sources
 - `.WithChainFeedsFrom(...)` configures a step feed by passing the step id's to read from
 - `.ThenExecuteAsync(...)` finalizes execution and returns `ChainResult`
+
+### Broadcast chain execution:
+
+You surely will want to know what is happening during the chain execution (specially when it fails) and to do so, the framework
+uses  'broadcaster'. A broadcaster is a C# Action that encapsulates a method with this signature:
+
+``` csharp
+    Task mthd(Guid stepId, string message, LogLevel level);
+```
+
+This action is registered and executed in the _runner, recieving the broadcasted information from steps & substeps and executing
+whatever logic you want (logging, for example). This is done this way to avoid coupling the sdk with any logging library and to
+allow more flexibility when processing the produced chain events.
+
+#### Setup a broadcaster:
+
+
+1 - Create a method with your chain event processing logic (in this case, logging)
+
+```csharp
+
+private void broadcaster(Guid runnerId, string message, LogLevel level)
+{
+    string logMessage = $"{level} >> CHAIN STEP {runnerId} >> {message}";
+
+    switch (level)
+    {
+        case (LogLevel.Error):
+        case (LogLevel.Critical):
+            _logger.LogError(logMessage);
+            break;
+        case (LogLevel.Warning):
+            _logger.LogWarning(logMessage);
+            break;
+        case (LogLevel.Information):
+        case (LogLevel.Debug):
+        case (LogLevel.Trace):
+        default:
+            _logger.LogInformation(logMessage);
+            break;
+    }
+}
+
+```
+
+2 - Encapsulate it in a C# Action (use a helper method to get the action already configured)
+
+``` csharp
+
+ public Action<Guid, string, LogLevel> GetBroadcastAction()
+    => new Action<Guid,string, LogLevel>(broadcaster);
+
+```
+
+3 - Use the Fluent API to register the action in the chain runner
+
+``` csharp
+
+var result = await LameChain
+    .StartWith(new StepInstruction(
+        _factory.GetCommand<MessagePromptCommand, ChatMessage>(systemMessage: request.SystemMessage, request.Settings),
+        new StepSettings(new ChatCommandRequest(request.Prompt, request.ChatHistory))),
+        request.Settings
+    )
+    .UseBroadcaster(GetBroadcastAction())
+    //.Then(...)
+
+```
 
 ## Example usage
 
