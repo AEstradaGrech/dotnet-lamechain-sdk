@@ -6,7 +6,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
     public class PipedStep : SplitterStep
     {
         public PipedStep() : base() { }
-        public PipedStep(StepInstruction piped) : base(piped) { }
+        public PipedStep(StepSettings settings) : base(settings) { }
 
         public override bool CanBeForged(IChaineable previous)
             => previous != null && previous.IsMultiSocket && _commands.Count == 1;
@@ -28,7 +28,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
                 outputs[key].ForEach(link =>
                 {
-                    var branch = ThrowTo(swapRunner: true, _commands.First(), _stepSettings.Clone());
+                    var branch = ThrowTo(swapRunner: true, _stepSettings.Clone());
 
                     _branches.Add(branch);
                     //Maps the Id of the last step in the subchain to the origin of the pipe

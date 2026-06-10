@@ -109,10 +109,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             _forgeLog = new ForgeLog(_id, _feedForwardInstruction);
         }
 
-        public ChainStep(StepSettings settings, string? feedForwardMessage = null) : this() 
+        public ChainStep(StepSettings settings) : this() 
         { 
             _stepSettings = settings ?? new StepSettings(); 
-            _feedForwardInstruction = feedForwardMessage;
+            _feedForwardInstruction = settings.ForwardMessage;
         }
 
         public void Link(IChaineable step, bool isForward, bool isTwoWay)
@@ -149,6 +149,116 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         
         public abstract Task<IChaineable> Forge(IChaineable previous);
 
+        public TDeserialized GetOutputAs<TDeserialized>() where TDeserialized : class
+    => IsForged ? JsonSerializer.Deserialize<TDeserialized>(Outputs.First().SerializedResult, getSerializerOptions()) ??
+        throw new InvalidOperationException($"Failed to deserialize JSON to type {typeof(TDeserialized).Name}") :
+        throw new InvalidOperationException("The chain step has not been forged and has no output value");
+
+        public void SendReplay()
+        {
+            //build report
+            var report = replayFromLog();
+
+            report.RunnersLog = _instructionsLog; //cada miembro de la subchain hace append de SU instruction. si es sub-sub chain, contiene el log ya formateado (porque se hace report de pieza main) 
+                                                  //ej: sub-> [- do X] [ - do Y] [-TAP\n-SUBCHAIN:\n-Do Z\n-SUBCHAIN:\n-Do ETC] - [- do ..]
+            report.FeededMessage = Request.GuidanceMessage;
+            report.PassCatchTimestamp = _passCatchTimestamp;
+
+            onReportReplay(report);
+        }
+
+        // 19-05-2026 --> esto realmente rompe el patron rugby (info al runner y solo un runner)
+        //                si tengo que llamar a esto en algun sitio es que lo estoy haciendo mal
+        public IChaineable OnRunnerCall() => this;
+
+        public void OnRunnerSupport(Guid id)
+        {
+            if (_id == id)
+                onSupportIncoming(this);
+        }
+
+        public void FollowRunner(IChaineable current)
+        {
+            if (!current.IsRunning) return;
+
+            onSupportIncoming += current.Runner.OnSupporterResponse;
+            onReportReplay += current.Runner.OnReplayReport;
+
+            notify($"{nameof(FollowRunner)} >> FOLLOWING {current.Id}");
+        }
+
+        public bool IsReady() => IsRunning && _stepSettings != null && Request != null && _runner.CanRun();
+
+        public void BoostWith(List<string> feeds, string? feedMessage) => _stepSettings.WithDataBoost(feedMessage, feeds);
+
+        public void WithChainFeeds(List<Func<Guid>> stepIds)
+        {
+            stepIds.ForEach(id => _stepSettings.FeedFrom(id));
+        }
+
+        public Guid GetRunnerId() => _id;
+        public Guid WhoIsPrevious() => _prev != null ? _prev.Id : _id;
+        public Guid WhoIsNext() => _next != null ? _next.Id : _id;
+
+
+        public SingleThrowStep ThrowTo(bool swapRunner, StepSettings recieverSettings)
+        {
+            if (!IsRunning)
+                throw new InvalidOperationException($"{nameof(ChainStep)} >> {nameof(ThrowTo)} >> This method is to instantiate steps with a copy of the chain runner and the current caller is not the runner");
+
+            var newRunner = swapRunner ? _runner.Clone() : _runner;
+            // every step of this sub chain gets a new nullable runner with the previous log, but they subscribe to their own runner
+            // this is to run chains in parallel. The last runner of each subChain has the report for the original Multithrow Step so they can be appended
+            // to the original / main runner and deleted
+            var reciever = Activator.CreateInstance(typeof(SingleThrowStep), recieverSettings, newRunner) as SingleThrowStep; 
+
+            return reciever;
+        }
+
+        public SingleThrowStep ExpandTo(IJsoneable command, StepSettings? stepSettings)
+            => Activator.CreateInstance(typeof(SingleThrowStep), command, stepSettings) as SingleThrowStep;
+
+        public SingleThrowStep ExpandTo<TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings? settings) where TCommand : BasePromptCommand<TResult>, new()
+            => ExpandTo(Activator.CreateInstance(typeof(TCommand), Commands.First().BorrowLlama, instruction, commandSettings) as IJsoneable, settings);
+
+        public TStep ExpandTo<TStep>(IJsoneable command, StepSettings? request) where TStep : ChainStep
+            => Activator.CreateInstance(typeof(TStep), command, request) as TStep;
+        public TStep ExpandTo<TStep>(StepSettings instruction) where TStep : ChainStep
+            => Activator.CreateInstance(typeof(TStep), instruction) as TStep;
+
+        public TStep ExpandTo<TStep, TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings settings)
+            where TCommand : BasePromptCommand<TResult>, new()
+            where TStep : ChainStep
+                => ExpandTo<TStep>(Activator.CreateInstance(typeof(TCommand), Commands.First().BorrowLlama, instruction, commandSettings) as IJsoneable, settings);
+
+        public SplitterStep Plug(List<StepSettings> instructions, StepSettings? request)
+          => Activator.CreateInstance(typeof(SplitterStep), instructions, request) as SplitterStep;
+
+        public SplitterStep SplitTo(StepSettings splitted, List<StepSettings> instructions)
+          => Activator.CreateInstance(typeof(SplitterStep),  splitted, instructions) as SplitterStep;
+
+        public StashedStep ToStash(StashSettings settings) // next can read the stash, the stash does not use previous output for its request
+        {
+            if (!settings.Command.GetType().IsAssignableTo(typeof(SourceableCommand)))
+                throw new InvalidOperationException($"{nameof(ChainStep)} >> {nameof(ToStash)} >> INVALID STEP CONFIGURATION >> The configured command type ({settings.Command.GetType().Name}) is not a {typeof(SourceableCommand)} or any subclass of it");
+
+            return Activator.CreateInstance(typeof(StashedStep), settings) as StashedStep;
+        }
+
+        public ConditionalStep ToConditional(Expression<Func<bool>> condition, StepSettings stepSettings)
+            => Activator.CreateInstance(typeof(ConditionalStep), condition, stepSettings) as ConditionalStep;
+
+        public StoredStep<TStored> AsStore<TStored>(StepSettings instruction) where TStored : class
+           => Activator.CreateInstance(typeof(StoredStep<TStored>), instruction) as StoredStep<TStored>;
+
+        public SmartConditionalStep ToSmartConditional(StepSettings instruction)
+        {
+            if (instruction.Command.GetType() != typeof(ScoredBoolCommand) && !instruction.Command.GetType().IsSubclassOf(typeof(ScoredBoolCommand)))
+                throw new InvalidDataException($"{nameof(SmartConditionalStep)} >> {instruction.Command.GetType().Name} >> A SmartConditionalStep command must be a ScoredBoolCommand or a subclass of it");
+
+            return Activator.CreateInstance(typeof(SmartConditionalStep), instruction.Command, instruction, instruction.ForwardMessage) as SmartConditionalStep;
+        }
+
         protected virtual void submitForgeLog()
         {
             if (!IsRunning) return;
@@ -176,67 +286,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         {
             onFinishNotify(log, updateRunnersLog);
         }
-        public SingleThrowStep ThrowTo(bool swapRunner, IJsoneable command, StepSettings recieverSettings, string? feedForwardInstruction = null)
-        {
-            if (!IsRunning)
-                throw new InvalidOperationException($"{nameof(ChainStep)} >> {nameof(ThrowTo)} >> This method is to instantiate steps with a copy of the chain runner and the current caller is not the runner");
-
-            var newRunner = swapRunner ? _runner.Clone() : _runner;
-            // every step of this sub chain gets a new nullable runner with the previous log, but they subscribe to their own runner
-            // this is to run chains in parallel. The last runner of each subChain has the report for the original Multithrow Step so they can be appended
-            // to the original / main runner and deleted
-            var reciever = Activator.CreateInstance(typeof(SingleThrowStep), new StepInstruction(command, recieverSettings, feedForwardInstruction), newRunner) as SingleThrowStep; // !!!!!!!!!!!!!! CLONE STEP SETTINGS
-
-            return reciever;
-        }
-        public SingleThrowStep ExpandTo(IJsoneable command, StepSettings? stepSettings, string? feedForwardInstruction = null)
-            => Activator.CreateInstance(typeof(SingleThrowStep), command, stepSettings, feedForwardInstruction) as SingleThrowStep;
-        public SingleThrowStep ExpandTo<TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings? settings, string? feedForwardInstruction = null) where TCommand : BasePromptCommand<TResult>, new()
-            => ExpandTo(Activator.CreateInstance(typeof(TCommand), Commands.First().BorrowLlama, instruction, commandSettings) as IJsoneable, settings, feedForwardInstruction);
-
-        public TStep ExpandTo<TStep>(IJsoneable command, StepSettings? request, string? feedForwardInstruction = null) where TStep : ChainStep
-            => Activator.CreateInstance(typeof(TStep), command, request, feedForwardInstruction) as TStep;
-        public TStep ExpandTo<TStep>(StepInstruction instruction) where TStep : ChainStep
-            => Activator.CreateInstance(typeof(TStep), instruction) as TStep;
-
-        public TStep ExpandTo<TStep, TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings settings, string? feedForwardInstruction = null)
-            where TCommand : BasePromptCommand<TResult>, new()
-            where TStep : ChainStep
-                => ExpandTo<TStep>(Activator.CreateInstance(typeof(TCommand), Commands.First().BorrowLlama, instruction, commandSettings) as IJsoneable, settings, feedForwardInstruction);
-
-        public SplitterStep Plug(List<StepInstruction> instructions, StepSettings? request, string? splitterFeedFwd = null)
-          => Activator.CreateInstance(typeof(SplitterStep), instructions, request, splitterFeedFwd) as SplitterStep;
-        public SplitterStep SplitTo(StepInstruction splitted, List<StepInstruction> instructions)
-          => Activator.CreateInstance(typeof(SplitterStep),  splitted, instructions) as SplitterStep;
-
-        public StashedStep ToStash(StepInstruction instruction, bool isGreedy = false, bool isIsolated = true) // next can read the stash, the stash does not use previous output for its request
-        {
-            if (!instruction.Command.GetType().IsAssignableTo(typeof(SourceableCommand)))
-                throw new InvalidOperationException($"{nameof(ChainStep)} >> {nameof(ToStash)} >> INVALID STEP CONFIGURATION >> The configured command type ({instruction.Command.GetType().Name}) is not a {typeof(SourceableCommand)} or any subclass of it");
-
-            return Activator.CreateInstance(typeof(StashedStep), instruction.Command, instruction.StepSettings, isGreedy, isIsolated, instruction.FeedFwdInstruction) as StashedStep;
-        }
-
-        public ConditionalStep ToConditional(Expression<Func<bool>> condition, StepSettings stepSettings, string? feedFwd = null)
-            => Activator.CreateInstance(typeof(ConditionalStep), condition, stepSettings, feedFwd) as ConditionalStep;
-
-        public StoredStep<TStored> AsStore<TStored>(StepInstruction instruction) where TStored : class
-           => Activator.CreateInstance(typeof(StoredStep<TStored>), instruction) as StoredStep<TStored>;
-
-        public SmartConditionalStep ToSmartConditional(StepInstruction instruction)
-        {
-            if (instruction.Command.GetType() != typeof(ScoredBoolCommand) && !instruction.Command.GetType().IsSubclassOf(typeof(ScoredBoolCommand)))
-                throw new InvalidDataException($"{nameof(SmartConditionalStep)} >> {instruction.Command.GetType().Name} >> A SmartConditionalStep command must be a ScoredBoolCommand or a subclass of it");
-
-            return Activator.CreateInstance(typeof(SmartConditionalStep), instruction.Command, instruction.StepSettings, instruction.FeedFwdInstruction) as SmartConditionalStep;
-        }
-
-
-        public TDeserialized GetOutputAs<TDeserialized>() where TDeserialized : class
-            => IsForged ? JsonSerializer.Deserialize<TDeserialized>(Outputs.First().SerializedResult,getSerializerOptions()) ??
-                throw new InvalidOperationException($"Failed to deserialize JSON to type {typeof(TDeserialized).Name}") :
-                throw new InvalidOperationException("The chain step has not been forged and has no output value");
-
+       
         private JsonSerializerOptions getSerializerOptions()
         {
             var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
@@ -470,50 +520,6 @@ description (wrapped in parenthesis) to understand what does it represent and ho
 
         protected virtual ReplayLog replayFromLog() => new ReplayLog(_forgeLog);
         // override in Multi-Socket to include subchain results
-        public void SendReplay()
-        {
-            //build report
-            var report = replayFromLog();
-            
-            report.RunnersLog = _instructionsLog; //cada miembro de la subchain hace append de SU instruction. si es sub-sub chain, contiene el log ya formateado (porque se hace report de pieza main) 
-                                                                                                      //ej: sub-> [- do X] [ - do Y] [-TAP\n-SUBCHAIN:\n-Do Z\n-SUBCHAIN:\n-Do ETC] - [- do ..]
-            report.FeededMessage = Request.GuidanceMessage;
-            report.PassCatchTimestamp = _passCatchTimestamp;
 
-            onReportReplay(report);
-        }
-
-        // 19-05-2026 --> esto realmente rompe el patron rugby (info al runner y solo un runner)
-        //                si tengo que llamar a esto en algun sitio es que lo estoy haciendo mal
-        public IChaineable OnRunnerCall() => this;
-
-        public void OnRunnerSupport(Guid id)
-        {
-            if (_id == id)
-                onSupportIncoming(this);
-        }
-
-        public void FollowRunner(IChaineable current)
-        {
-            if (!current.IsRunning) return;
-
-            onSupportIncoming += current.Runner.OnSupporterResponse;
-            onReportReplay += current.Runner.OnReplayReport;
-
-            notify($"{nameof(FollowRunner)} >> FOLLOWING {current.Id}");
-        }
-
-        public bool IsReady() => IsRunning && _stepSettings != null && Request != null && _runner.CanRun();
-
-        public void BoostWith(List<string> feeds, string? feedMessage) => _stepSettings.WithDataBoost(feedMessage, feeds);
-
-        public void WithChainFeeds(List<Func<Guid>> stepIds)
-        {
-            stepIds.ForEach(id => _stepSettings.FeedFrom(id));
-        }
-
-        public Guid GetRunnerId() => _id;
-        public Guid WhoIsPrevious() => _prev != null ? _prev.Id : _id;
-        public Guid WhoIsNext() => _next != null ? _next.Id : _id;
     }
 }

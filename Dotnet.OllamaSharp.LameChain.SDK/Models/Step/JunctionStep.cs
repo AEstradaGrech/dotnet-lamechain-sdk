@@ -1,5 +1,4 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
-using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using System.Text;
 
@@ -9,7 +8,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
     {
         public JunctionStep() : base() { }
 
-        public JunctionStep(IJsoneable junctionCommand, StepSettings request, string? feedFwdMessage = null) : base(junctionCommand, request, feedFwdMessage) { }
+        public JunctionStep(StepSettings settings) : base(settings) { }
         
         public override bool CanBeForged(IChaineable previous)
             => previous != null && previous.IsMultiSocket && _commands.Count > 0;

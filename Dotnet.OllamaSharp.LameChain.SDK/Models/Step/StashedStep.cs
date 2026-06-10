@@ -29,16 +29,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
         public bool IsEmpty => _stepSettings.Boosters.Count == 0;
 
         //By default Stashes are not greedy and isolated --> next will be able to read the stash and the stash command won't read from the previous
-        public StashedStep(StepInstruction instruction, bool isGreedy = false, bool isIsolated = true) : base(instruction)
+        public StashedStep(StashSettings settings) : base(settings)
         {
-            _isGreedy = isGreedy;
-            _isIsolated = isIsolated;
-        }
-
-        public StashedStep(SourceableCommand retrieverCommand, StepSettings settings, bool isGreedy = false, bool isIsolated = true, string? feedForwardMessage = null) : base(retrieverCommand, settings, feedForwardMessage)
-        {
-            _isGreedy = isGreedy;
-            _isIsolated = isIsolated;
+            _isGreedy = settings.IsGreedy;
+            _isIsolated = settings.IsIsolated;
         }
 
         public override bool CanBeForged(IChaineable previous) => IsReady() && (IsFirstStep() ? IsChained() : IsChained(isForwardCheck: null));

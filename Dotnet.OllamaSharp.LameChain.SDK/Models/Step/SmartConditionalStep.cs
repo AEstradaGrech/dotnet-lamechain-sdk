@@ -1,7 +1,5 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators;
-using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
-using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Steps;
 
@@ -13,12 +11,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
 
         public SmartConditionalStep() : base() { }
 
-        public SmartConditionalStep(StepInstruction instruction) : base(instruction) { }
-        public SmartConditionalStep(ScoredBoolCommand command, StepSettings request, string? feedFwdInstruction = null) : base(command, request, feedFwdInstruction) 
-        {
-           
-        }
-
+        public SmartConditionalStep(StepSettings settings) : base(settings) { }
+  
         public void IfTrueThen(IChaineable trueBranch)
         {
             TrueBranchRunner = trueBranch;

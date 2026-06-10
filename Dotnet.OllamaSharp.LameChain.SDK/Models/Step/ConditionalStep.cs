@@ -19,7 +19,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
         public ConditionalStep() : base() { }
 
 
-        public ConditionalStep(Expression<Func<bool>> evaluator, StepSettings stepSettings, string? feedFwdInstruction = null) : base(stepSettings, feedFwdInstruction)
+        public ConditionalStep(Expression<Func<bool>> evaluator, StepSettings stepSettings) : base(stepSettings)
         {
             _condition = evaluator.Compile();
         }

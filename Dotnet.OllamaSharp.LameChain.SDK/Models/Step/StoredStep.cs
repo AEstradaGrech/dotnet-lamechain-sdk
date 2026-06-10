@@ -15,7 +15,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
     {
         public StoredStep() { }
 
-        public StoredStep(StepInstruction instruction) : base(instruction) { }
+        public StoredStep(StepSettings settings) : base(settings) { }
 
         protected override async Task runStep(IChaineable previous)
         {

@@ -2,9 +2,11 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
+using Dotnet.OllamaSharp.LameChain.SDK.Models.Step;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Steps;
+using System.Linq.Expressions;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces
 {
@@ -65,12 +67,20 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces
         void FollowRunner(IChaineable current);
 
         //Factory methods
-        TStep ExpandTo<TStep>(IJsoneable command, StepSettings settings, string? feedForwardInstruction = null) where TStep : ChainStep;
-        SingleThrowStep ExpandTo(IJsoneable command, StepSettings settings, string? feedForwardInstruction = null);
-        SplitterStep Plug(List<StepInstruction> commands, StepSettings settings, string? splitterFeedFwd = null);
-        TStep ExpandTo<TStep, TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings settings, string? feedForwardInstruction = null) 
+        TStep ExpandTo<TStep>(IJsoneable command, StepSettings settings) where TStep : ChainStep;
+        TStep ExpandTo<TStep>(StepSettings instruction) where TStep : ChainStep;
+        SingleThrowStep ExpandTo(IJsoneable command, StepSettings settings);
+        SplitterStep Plug(List<StepSettings> commands, StepSettings settings);
+        TStep ExpandTo<TStep, TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings settings) 
             where TCommand : BasePromptCommand<TResult>, new() where TStep : ChainStep;
-        SingleThrowStep ExpandTo<TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings settings, string? feedForwardInstruction = null) 
+        SingleThrowStep ExpandTo<TCommand, TResult>(string instruction, CommandSettings commandSettings, StepSettings settings) 
             where TCommand : BasePromptCommand<TResult>, new();
+        SingleThrowStep ThrowTo(bool swapRunner, StepSettings recieverSettings);
+        SplitterStep SplitTo(StepSettings splitted, List<StepSettings> instructions);
+        StashedStep ToStash(StashSettings instruction);
+        ConditionalStep ToConditional(Expression<Func<bool>> condition, StepSettings stepSettings);
+        StoredStep<TStored> AsStore<TStored>(StepSettings instruction) where TStored : class;
+        SmartConditionalStep ToSmartConditional(StepSettings instruction);
+
     }
 }

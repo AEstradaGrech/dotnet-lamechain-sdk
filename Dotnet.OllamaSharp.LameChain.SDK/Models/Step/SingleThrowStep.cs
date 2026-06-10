@@ -15,21 +15,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
     {
         public SingleThrowStep() : base() { }
 
-        public SingleThrowStep(StepInstruction instruction) : base(instruction.StepSettings, instruction.FeedFwdInstruction)
+        public SingleThrowStep(StepSettings settings) : base(settings)
         {
-            _commands.Add(instruction.Command);
-        }
-
-        /// <summary>
-        /// Constructor for steps with no main command but that execute some orchestration logic (like ConditionalSteps)
-        /// </summary>
-        /// <param name="settings"></param>
-        /// <param name="feedForwardMessage"></param>
-        public SingleThrowStep(StepSettings settings, string? feedForwardMessage = null) : base(settings, feedForwardMessage) { }
-
-        public SingleThrowStep(IJsoneable command, StepSettings stepSettings, string? feedFwdInstruction = null) : base(stepSettings, feedFwdInstruction)
-        {
-            _commands.Add(command);
+            if(settings.Command != null)
+                _commands.Add(settings.Command);
         }
 
         /// <summary>
@@ -58,8 +47,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         /// <param name="command"> The initial chain command</param>
         /// <param name="runner">A data structure containing the initial data and store the generated data to pass it along the chain</param>
         /// <param name="feedFwdInstruction">This is like 'what you want to tell the next one about the instruction output' </param>
-        public SingleThrowStep(StepInstruction instruction, ChainRunner runner) 
-            : this(instruction.Command, instruction.StepSettings, instruction.FeedFwdInstruction)
+        public SingleThrowStep(StepSettings settings, ChainRunner runner) 
+            : this(settings) // TODO: refactor constructores - settings
         {
             if(runner != null)
             {
@@ -132,9 +121,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                     var finalizer = ExpandTo<MessagePromptCommand, ChatMessage>(
                         instruction: finalInstruction.SystemMessage,
                         finalMsgSettings ?? finalStep.Runner.DefaultSettings,
-                        new StepSettings(new PromptCommandRequest(
-                            message: finalInstruction.Prompt,
-                            guidanceMessage: string.IsNullOrEmpty(finalStep.Runner.FwdSystemMessage) ? string.Empty : $"## USER PREFERENCES: {finalStep.Runner.FwdSystemMessage}\n")
+                        new StepSettings(
+                            new PromptCommandRequest(
+                                message: finalInstruction.Prompt,
+                                guidanceMessage: string.IsNullOrEmpty(finalStep.Runner.FwdSystemMessage) ? string.Empty : $"## USER PREFERENCES: {finalStep.Runner.FwdSystemMessage}\n")
                         )
                     );
 

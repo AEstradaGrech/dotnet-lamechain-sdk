@@ -1,7 +1,5 @@
-﻿using Microsoft.Extensions.AI;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs
 {

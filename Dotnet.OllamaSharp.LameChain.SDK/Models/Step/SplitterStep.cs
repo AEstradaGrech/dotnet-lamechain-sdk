@@ -7,7 +7,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 {
     public class SplitterStep : ChainStep
     {
-        protected List<StepInstruction> _pluggedInstructions;
+        protected List<StepSettings> _plugCommands;
 
         protected List<IChaineable> _branches = new List<IChaineable>();
         protected Dictionary<IChaineable, Guid> _forgedSubSteps;
@@ -20,29 +20,32 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         protected Dictionary<Guid, List<ReplayLog>> _subChainReplays = null;
         public SplitterStep() : base() { }
         // Constructor for Tap (execute N commands with the PREV OUT) (foreach branch, forge(branch))
-        public SplitterStep(List<StepInstruction> instructions, StepSettings request, string? feedFwdMessage) : base(request, feedFwdMessage)
+        public SplitterStep(List<StepSettings> instructions, StepSettings settings) : base(settings)
         {
             _forgedSubSteps = new Dictionary<IChaineable, Guid>();
-            _pluggedInstructions = instructions;
+            _plugCommands = instructions;
         }
 
         // Constructor for Split<TComm>([]) <- executes the command and SPLITS the result over the plugged subchains passing the splitFeedFwd (forge(this) then Branches)
        
-        public SplitterStep(StepInstruction splittedCommand, List<StepInstruction> instructions) : base(splittedCommand.StepSettings, splittedCommand.FeedFwdInstruction)
+        public SplitterStep(StepSettings splittedCommandSettings, List<StepSettings> instructions) : base(splittedCommandSettings)
         {
             _forgedSubSteps = new Dictionary<IChaineable, Guid>();
-            _commands.Add(splittedCommand.Command);
-            _pluggedInstructions = instructions;
+            
+            if(splittedCommandSettings.Command != null)
+                _commands.Add(splittedCommandSettings.Command);
+            
+            _plugCommands = instructions;
         }
 
         // Constructor for .Pipe<TComm> <- executes the command ON EACH input (foreach PREV OUT forge(this))
-        public SplitterStep(StepInstruction pipedCommand) : this(pipedCommand, []) { }
+        public SplitterStep(StepSettings pipedCommand) : this(pipedCommand, []) { }
         
         // It is not the first step of a chain (prev != null)
         // The previous is a SPST
         // It has at least one command to run (should assert it has at least two probably otherwise is a bad / stupid configuration)
         public override bool CanBeForged(IChaineable previous)
-            => IsRunning && previous != null && !previous.IsMultiSocket && (_pluggedInstructions.Count > 0 || _branches.Count > 0); // setup from instructions or from subChains
+            => IsRunning && previous != null && !previous.IsMultiSocket && (_plugCommands.Count > 0 || _branches.Count > 0); // setup from instructions or from subChains
 
         public void Plug(IChaineable branch)
         {
@@ -64,7 +67,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             {
                 // All commands boosted because it is the only combination that can't be covered with .Then() / .Tap() + .WithRebujito()
                 // If is splitter, then the splitter Settings it is for the splitted command (boost
-                var splitted = ThrowTo(swapRunner: false, _commands.First(), _stepSettings, _feedForwardInstruction);
+                //var splitted = ThrowTo(swapRunner: false, _commands.First(), _stepSettings, _feedForwardInstruction);
+                var splitted = ThrowTo(swapRunner: false, _stepSettings);
 
                 splitted.Link(previous, isForward: false, isTwoWay: false);
                 
@@ -88,7 +92,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             }
             
 
-            _pluggedInstructions.ForEach(i => _branches.Add(ThrowTo(swapRunner: true, i.Command, i.StepSettings, i.FeedFwdInstruction)));
+            _plugCommands.ForEach(settings => _branches.Add(ThrowTo(swapRunner: true, settings)));
 
             var chainResults = new List<IChaineable>();
 
