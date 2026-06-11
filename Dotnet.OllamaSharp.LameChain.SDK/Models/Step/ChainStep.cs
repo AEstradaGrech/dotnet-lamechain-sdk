@@ -400,7 +400,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         /// <param name="previous"></param>
         protected virtual void appendPreviousContext(StringBuilder sb, IChaineable previous)
         {
-            if (!IsFirstStep() && GetType() != typeof(SplitterStep) && !GetType().IsAssignableTo(typeof(SplitterStep)))
+            if (!IsFirstStep() && GetType() != typeof(SplitterStep) && !GetType().IsAssignableTo(typeof(SplitterStep)) && _stepSettings.WithFullContext)
                 Request.GuidanceMessage += getContextMessageHeader();
 
             if(previous != null)

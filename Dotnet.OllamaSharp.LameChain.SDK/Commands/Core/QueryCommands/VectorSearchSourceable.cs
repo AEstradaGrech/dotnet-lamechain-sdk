@@ -41,6 +41,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands
             validateInputRequest<VectorSearchRequest>(request);
 
             var searchCommand = new VectorSearchCommand(_generator, _queryFunction);
+            // It is assumed that the guidance message of any VectorsearchSourceable is an augment or nothing
+            if (!string.IsNullOrEmpty(request.GuidanceMessage))
+                request.Prompt = $"{request.Prompt}\n{request.GuidanceMessage}";
 
             var results = await searchCommand.Prompt(request);
 

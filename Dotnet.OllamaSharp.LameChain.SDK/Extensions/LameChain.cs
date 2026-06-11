@@ -109,29 +109,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return split;
         }
 
-        /// <summary> #WIP
-        /// Feeds a specified command with the list of passed instructions
-        /// that will execute their command using the SINGLE PREV OUTPUT LINK
-        /// to produce N outputs to be added to the feeded command system message
-        /// </summary>
-        /// <param name="step"></param>
-        /// <param name="instruction"></param>
-        /// <param name="instructions"></param>
-        /// <param name="stepRequest"></param>
-        /// <returns></returns>
-        public static SingleThrowStep Squash(this SingleThrowStep step, StepSettings instruction, List<StepSettings> instructions, StepSettings? settings = null)
-        {
-            var split = step.Plug(instructions, settings);
-
-            step.Link(split, isForward: true, isTwoWay: true);
-
-            var feeded = split.ExpandTo<JunctionStep>(instruction.Command, settings);
-
-            split.Link(feeded, isForward: true, isTwoWay: true);
-
-            return feeded;
-        }
-
         /// <summary>
         /// Runs the piped command for each PREVIOUS OUTPUT LINK, using the same feedForward message for all the results
         /// GENERATES 1 OUTPUT LINK x PREVIOUS OUTPUT LINK
@@ -436,17 +413,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
        
         public static async Task<ChainResult> ThenExecuteAsync(this SingleThrowStep step, bool withFinalMessage = false, bool withReplay = false, CommandSettings finalMsgSettings = null)
             => await step.ExecuteChainAsync(withFinalMessage, withReplay, finalMsgSettings);
-
-        //public static ChainStep Then<TCommand, TResult>(this ChainStep step, string? instruction, CommandSettings commandSettings, StepSettings? stepRequest = null, string? feedFwdInstruction = null) 
-        //    where TCommand : BasePromptCommand<TResult>, new() 
-        //    where TResult : class
-        //{
-        //    var nextStep = step.ExpandTo<TCommand, TResult>(instruction, commandSettings, stepRequest);
-
-        //    step.Link(nextStep, isForward: true, isTwoWay: true);
-
-        //    return nextStep as ChainStep;
-        //}
 
     }
 }
