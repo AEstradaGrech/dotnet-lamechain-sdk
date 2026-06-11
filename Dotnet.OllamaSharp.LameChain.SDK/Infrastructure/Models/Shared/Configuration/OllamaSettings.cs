@@ -6,6 +6,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configur
     {
         public string OllamaUrl { get; set; }
         public string DefaultModel { get; set; }
+        public int TimeoutMinutes { get; set; }
         public List<string> Models { get; set; } = new List<string>();
         public List<string> EmbeddingModels { get; set; } = new List<string>();
     }

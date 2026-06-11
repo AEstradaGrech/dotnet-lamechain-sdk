@@ -10,14 +10,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
 
         // By default it is expected a command with _systemMessage + req.Guidance + core message (db || hardcoded)
         // In case there is no DB || Hardcoded message, change 'isGuidanceAppend' to true so the context is added to the _system instruction
-        public PromptCommandRequest(string message, bool isGuidanceAppend = false, string? model = null) 
+        public PromptCommandRequest(string message, bool isGuidanceAppend = true, string? model = null) 
         {
             IsGuidanceAppend = isGuidanceAppend;
             Prompt = message;
             Model = model;
         }
 
-        public PromptCommandRequest(string message, string? guidanceMessage, bool isGuidanceAppend = false, string? model = null) : this(message, isGuidanceAppend, model) 
+        public PromptCommandRequest(string message, string? guidanceMessage, bool isGuidanceAppend = true, string? model = null) : this(message, isGuidanceAppend, model) 
         {
             GuidanceMessage = guidanceMessage; 
         }

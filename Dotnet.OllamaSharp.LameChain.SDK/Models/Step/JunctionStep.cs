@@ -37,7 +37,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                     {
                         // BUILD MESSAGE
                         sb.AppendLine()
-                          .AppendLine(guidanceMessageFrom(forgedPrevious.PromptedInstruction.Replace(preInstructionTag, "").Trim(), output.SerializedResult, output.SchemaForMessage(), output.ForwardGuidance).Trim());
+                          .AppendLine(!_stepSettings.WithFullContext ?
+                            output.SerializedResult :
+                            guidanceMessageFrom(
+                                output.Instruction.Replace(preInstructionTag, "").Trim(),
+                                output.SerializedResult,
+                                _stepSettings.WithPrevSchema ? output.SchemaForMessage() : null,
+                                output.ForwardGuidance)
+                          );
 
                         _instructionsLog.AddRange(previous.InstructionsLog);
                     });
@@ -47,7 +54,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                     var output = outputs[key].FirstOrDefault();
 
                     sb.AppendLine()
-                      .AppendLine(guidanceMessageFrom(forgedPrevious.PromptedInstruction.Replace(preInstructionTag, "").Trim(), output.SerializedResult, output.SchemaForMessage(), output.ForwardGuidance).Trim());
+                      .AppendLine(!_stepSettings.WithFullContext ?
+                        output.SerializedResult :
+                        guidanceMessageFrom(
+                            output.Instruction.Replace(preInstructionTag, "").Trim(),
+                            output.SerializedResult,
+                            _stepSettings.WithPrevSchema ? output.SchemaForMessage() : null,
+                            output.ForwardGuidance)
+                      );
                 }
             }
         }

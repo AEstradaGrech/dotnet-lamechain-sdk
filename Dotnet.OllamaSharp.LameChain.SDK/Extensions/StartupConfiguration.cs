@@ -29,32 +29,32 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                 ServiceLifetime.Scoped => services.AddScoped<IOllamaApiClient, OllamaApiClient>(sp =>
                 {
                     var config = sp.GetRequiredService<IOptions<OllamaSettings>>().Value;
-                    var settings = new Configuration
+                    var httpClient = new HttpClient
                     {
-                        Uri = new Uri(config.OllamaUrl),
-                        Model = config.DefaultModel
+                        BaseAddress = new Uri(config.OllamaUrl),
+                        Timeout = TimeSpan.FromMinutes(config.TimeoutMinutes) // Set your desired timeout here
                     };
-                    return new OllamaApiClient(settings);
+                    return new OllamaApiClient(httpClient, config.DefaultModel);
                 }),
                 ServiceLifetime.Transient => services.AddTransient<IOllamaApiClient, OllamaApiClient>(sp =>
                 {
                     var config = sp.GetRequiredService<IOptions<OllamaSettings>>().Value;
-                    var settings = new Configuration
+                    var httpClient = new HttpClient
                     {
-                        Uri = new Uri(config.OllamaUrl),
-                        Model = config.DefaultModel
+                        BaseAddress = new Uri(config.OllamaUrl),
+                        Timeout = TimeSpan.FromMinutes(config.TimeoutMinutes)
                     };
-                    return new OllamaApiClient(settings);
+                    return new OllamaApiClient(httpClient, config.DefaultModel);
                 }),
                 ServiceLifetime.Singleton => services.AddSingleton<IOllamaApiClient, OllamaApiClient>(sp =>
                 {
                     var config = sp.GetRequiredService<IOptions<OllamaSettings>>().Value;
-                    var settings = new Configuration
+                    var httpClient = new HttpClient
                     {
-                        Uri = new Uri(config.OllamaUrl),
-                        Model = config.DefaultModel
+                        BaseAddress = new Uri(config.OllamaUrl),
+                        Timeout = TimeSpan.FromMinutes(config.TimeoutMinutes)
                     };
-                    return new OllamaApiClient(settings);
+                    return new OllamaApiClient(httpClient, config.DefaultModel);
                 }),
             };
 

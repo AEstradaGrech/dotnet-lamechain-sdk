@@ -248,15 +248,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         public ConditionalStep ToConditional(Expression<Func<bool>> condition, StepSettings stepSettings)
             => Activator.CreateInstance(typeof(ConditionalStep), condition, stepSettings) as ConditionalStep;
 
-        public StoredStep<TStored> AsStore<TStored>(StepSettings instruction) where TStored : class
-           => Activator.CreateInstance(typeof(StoredStep<TStored>), instruction) as StoredStep<TStored>;
+        public StoredStep<TStored> AsStore<TStored>(StepSettings settings) where TStored : class
+           => Activator.CreateInstance(typeof(StoredStep<TStored>), settings) as StoredStep<TStored>;
 
-        public SmartConditionalStep ToSmartConditional(StepSettings instruction)
+        public SmartConditionalStep ToSmartConditional(StepSettings settings)
         {
-            if (instruction.Command.GetType() != typeof(ScoredBoolCommand) && !instruction.Command.GetType().IsSubclassOf(typeof(ScoredBoolCommand)))
-                throw new InvalidDataException($"{nameof(SmartConditionalStep)} >> {instruction.Command.GetType().Name} >> A SmartConditionalStep command must be a ScoredBoolCommand or a subclass of it");
+            if (settings.Command.GetType() != typeof(ScoredBoolCommand) && !settings.Command.GetType().IsSubclassOf(typeof(ScoredBoolCommand)))
+                throw new InvalidDataException($"{nameof(SmartConditionalStep)} >> {settings.Command.GetType().Name} >> A SmartConditionalStep command must be a ScoredBoolCommand or a subclass of it");
 
-            return Activator.CreateInstance(typeof(SmartConditionalStep), instruction.Command, instruction, instruction.ForwardMessage) as SmartConditionalStep;
+            return Activator.CreateInstance(typeof(SmartConditionalStep), settings.Command, settings, settings.ForwardMessage) as SmartConditionalStep;
         }
 
         protected virtual void submitForgeLog()

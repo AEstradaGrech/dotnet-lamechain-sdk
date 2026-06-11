@@ -21,6 +21,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                 _commands.Add(settings.Command);
         }
 
+        //Constructor for ExpandTo<TCommand, TResult>(IJsoneable, settings)
+        public SingleThrowStep(IJsoneable command, StepSettings settings) : base(settings)
+        {
+            _commands.Add(command);
+        }
+
         /// <summary>
         /// This is the constructor for the FIRST RUNNER. ALWAYS
 

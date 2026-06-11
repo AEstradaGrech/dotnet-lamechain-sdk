@@ -151,7 +151,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
         
         public static SingleThrowStep Join( this SplitterStep step, StepSettings instruction)
         {
-            var next = step.ExpandTo<JunctionStep>(instruction.Command, instruction);
+            var next = step.ExpandTo<JunctionStep>(instruction);
             
             step.Link(next, isForward: true, isTwoWay: true);
             

@@ -31,7 +31,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
             WithPrevSchema = withPrevSchema;
         }
 
-        public StepSettings(IJsoneable command, string? feedFwd = null, string? requestPrompt = null, bool isGuidanceAppend = false, bool withFullContext = true, bool withPrevSchema = false) : this()
+        public StepSettings(IJsoneable command, string? feedFwd = null, string? requestPrompt = null, bool isGuidanceAppend = true, bool withFullContext = true, bool withPrevSchema = false) : this()
         {
             CommandRequest = new PromptCommandRequest(requestPrompt ?? string.Empty, isGuidanceAppend);
             Command = command;
@@ -55,6 +55,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
             WithPrevSchema = cloned.WithPrevSchema;
             ForwardMessage = cloned.ForwardMessage;
             CommandRequest = cloned.CommandRequest.Clone();
+            Command = cloned.Command;
             ChainFeeds = cloneFeeds ? new List<Func<Guid>>(cloned.ChainFeeds) : [];
             NestFeeds = cloneFeeds ? new Dictionary<string, List<Func<Guid>>>(cloned.NestFeeds) : new Dictionary<string, List<Func<Guid>>>();
             Boosters = cloneBoosters ? new List<KeyValuePair<string, List<string>>>(cloned.Boosters) : [];
