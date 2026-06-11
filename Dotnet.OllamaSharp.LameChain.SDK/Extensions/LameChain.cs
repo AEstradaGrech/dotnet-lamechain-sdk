@@ -93,7 +93,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
         {
             var split = step.Plug([], plugSettings);
 
-            subchains.ForEach(chain => split.Plug(chain));
+            subchains.ForEach(chain => split.PlugBranch(chain));
 
             step.Link(split, isForward: true, isTwoWay: true);
 

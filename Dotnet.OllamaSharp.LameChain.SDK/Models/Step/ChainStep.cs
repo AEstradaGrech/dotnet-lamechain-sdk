@@ -112,7 +112,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         public ChainStep(StepSettings settings) : this() 
         { 
             _stepSettings = settings ?? new StepSettings(); 
-            _feedForwardInstruction = settings.ForwardMessage;
+            _feedForwardInstruction = _stepSettings.ForwardMessage;
         }
 
         public void Link(IChaineable step, bool isForward, bool isTwoWay)
@@ -211,6 +211,18 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             // this is to run chains in parallel. The last runner of each subChain has the report for the original Multithrow Step so they can be appended
             // to the original / main runner and deleted
             var reciever = Activator.CreateInstance(typeof(SingleThrowStep), recieverSettings, newRunner) as SingleThrowStep; 
+
+            return reciever;
+        }
+
+        public IChaineable ThrowTo(bool swapRunner, IChaineable reciever)
+        {
+            if (!IsRunning)
+                throw new InvalidOperationException($"{nameof(ChainStep)} >> {nameof(ThrowTo)} >> This method is to instantiate steps with a copy of the chain runner and the current caller is not the runner");
+            // every step of this sub chain gets a new nullable runner with the previous log, but they subscribe to their own runner
+            // this is to run chains in parallel. The last runner of each subChain has the report for the original Multithrow Step so they can be appended
+            // to the original / main runner and deleted
+            reciever.Catch(swapRunner ? _runner.Clone() : _runner);
 
             return reciever;
         }
@@ -519,6 +531,20 @@ description (wrapped in parenthesis) to understand what does it represent and ho
         }
 
         protected virtual ReplayLog replayFromLog() => new ReplayLog(_forgeLog);
+
+        public void Catch(ChainRunner runner)
+        {
+            if (IsRunning) return;
+
+            _runner = runner;
+            _passCatchTimestamp = DateTime.Now;
+
+            onFinishNotify += _runner.OnRunnerFinished; // write stuff to runner. This is always triggered AFTER forgeLink or when appending subchain results
+            onReportReplay += _runner.OnReplayReport;
+            onRunNotify += _runner.OnRunnerNotify;
+
+            _runner.SetReady(this);
+        }
         // override in Multi-Socket to include subchain results
 
     }

@@ -24,7 +24,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         //Constructor for ExpandTo<TCommand, TResult>(IJsoneable, settings)
         public SingleThrowStep(IJsoneable command, StepSettings settings) : base(settings)
         {
-            _commands.Add(command);
+            if(command != null)
+                _commands.Add(command);
         }
 
         /// <summary>
@@ -56,17 +57,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         public SingleThrowStep(StepSettings settings, ChainRunner runner) 
             : this(settings) // TODO: refactor constructores - settings
         {
-            if(runner != null)
-            {
-                _runner = runner;
-                _passCatchTimestamp = DateTime.Now;
-
-                onFinishNotify += _runner.OnRunnerFinished; // write stuff to runner. This is always triggered AFTER forgeLink or when appending subchain results
-                onReportReplay += _runner.OnReplayReport;
-                onRunNotify += _runner.OnRunnerNotify;
-
-                _runner.SetReady(this);
-            }
+            if (runner != null)
+                Catch(runner);
 
             // else is .SubChain()
         }
@@ -118,6 +110,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             ChainRunner finalRunner = null;
             if (withFinalMessage)
             {
+                IChaineable endMessage = null;
                 try
                 {
                     notify($"{nameof(ExecuteChainAsync)} >> REQUESTING CHAIN FINAL MESSAGE");
@@ -134,20 +127,20 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                         )
                     );
 
-                    var jsonMessage = await finalizer.Forge(finalStep);
+                    endMessage = await finalizer.Forge(finalStep);
 
                     notify($"{nameof(ExecuteChainAsync)} >> ON FINAL MESSAGE GENERATED >> CHAIN FINISHED");
 
-                    finalMessage = jsonMessage.GetOutputAs<ChatMessage>();
+                    finalMessage = endMessage.GetOutputAs<ChatMessage>();
 
-                    finalRunner = jsonMessage.Drop();
+                    finalRunner = endMessage.Drop();
                 }
                 catch(Exception ex)
                 {
                     notify($"{nameof(ExecuteChainAsync)} >> FINAL MESSAGE KO >> EXCEPTION: {ex.Message}", LogLevel.Critical);
                     notify($"{nameof(ExecuteChainAsync)} >> FINAL MESSAGE ABORT >> RETURNING CHAIN RESULT: {ex.Message}", LogLevel.Warning);
                     finalMessage.Content = "AN ERROR HAS OCCURED WHILE GENERATING THE FINAL MESSAGE";
-                    finalRunner = finalStep.Drop();
+                    finalRunner = endMessage.IsRunning ? endMessage.Drop() : finalStep.Drop();
                 }
             }
 

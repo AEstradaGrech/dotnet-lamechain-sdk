@@ -47,7 +47,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces
         bool IsFirstSubstep();
         bool IsReady();
         bool IsChained(bool? checkNextOnly = true);
-
         // Config & execution
         public void WithChainFeeds(List<Func<Guid>> stepIds);
         public void BoostWith(List<string> feeds, string? feedMsg);
@@ -55,7 +54,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces
         public void Link(IChaineable next, bool isForward, bool isTwoWay = false);
         Task<IChaineable> Forge(IChaineable previous);
         ChainRunner Drop();
-
+        void Catch(ChainRunner runner);
         // Read Output
         TDeserialized GetOutputAs<TDeserialized>() where TDeserialized : class;
         public Dictionary<Guid, List<ChainLink>> GrouppedOutputs();

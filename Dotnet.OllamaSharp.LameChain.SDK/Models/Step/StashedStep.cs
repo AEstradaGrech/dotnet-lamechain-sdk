@@ -35,6 +35,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
             _isIsolated = settings.IsIsolated;
         }
 
+        //11/06/26 --> Chains can start with a stash of data
+        public StashedStep(StepSettings settings, ChainRunner runner) : base(settings, runner) { }
         public override bool CanBeForged(IChaineable previous) => IsReady() && (IsFirstStep() ? IsChained() : IsChained(isForwardCheck: null));
 
         protected override void appendPreviousContext(StringBuilder sb, IChaineable previous)

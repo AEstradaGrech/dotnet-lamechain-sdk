@@ -47,9 +47,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         public override bool CanBeForged(IChaineable previous)
             => IsRunning && previous != null && !previous.IsMultiSocket && (_plugCommands.Count > 0 || _branches.Count > 0); // setup from instructions or from subChains
 
-        public void Plug(IChaineable branch)
+        public void PlugBranch(IChaineable branch)
         {
-            _branches.Add(branch);
+            if(branch != null)
+                _branches.Add(branch.GetFirstStep());
         }
 
         public override async Task<IChaineable> Forge(IChaineable previous)
@@ -90,8 +91,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                 }
                 previous = splittedOut;
             }
-            
 
+            // Plugged SUBCHAINS (SingleThrowStep = n sub-cmd)
+            if (_branches.Count > 0)
+                _branches.ForEach(branch => ThrowTo(swapRunner: true, branch));
+            
+            // Plugged INSTRUCTION (StepSettings = 1 sub-cmd)
             _plugCommands.ForEach(settings => _branches.Add(ThrowTo(swapRunner: true, settings)));
 
             var chainResults = new List<IChaineable>();
