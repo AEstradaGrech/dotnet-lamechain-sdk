@@ -256,7 +256,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             if (settings.Command.GetType() != typeof(ScoredBoolCommand) && !settings.Command.GetType().IsSubclassOf(typeof(ScoredBoolCommand)))
                 throw new InvalidDataException($"{nameof(SmartConditionalStep)} >> {settings.Command.GetType().Name} >> A SmartConditionalStep command must be a ScoredBoolCommand or a subclass of it");
 
-            return Activator.CreateInstance(typeof(SmartConditionalStep), settings.Command, settings, settings.ForwardMessage) as SmartConditionalStep;
+            return Activator.CreateInstance(typeof(SmartConditionalStep), settings) as SmartConditionalStep;
         }
 
         protected virtual void submitForgeLog()
