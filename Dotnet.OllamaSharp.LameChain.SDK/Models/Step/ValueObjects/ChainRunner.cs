@@ -1,7 +1,9 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs;
+using Dotnet.OllamaSharp.LameChain.SDK.Models.Steps;
 using Microsoft.Extensions.Logging;
+using static Dotnet.OllamaSharp.LameChain.SDK.Models.Steps.ChainStep;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
 {
@@ -99,6 +101,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
             // get detailed info about the runned step
             onReplayRequest += previous.SendReplay; //WG: el último no se suscribe. CHECK
 
+            if (!runner.IsChained(checkNextOnly: true))
+            {
+                onReplayRequest += runner.SendReplay;
+                ((ChainStep)runner).onSupportIncoming += OnSupporterResponse;
+                ((ChainStep)runner).onReportReplay += OnReplayReport;
+            }
             // There is also a fast dictionary-delegate tracking all
             // the supporters (might be removed or set as the final access system better than the events system)
             Supporters.Add(previous.Id, previous.OnRunnerCall);

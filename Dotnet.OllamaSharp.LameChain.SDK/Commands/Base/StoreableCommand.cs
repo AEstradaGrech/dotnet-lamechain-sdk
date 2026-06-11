@@ -53,5 +53,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Base
            
             return await _storingLambda(castedReq.Stored, castedReq.CollectionName);
         }
+
+        //TODO: string getPromptInstruction() &&  Task<string> getPromptInstruction + IsDbCommand == typeof == DbCommand & !IsDefaultMode
+        protected override async Task<string> getPromptInstruction(string? additionalData = null, bool isAfterCore = true)
+        {
+            var instruction = await base.getPromptInstruction(additionalData, isAfterCore);
+
+            return string.IsNullOrEmpty(instruction) ? $">> STORING >> {nameof(StoreableCommand<TStored>)}" : instruction;
+        }
     }
 }

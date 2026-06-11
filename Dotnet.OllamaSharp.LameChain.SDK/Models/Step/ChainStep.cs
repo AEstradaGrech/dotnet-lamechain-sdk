@@ -156,11 +156,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
         public void SendReplay()
         {
+            if (onReportReplay == null) return;
             //build report
             var report = replayFromLog();
 
-            report.RunnersLog = _instructionsLog; //cada miembro de la subchain hace append de SU instruction. si es sub-sub chain, contiene el log ya formateado (porque se hace report de pieza main) 
-                                                  //ej: sub-> [- do X] [ - do Y] [-TAP\n-SUBCHAIN:\n-Do Z\n-SUBCHAIN:\n-Do ETC] - [- do ..]
+            report.RunnersLog = _instructionsLog; 
+                                                  
             report.FeededMessage = Request.GuidanceMessage;
             report.PassCatchTimestamp = _passCatchTimestamp;
 
@@ -362,7 +363,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             if(!string.IsNullOrEmpty(_promptedInstruction))
                 _instructionsLog.Add(_promptedInstruction);
 
-            notify($"{nameof(forgeLink)} >> LINK FORGED >> SYSTEM MESSAGE: \n{_promptedInstruction}");
+            notify($"{nameof(forgeLink)} >> LINK FORGED >> SYSTEM MESSAGE: \n{_promptedInstruction}", LogLevel.Warning);
 
             var link = new ChainLink(_id, _promptedInstruction, jsonResult.RawJson, JsonSerializerOptions.Default.GetJsonSchemaAsNode(jsonResult.Type), jsonResult.Type, deserializerOptions: jsonResult.SerializerOptions, feedForwardMessage: _feedForwardInstruction);
 
@@ -371,6 +372,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             _forgeLog.ForgeTimestamp = DateTime.Now;
             _forgeLog.JsonResult = jsonResult.RawJson;
             _forgeLog.JsonSchema = link.SchemaForMessage();
+
+            notify($"{nameof(forgeLink)} >> LINK FORGED >> OUTPUT: \n{_forgeLog.JsonResult}", LogLevel.Warning);
         }
 
         // Override as many methods you need to skip some message sections (for example, if you don't need the previous context)

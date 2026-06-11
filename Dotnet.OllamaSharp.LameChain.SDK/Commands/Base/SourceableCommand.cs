@@ -17,5 +17,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Base
 
         public SourceableCommand(IOllamaInferenceService ollama, string messageSourceName, string messageName, Func<string, string, Task<string>> retriever, string? guidanceMessage = null, CommandSettings? settings = null)
             : base(ollama, messageSourceName, messageName, retriever, guidanceMessage, settings) { }
+
+        protected override async Task<string> getPromptInstruction(string? additionalData = null, bool isAfterCore = true)
+        {
+            var instruction = await base.getPromptInstruction(additionalData, isAfterCore);
+
+            return string.IsNullOrEmpty(instruction) ? $">> SOURCING >> {nameof(SourceableCommand)}" : instruction;
+        }
     }
 }

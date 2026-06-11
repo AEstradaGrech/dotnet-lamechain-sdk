@@ -1,4 +1,5 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
