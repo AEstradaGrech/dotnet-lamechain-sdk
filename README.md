@@ -381,25 +381,34 @@ It exposes only the methods that make sense for the current step type.
 
 ```csharp
 
-.StartWith(StepInstruction firstInstruction, CommandSettings defaultSettings, string? finalSysMessage = null, string? chainIntent = null)
+.StartWith(StepSettings firstInstruction, CommandSettings defaultSettings, string? finalSysMessage = null, string? chainIntent = null)
+.StartWith<TStep>(StepSettings firstInstruction, CommandSettings defaultSettings, string? finalSysMessage = null, string? chainIntent = null)
 .SubChainWith<TStep>(params object?[]? args)
-.Then(this SingleThrowStep step, IJsoneable command, StepSettings request, string? feedFwdInstruction = null)
-.ThenIf(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, SingleThrowStep trueBranch, string? conditionFeedFwd = null)
-.ThenIf<TStep>(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StepInstruction trueInstruction, string? conditionFeedFwd = null)
-.ThenIf(this SingleThrowStep step, StepInstruction evaluator, SingleThrowStep trueBranch)
-.ThenIf<TStep>(this SingleThrowStep step, StepInstruction evaluator, StepInstruction trueInstruction)
-.Tap(this SingleThrowStep step, List<StepInstruction> instructions, StepSettings? plugSettings = null)
-.SplitThrough(this SingleThrowStep step, StepInstruction splitted, List<StepInstruction> instructions)
-.Pipe(this SplitterStep step, IJsoneable command, StepSettings pipedSettings, string? pipeFeedFwd = null)
-.Join(this SplitterStep step, StepInstruction instruction)
-.Store<TStored>(this SingleThrowStep step, StepInstruction storeInstruction)
-.StoreIf<TPrev>(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StoredStep<TPrev> trueBranch, string? conditionFeedFwd = null)
-.Stash(this SingleThrowStep step, StepInstruction stashInstruction, out Func<Guid> stashId, bool isGreedy = false, bool isIsolated = true)
-.StashIf(this SingleThrowStep step, StepInstruction evaluator, StashedStep trueBranch)
+.Then(this SingleThrowStep step, StepSettings settings)
+.ThenIf<TStep>(this SingleThrowStep step, StepSettings evaluator, StepSettings trueInstruction)
+.ThenIf(this SingleThrowStep step, StepSettings evaluator, SingleThrowStep trueBranch)
+.ThenIf<TStep>(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StepSettings trueInstruction)
+.ThenIf(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, SingleThrowStep trueBranch)
+.Tap(this SingleThrowStep step, List<StepSettings> instructions, StepSettings? plugSettings = null)
+.Tap(this SingleThrowStep step, List<SingleThrowStep> subchains, StepSettings? plugSettings = null)
+.SplitThrough(this SingleThrowStep step, StepSettings splitted, List<StepSettings> instructions)
+.Pipe(this SplitterStep step, StepSettings pipedSettings)
+.Join(this SplitterStep step, StepSettings instruction)
+.Store<TStored>(this SingleThrowStep step, StepSettings storeInstruction)
+.StoreIf<TPrev>(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StepSettings trueInstruction)
+.StoreIf<TPrev>(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StoredStep<TPrev> trueBranch)
+.Stash(this SingleThrowStep step, StashSettings stashSettings, out Func<Guid> stashId)
+.StashIf(this SingleThrowStep step, StepSettings evaluator, StashSettings stashSettings)
+.StashIf(this SingleThrowStep step, StepSettings evaluator, StashedStep trueBranch)
 .ForwardFirstType<TStep>(this ChainStep step)
-.ExposeThisId(this SingleThrowStep step, out Guid id)
-.WithRebujito(this SingleThrowStep | SplitterStep step, List<string> sources, string? guidance = null, int? feedDose = null)
-.ChainFeedsFrom(this SplitterStep | SplitterStep step, List<Func<Guid>> steps, string? guidance = null)
+.ExposeThisId(this SingleThrowStep step, out Func<Guid> id)
+.ExposeThisId(this SplitterStep step, out Func<Guid> id)
+.ExposeThisStep(this SingleThrowStep step, out SingleThrowStep exposed)
+.ExposeThisStep(this SplitterStep step, out SplitterStep exposed)
+.WithRebujito(this SingleThrowStep step, List<string> sources, string? guidance = null, int? feedDose = null)
+.WithRebujito(this SplitterStep step, List<string> sources, string? guidance = null, int? feedDose = null)
+.ChainFeedsFrom(this SingleThrowStep step, List<Func<Guid>> steps, string? guidance = null)
+.ChainFeedsFrom(this SplitterStep step, List<Func<Guid>> steps, string? guidance = null)
 .UseBroadcaster(this SingleThrowStep step, Action<Guid, string, LogLevel> broadcaster)
 .ThenExecuteAsync(this SingleThrowStep step, bool withFinalMessage = false, bool withReplay = false, CommandSettings finalMsgSettings = null)
 ```
@@ -421,9 +430,9 @@ It exposes only the methods that make sense for the current step type.
 - `.StoreIf(...)` adds a stored step that will be executed IF a boolean condition is passed
 - `.ForwardFirstType<TStep>(...)` sets / returns the first step of a subchain. Use this to 'close' a subchain that starts with one TStep and ends with another type
 - `.ExposeThisId(...)` captures step IDs for later feeding
-- `.ExposeThisStep(...)` captures step for later feeding.
+- `.ExposeThisStep(...)` captures step for later feeding
 - `.WithRebujito(...)` boosts context with extra sources
-- `.WithChainFeedsFrom(...)` configures a step feed by passing the step id's to read from
+- `.ChainFeedsFrom(...)` configures a step feed by passing the step id's to read from
 - `.ThenExecuteAsync(...)` finalizes execution and returns `ChainResult`
 
 ### Broadcast chain execution:
@@ -494,7 +503,7 @@ var result = await LameChain
 
 ```
 
-## Example usage
+## Usage example
 
 This example demonstrates how you can use LameChain to split a relatively long processess that might be too heavy (in cognitive terms) for the LLM into
 more short and focused tasks that will add their results iteratively to achieve a refined final output that should be better than the one you would achieve
@@ -506,100 +515,214 @@ It starts with a simple instruction to build the character in different sequenti
 
 ```csharp
 
-public async Task<ChainResult> ParallelChainExample(ChainedPrompt request)
-    => await LameChain
-        .StartWith(new StepInstruction(
-                _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
-                    instruction: "Generate a character name and assign it an age (the age might be a specific number or a rough string approximation).", //This should be the 'request.SystemMessage'
-                    settings: request.Settings),
-                settings: new StepSettings(new PromptCommandRequest(
-                    message: "Generate a character for a game ambiented in Spain in the XVI century", // This should be the 'request.Prompt'
-                    guidanceMessage: "You are a character concept creator for a videogames company" // bias the output of the first step by assigning it a role that makes it an expert in the topic.
-                )),
-                feedFwd: ""),
-            defaultSettings: request.Settings, // default settings for all the chain. If you don't pass individual settings to a command, this will be used instead
-            finalSysMessage: "Ensure you output your answer in old castillian spanish style, but be consistent with the provided context data.", //This is just to demonstrate how to use the Final Message. Let's say you are doing some tests about how should the character speak in the game
-            chainIntent: "Create game character") // This will be passed to all steps so every LLM request has a clear idea of what is the final task / overall goal
-        .UseBroadcaster(GetBroadcastAction())
-        .ExposeThisId(out var startId)
-        .Then(
-            _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
-                instruction: "Reduce the previous output to ensure it only contains the requested name and age, remove the rest",
-                request.Settings), // pass indiviual settings for each step if necessary to regulate how focused or creative is the LLM
-            new StepSettings(new PromptCommandRequest("")),
-            feedFwdInstruction: "Use the name and the age to develop your part of the character") // Help the next step with its task by passing 'Feed Forward' messages that will be added to the context along with the previous output.
-        .ExposeThisId(out var thenId)
-        .SplitThrough(
-        //This step will split the chain but executing a command first that will feed every plugged substep.
-        // The splitted step recieves the previous output (ideally only the name and age after the reduction) and generate some kind of descriptive 'picture' of a possible character that will be passed
-        // to the parallel branches for further post-processing.
-            new StepInstruction(
-                _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
-                    instruction: "Generate a succinct 'iconic moment' for the character, that is: a description of a typical situation or scene for this character, a moment that should represent its nature and the way it is. Use no more than 50-60 words",
-                    settings: request.Settings), // You could pass some very creative settings in this step for example
-                settings: new StepSettings(new PromptCommandRequest(message: "")),
-                feedFwd: "Use this character typical scene as a character concept to inspire your creations"), [
-                    //Based on this little character concept (that inherits the name and age) the other steps will pick a faction, a game location as hometowm and generate an extensive background story to use it as a base for the final result (that will merge the three outputs)
-                new StepInstruction(
-                    _factory.GetStringChoiceCommand( //You can use different type of Lame Commands in the chain. Here I'm using an AtomicValue Command that selects a single string from the passed list based on the given instruction
-                        guidanceMessage: "Select a faction from the available list for the game character you are creating. Use the provided data to select the faction that fits best or choose at random if none stands out."),
-                    new StepSettings(new StringChoiceRequest(
-                        choices: ["Germaners", "Comuneros", "Tercio Imperial" ],
-                        message: "Select a game faction for the character", // Enforce the instruction if you get hallucinations with dumb models or maybe the context adds too much noise and misleads the LLM
-                        isGuidanceAppend: true, // I'm using the command default instruction so I set this param to true to append the chain context 
-                        model: null))
-                        .FeedFrom(startId), // This is just to demonstrate an individual feed in a splitted step from a previous process different than the previous
-                    feedFwd: "# IMPORTANT: the provided faction name MUST be the character faction"), // Help the next worker focus on its task when you start to add too much content to the LLM's context window (for example joining three outputs, like in the next step)
-                new StepInstruction(
-                    _factory.GetEnumChoiceCommand<EGameLocations>( // You can use other type of AtomicValue command for quick selections based on your app code. values  Here I'm using an AtomicValue command that selects an app enum value based on the instruction.
-                        guidanceMessage: "Select a game location from the available list for the game character you are creating. Use the provided data to select the location that fits best with the profile."),
-                    new StepSettings(
-                        new PromptCommandRequest(
-                            message: "Select a game location for the character as stated in your instruction", 
-                            isGuidanceAppend: true)
-                        ),
-                    feedFwd: "# IMPORTANT: THIS IS THE CHARACTER PLACE OF ORIGIN. Use the selected location as the character's place of birth"), // Every parallel branch can add its own Feed Forward message to help the next step to understand / use the output of its instruction
-                new StepInstruction(
+    public async Task<ChainResult> ParallelChainExample(ChainedPrompt request)
+        => await LameChain
+            .StartWith(new StepSettings(
                     _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
-                        instruction:"Generate a background story or profile for the character you are creating. Use the provided data to figure out what kind of character might appropriate in terms of style, mood, vibe..."),
-                    settings: new StepSettings(new PromptCommandRequest(message: "", isGuidanceAppend : true))
-                        .WithDataBoost( // Steps can be boosted by feeding the output of previous steps but also by adding external string sources.
-                        // In this case I'm adding semi-random data to the bias the generated character base profile towards specific styles.
-                        // But ideally you would add here well processed sources (in this example it could be real human-made character concepts made by the game studio artists
-                            "Use the below data to bias your final response towards that style, ambience, topic or vibe",
-                            await _langSearch.SearchWebTexts(new WebSearchRequest("Don Pablo o La vida del buscón. Lazarillo de Tormes, sinopsis.", 5), returnSnippet: false, resultsClamp: 100)),
-                    feedFwd: "Use this profile as an inspiration for your final character profile, but adapt it to the game lore") // Guide the refining / summarizing step to leverage the output of the different branches and get more consistent results
-            ])
-        // Now that the chain has been splitted in 3 branches, it is possible to work on each branch indepently by piping commands that will be executed on each recieved previous output
-        // This part of the example tries to demonstrate how to use another step to post-process the generated outputs and get more consistent results by generating
-        // some semi-random content that is based on the generated content so far (the goal is to augment the previous results and have more base material to work with in the joining step)
-        // Note that now every FeedForward message from the splitter will be 'spent' in this step, you have to use the pipeFeedFwd message to guide the next one
-        .Pipe(
-            _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
-                instruction: "Review the content so far and combine it with the provided sources in a very short story plot (around 50 words)",
-                settings: request.Settings),
-            pipedSettings: new StepSettings(new PromptCommandRequest(message: "", isGuidanceAppend: true)),
-            pipeFeedFwd: "Review all the sources and get a consistent overview of the expected character profile. #IMPORTANT: use the character 'Faction' and game place of origin to generate your profile")
-        // You can add rebujitos of data to influence the outputs of each branch of the pipe if you need.
-        // In this case I'm simulating more style biasing without filtering it, but ideally you would add business content that you would like to apply on each branch.
-        // In this example, it could be more content produced by the game studio staff (like scene scripts or even quest scripts, the idea
-        // is to add get results that are aligned with the game lore so the final junction step does not hallucinate and add content from it's training dataset
-        .WithRebujito(
-            await _langSearch.SearchWebTexts(new WebSearchRequest("Revuelta de los Comuneros. Rebelion de las Germanias", results: 3), returnSnippet: false),
-            guidance: "Use this data as a source of style references and add merge them in your final response along with the generated game lore. Output your response in always in English despite the source language.", // It is possible to add guidance instruction about the rebujito content to help the lLM to use it
-            feedDose: 100)
-        .Join(
-            new StepInstruction(
+                        instruction: "Generate a character name and assign it an age (the age might be a specific number or a rough string approximation).", //This should be the 'request.SystemMessage'
+                        settings: request.Settings),
+                    new PromptCommandRequest(
+                        message: "Generate a character for a game ambiented in Spain in the XVI century", // This should be the 'request.Prompt'
+                        guidanceMessage: "You are a character concept creator for a videogames company" // bias the output of the first step by assigning it a role that makes it an expert in the topic.
+                    )),
+                defaultSettings: request.Settings, // default settings for all the chain. If you don't pass individual settings to a command, this will be used instead
+                finalSysMessage: "Ensure you output your answer in old castillian spanish style, but be consistent with the provided context data.", //This is just to demonstrate how to use the Final Message. Let's say you are doing some tests about how should the character speak in the game
+                chainIntent: "Create game character") // This will be passed to all steps so every LLM request has a clear idea of what is the final task / overall goal
+            .UseBroadcaster(GetBroadcastAction())
+            .ExposeThisId(out var startId)
+            .Then(new StepSettings(
+                _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
+                    instruction: "Reduce the previous output to ensure it only contains the requested name and age, remove the rest",
+                    request.Settings), // pass indiviual settings for each step if necessary to regulate how focused or creative is the LLM
+                feedFwd: "Use the name and the age to develop your part of the character")
+            )// Help the next step with its task by passing 'Feed Forward' messages that will be added to the context along with the previous output.
+            .ExposeThisId(out var thenId)
+            .SplitThrough(
+            //This step will split the chain but executing a command first that will feed every plugged substep.
+            // The splitted step recieves the previous output (ideally only the name and age after the reduction) and generate some kind of descriptive 'picture' of a possible character that will be passed
+            // to the parallel branches for further post-processing.
+                new StepSettings(
+                    _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
+                        instruction: "Generate a succinct 'iconic moment' for the character, that is: a description of a typical situation or scene for this character, a moment that should represent its nature and the way it is. Use no more than 50-60 words",
+                        settings: request.Settings), // You could pass some very creative settings in this step for example
+                    feedFwd: "Use this character typical scene as a character concept to inspire your creations"), 
+                [
+                        //Based on this little character concept (that inherits the name and age) the other steps will pick a faction, a game location as hometowm and generate an extensive background story to use it as a base for the final result (that will merge the three outputs)
+                    new StepSettings(
+                        _factory.GetStringChoiceCommand( //You can use different type of Lame Commands in the chain. Here I'm using an AtomicValue Command that selects a single string from the passed list based on the given instruction
+                            guidanceMessage: "Select a faction from the available list for the game character you are creating. Use the provided data to select the faction that fits best or choose at random if none stands out."),
+                        new StringChoiceRequest(
+                            choices: ["Germaners", "Comuneros", "Tercio Imperial" ],
+                            message: "Select a game faction for the character", // Enforce the instruction if you get hallucinations with dumb models or maybe the context adds too much noise and misleads the LLM
+                            isGuidanceAppend: true, // I'm using the command default instruction so I set this param to true to append the chain context 
+                            model: null),
+                        feedFwd: "# IMPORTANT: the provided faction name MUST be the character faction") // Help the next worker focus on its task when you start to add too much content to the LLM's context window (for example joining three outputs, like in the next step)
+                            .FeedFrom(startId), // This is just to demonstrate an individual feed in a splitted step from a previous process different than the previous
+                    new StepSettings(
+                        _factory.GetEnumChoiceCommand<EGameLocations>( // You can use other type of AtomicValue command for quick selections based on your app code. values  Here I'm using an AtomicValue command that selects an app enum value based on the instruction.
+                            guidanceMessage: "Select a game location from the available list for the game character you are creating. Use the provided data to select the location that fits best with the profile."),
+                            new PromptCommandRequest(
+                                message: "Select a game location for the character as stated in your instruction", 
+                                isGuidanceAppend: true
+                            ),
+                            feedFwd: "# IMPORTANT: THIS IS THE CHARACTER PLACE OF ORIGIN. You MUST use the selected location as the character's place of birth"), // Every parallel branch can add its own Feed Forward message to help the next step to understand / use the output of its instruction
+                    new StepSettings(
+                        _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
+                            instruction:"Generate a background story or profile for the character you are creating. Use the provided data to figure out what kind of character might appropriate in terms of style, mood, vibe..."),
+                        new PromptCommandRequest(message: "", isGuidanceAppend : true),
+                        feedFwd: "Use this profile as an inspiration for your final character profile, but adapt it to the game lore"
+                    )
+                    .WithDataBoost( // Steps can be boosted by feeding the output of previous steps but also by adding external string sources.
+                    // In this case I'm adding semi-random data to the bias the generated character base profile towards specific styles.
+                    // But ideally you would add here well processed sources (in this example it could be real human-made character concepts made by the game studio artists
+                        "Use the below data to bias your final response towards that style, ambience, topic or vibe",
+                        await _langSearch.SearchWebTexts(new WebSearchRequest("Don Pablo o La vida del buscón. Lazarillo de Tormes, sinopsis.", 5), returnSnippet: false, resultsClamp: 100)),
+                        // Guide the refining / summarizing step to leverage the output of the different branches and get more consistent results
+                ])
+            // Now that the chain has been splitted in 3 branches, it is possible to work on each branch indepently by piping commands that will be executed on each recieved previous output
+            // This part of the example tries to demonstrate how to use another step to post-process the generated outputs and get more consistent results by generating
+            // some semi-random content that is based on the generated content so far (the goal is to augment the previous results and have more base material to work with in the joining step)
+            // Note that now every FeedForward message from the splitter will be 'spent' in this step, you have to use the pipeFeedFwd message to guide the next one
+            .Pipe(new StepSettings(
+                _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
+                    instruction: "Review the content so far and combine it with the provided sources in a very short story plot (around 50 words)",
+                    settings: request.Settings),
+                new PromptCommandRequest(message: "", isGuidanceAppend: true),
+                feedFwd: "Review all the sources and get a consistent overview of the expected character profile. #IMPORTANT: use the character 'Faction' and game place of origin to generate your profile")
+            )
+            // You can add rebujitos of data to influence the outputs of each branch of the pipe if you need.
+            // In this case I'm simulating more style biasing without filtering it, but ideally you would add business content that you would like to apply on each branch.
+            // In this example, it could be more content produced by the game studio staff (like scene scripts or even quest scripts, the idea
+            // is to add get results that are aligned with the game lore so the final junction step does not hallucinate and add content from it's training dataset
+            //.WithRebujito(
+            //    await _langSearch.SearchWebTexts(new WebSearchRequest("Revuelta de los Comuneros. Rebelion de las Germanias", results: 3), returnSnippet: false),
+            //    guidance: "Use this data as a source of style references and add merge them in your final response along with the generated game lore. Output your response in always in English despite the source language.", // It is possible to add guidance instruction about the rebujito content to help the lLM to use it
+            //    feedDose: 100)
+            .Join(new StepSettings(
                 _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
                     instruction: "Generate a full character profile (400-500 words) with the provided data. Review the character Faction and place of origin, you MUST include those in your profile. Include a background story, a psychological profile and a 'usual routines' section"),
-                settings: new StepSettings(
                     new PromptCommandRequest(
                         message: "Generate the requested character profile",
-                        isGuidanceAppend: true)) // Enforce the instruction (specially if you are using small local models and the context window is relatively filled)
-                    .FeedFrom(thenId) // Feed the name and age to ensure it uses the one generated at this step (dumb models may have alucinated with the background story and the rebujito feeds)
+                        isGuidanceAppend: true)
+                ) // Enforce the instruction (specially if you are using small local models and the context window is relatively filled)
+                .FeedFrom(thenId) // Feed the name and age to ensure it uses the one generated at this step (dumb models may have alucinated with the background story and the rebujito feeds)
             )
-        )
-        .ThenExecuteAsync(request.WithFinalMessage, request.WithReport, request.FinalMessageSettings ?? request.Settings);
+            .ThenExecuteAsync(request.WithFinalMessage, request.WithReport, request.FinalMessageSettings ?? request.Settings);
+
+            // You can request a final 'user-friendly' message that would make use of the chain output to generate the response, but
+            // allows individual guidancemessage and settings allowing more flexibility in the usage
+            // For example, if this was the beginning of a game conversation with an NPC and the last Joining step was a CharacterModel.cs with many properties defining a detailed game character
+            // then you could make use of the final 'user-friendly' message to start the conversation with the newly created NPC using the rich CharacterModel.cs as context.
+            // Because the ChainResult includes both, you could then return the final ChatMessage and store the CharacterModel in DB from the client app.
+```
+
+You can also create parallel subchains with multiple substeps. This is a new version of the previous example that includes a bit of everything:
+
+```csharp
+
+    public async Task<ChainResult> ParallelSubChainsExample(ChainedPrompt request)
+        => await LameChain
+            .StartWith<StashedStep>( // start with a stash of sources from Chroma to set the style of the generated base character. 
+                new StashSettings(
+                    _factory.GetVectorSearchSourceable(_chromaService.SimilaritySearch),
+                    new VectorSearchRequest(
+                        index: "game-lore-sources",
+                        query: request.Prompt, // This will be used to get the initial sources for the next step
+                        embedder: "nomic-embed-text",
+                        dimensions: 512,
+                        results: 4
+                    ),
+                    feedFwd:"Use this sources to set the style and ambience of your generated character",
+                    isGreedy: false,
+                    isIsolated: true),
+                defaultSettings: request.Settings, 
+                finalSysMessage: "Your response must syntetize the provided profile in a descriptive text (around 400 words) presenting the character (like some kind of teaser or spoiler)", //This is just to demonstrate how to use the Final Message. Let's say you are doing some tests about how should the character speak in the game
+                chainIntent: "Create game character")
+            .UseBroadcaster(GetBroadcastAction()) // broadcast the chain status
+            .Then(new StepSettings(_factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
+                    instruction: "Generate a character name and assign it an age (the age might be a specific number or a rough string approximation).", //This should be the 'request.SystemMessage'
+                    settings: request.Settings),
+                new PromptCommandRequest(
+                    message: string.Empty,
+                    guidanceMessage: "You are a character concept creator for a videogames company" // bias the output of the first step by assigning it a role that makes it an expert in the topic.
+                    )
+                )
+            )
+            .ExposeThisId(out var startId)
+            .Then(new StepSettings(
+                _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
+                    instruction: "Reduce the previous output to ensure it only contains the requested name and age, remove the rest",
+                    request.Settings),
+                feedFwd: "Use the name and the age to develop your part of the character")
+            ) 
+            .ExposeThisId(out var thenId)
+            .Tap([ // Add the subchains
+                LameChain.SubChainWith<SingleThrowStep>(new StepSettings(
+                    _factory.GetStringChoiceCommand( 
+                        guidanceMessage: "Select a faction from the available list for the game character you are creating. Use the provided data to select the faction that fits best or choose at random if none stands out."),
+                    new StringChoiceRequest(
+                        choices: ["Germaners", "Comuneros", "Tercio Imperial" ],
+                        message: "Select a game faction for the character", 
+                        isGuidanceAppend: true, 
+                        model: null))  
+                    .FeedFrom(startId) // Feed a step individually
+                    )
+                .Then(new StepSettings(_factory.GetMessagePromptCommand("Expand the selected faction with a short description of it (40-50) words. If the faction is based on a real historic faction, then you must be faithful to the historic facts related to the faction history and nature, despite it's ideology or morals"))) //enhance
+                .Store<ChatMessage>(new StepSettings( // store the result of a substep if you want. The stored item will be passed as context to the next
+                    _factory.GetStoreable<ChatMessage>(_chromaService.OnNewChatMessage),
+                    new StoreableCommandRequest<ChatMessage>(collectionName: $"parallel-subchain"),
+                    feedFwd: "# IMPORTANT: the provided faction name MUST be the character faction")
+                ), //You can use a StoredStep anywhere in the chain (like a checkpoint for 'important' parts of the chain you whish to preserve in case of failure)
+                LameChain.SubChainWith<StashedStep>(
+                    new StashSettings(
+                        _factory.GetSourceable<RagExpansionCommand>(), //expand vector search query to get different sources in the next VectorSearch / Stash
+                        new RagExpansionRequest(expansions: 1, request.Prompt),
+                        feedFwd: null,
+                        isGreedy:false,
+                        isIsolated: true))
+                .Stash(new StashSettings( // retrieve more selected sources from your DB to bias the generated character
+                        _factory.GetVectorSearchSourceable(_chromaService.SimilaritySearch), // style bias docs
+                        new VectorSearchRequest(index:"game-lore-sources", query: request.Prompt, "nomic-embed-text", dimensions: 512, results: 4),
+                        feedFwd: "Use this sources to set the style and ambience of your generated character", 
+                        isGreedy: true, 
+                        isIsolated: false,
+                        withFullContext: false), //Use only the content of the previous sourceable result (a rag expansion in this case)
+                    out var stashId),
+                LameChain.SubChainWith<SingleThrowStep>(
+                    new StepSettings(
+                        _factory.GetEnumChoiceCommand<EGameLocations>( 
+                            guidanceMessage: "Select a game location from the available list for the game character you are creating. Use the provided data to select the location that fits best with the profile."),
+                        new PromptCommandRequest(
+                            message: "Select a game location for the character as stated in your instruction",
+                            isGuidanceAppend: true)
+                    )
+                )
+                .Then(new StepSettings( // expand selection (this will help in the next step when adding all the subchain outputs to the context window of the junction step)
+                    _factory.GetMessagePromptCommand( 
+                    systemMessage: "Expand the selected game location with a short description of it. Review any provided information about the game location or, in case the location is fictional, generate a description that is consistent with the game lore and user intent"),
+                    new PromptCommandRequest(
+                        message: "Describe the selected game location or generate one that fits with the game lore",
+                        isGuidanceAppend: true
+                    ),
+                feedFwd: "# IMPORTANT: THIS IS THE CHARACTER PLACE OF ORIGIN. Use the selected location as the character's place of birth") // Every parallel branch can add its own Feed Forward message to help the next step to understand / use the output of its instruction
+            )
+                ])
+            .Join( // Join all the subchain outputs to generate the final character adapted to the game lore...
+                new StepSettings(
+                    _factory.GetAsJsoneable<MessagePromptCommand, ChatMessage>(
+                        instruction: "Generate a full character profile (400-500 words) with the provided data. Review the character Faction and place of origin, you MUST include those in your profile. Include a background story, a psychological profile and a 'usual routines' section"),
+                        new PromptCommandRequest(
+                            message: "Generate the requested character profile",
+                            isGuidanceAppend: true) 
+                )
+            ) // ...with the classic rebujito to bias the generation towards a desired theme / topic
+            .WithRebujito(
+                await _langSearch.SearchWebTexts(new WebSearchRequest("Revuelta de los Comuneros. Rebelion de las Germanias", results: 3), returnSnippet: false),
+                guidance: "Use this data as a source of style references and add merge them in your final response along with the generated game lore. Output your response in always in English despite the source language.", // It is possible to add guidance instruction about the rebujito content to help the lLM to use it
+                feedDose: 300)
+            .ChainFeedsFrom([thenId, stashId])
+            .ThenExecuteAsync(request.WithFinalMessage, request.WithReport, request.FinalMessageSettings ?? request.Settings);
+
 ```
 
 This example demonstrates how can you use LameChain to build a 'smart' rag that will:
@@ -617,59 +740,61 @@ This example demonstrates how can you use LameChain to build a 'smart' rag that 
 
 ```csharp
 
-    public async Task<ChainResult> SmartRagChain(SimpleCommandRequest request)
+   public async Task<ChainResult> SmartRagChain(SimpleCommandRequest request)
         => await LameChain
-            .StartWith(new StepInstruction(
-                _factory.GetCommand<UserIntentCommand, ChatMessage>(systemMessage: "", request.Settings),
-                new StepSettings(new PromptCommandRequest(request.Prompt)),
-                feedFwd: "Use the generated User Intent to guide you in your task"),
+            .StartWith(
+                new StepSettings(
+                    _factory.GetCommand<UserIntentCommand, ChatMessage>(systemMessage: "", request.Settings),
+                    feedFwd: "Use the generated User Intent to guide you in your task",
+                    request.Prompt),
                 request.Settings, //Default Settings for all the chains
                 finalSysMessage: "", // There is no need to fill this since there is no user final message required
                 chainIntent: "")
             .UseBroadcaster(GetBroadcastAction())
-            .StashIf(new StepInstruction(
-                _factory.GetCommand<ScoredBoolCommand, ScoredBoolResponse>(
-                    systemMessage: $"Your task is to determine whether the provided User Intent is related to any of the Collections of the list below"),
-                new StepSettings(new PromptCommandRequest(""))
-                    .WithDataBoost("AVAILABLE COLLECTIONS:", await getChromaCollectionChoices(withChatCollections: false)),
-                feedFwd: "Use this data as a reliable source to answer the user"),
+            .StashIf(
+                new StepSettings(
+                    _factory.GetCommand<ScoredBoolCommand, ScoredBoolResponse>(systemMessage: $"Your task is to determine whether the provided User Intent is related to any of the Collections of the list below"), 
+                    feedFwd: "Use this data as a reliable source to answer the user"
+                ).WithDataBoost("AVAILABLE COLLECTIONS:", await getChromaCollectionChoices(withChatCollections: false)),
                 trueBranch: LameChain.SubChainWith<StashedStep>(
-                    new StepInstruction(
+                    new StashSettings(
                         _factory.GetSourceable<RagExpansionCommand>(),
-                        new StepSettings(new RagExpansionRequest(expansions: 1, request.Prompt))
-                    ),
-                    false, //TODO: StashSettings : StepSettings & StepWithCustomParamsSettings : StepSettings y quitar esta guarrada
-                    true
+                        new RagExpansionRequest(expansions: 1, request.Prompt),
+                        feedFwd: string.Empty,
+                        isGreedy: false,
+                        isIsolated: true)
                     )
                 .ExposeThisStep(out var ragExpansion)
-                .Stash(new StepInstruction(
-                    _factory.GetSourceable<QueryAugmentationCommand>(),
-                    new StepSettings(new RagExpansionRequest(expansions: 3, request.Prompt, withFewShot: true, 2))),
-                    out var queryAugmentId,
-                    isGreedy: true,
-                    isIsolated: true)
-                .Stash(new StepInstruction(
+                .Stash(new StashSettings(
+                        _factory.GetSourceable<QueryAugmentationCommand>(),
+                        new RagExpansionRequest(expansions: 3, request.Prompt, withFewShot: true, 2),
+                        isGreedy: true,
+                        isIsolated: true),
+                    out var queryAugmentId)
+                .Stash(new StashSettings(
                     _factory.GetEmbeddedSourceable<SmartQuerySourceable>(
                         _chromaService.SimilaritySearch,
                         llamaGuidance: "Select ONLY the 'COLLECTION NAME' value of the provided list OR empty list if there are no collections relevant for the user query."
-                    ), // appended to Core Message (default | db)
-                    new StepSettings(
-                        new SmartQueryRequest(
-                            request.Prompt,
-                            collectionChoices: await getChromaCollectionChoices(withChatCollections: false), // add a formated catalogue of DB collections with descriptions and topics to help the LLM decide
-                            maxChoices: 1,
-                            resultsPerChoice: 3,
-                            guidanceMessage: string.Empty, // this is overwritten by prev_ctx so leave it empty
-                            dimensions: 512,
-                            model: "nomic-embed-text",
-                            filters: null),
-                        withFullContext: false,
-                        withPrevSchema: false
-                        )// A nested feed is a feed that should go to a sub step or a sub command inside a step
-                            // In this case Im passing the result of the ScoredBool (with the justification comment) to the MultiChoice command that selects the best available collections.
-                            // This will help the LLM decide and will retur more accurate results when there are overlapping collection topics
-                        .WithNestedFeed(nameof(MultiChoiceCommand), [ragExpansion.WhoIsPrevious], isForStep: false) //This is the only way of feeding a subranch nested COMMAND (not a step substep) from the owning step
                     ), 
+                    new SmartQueryRequest(
+                        request.Prompt,
+                        collectionChoices: await getChromaCollectionChoices(withChatCollections: false), // add a formated catalogue of DB collections with descriptions and topics to help the LLM decide
+                        maxChoices: 1,
+                        resultsPerChoice: 3,
+                        guidanceMessage: string.Empty, // this is overwritten by prev_ctx so leave it empty
+                        dimensions: 512,
+                        model: "nomic-embed-text",
+                        filters: null),
+                    feedFwd: null,
+                    isGreedy: true,
+                    isIsolated:true,
+                    withFullContext: false,
+                    withPrevSchema: false
+                    ).WithNestedFeed(nameof(MultiChoiceCommand), [ragExpansion.WhoIsPrevious], isForStep: false) as StashSettings, 
+                    //This is the only way of feeding a subranch nested COMMAND (not a step substep) from the owning step
+                    // A nested feed is a feed that should go to a sub step or a sub command inside a step
+                    // In this case Im passing the result of the ScoredBool (with the justification comment) to the MultiChoice command that selects the best available collections.
+                    // This will help the LLM decide and will retur more accurate results when there are overlapping collection topics
                     out var smartQueryId)
                 // Feed the VectorSearch command (which is the 'main' command of the SmartQueryCommand)
                 // with the expansion stashes
@@ -679,8 +804,10 @@ This example demonstrates how can you use LameChain to build a 'smart' rag that 
                 // use this method to do that and cast it to the right type (this feature is still under development)
                 .ForwardFirstType<StashedStep>() 
                 )
-            .Then(_factory.GetCommand<RagQueryCommand, ChatMessage>(systemMessage: request.SystemMessage),
-                    new StepSettings(new ChatCommandRequest(request.Prompt, request.SystemMessage)))
+            .Then(new StepSettings(
+                _factory.GetCommand<RagQueryCommand, ChatMessage>(systemMessage: request.SystemMessage),
+                new ChatCommandRequest(request.Prompt, request.SystemMessage))
+            )
             .ChainFeedsFrom([smartQueryId]) // retrieve the output of the SmartQueryCommand that made the query with the expansions
             .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
 
@@ -690,64 +817,103 @@ Here are more simple (and conceptual) examples of usage for conditional steps an
 
 ```csharp
 
-public async Task<ChainResult> ConditionalChainExamples(CommandChatRequest request)
-{           
-    // Use Store<TPrevious> to retrieve and store the result of a step using a lambda with your required logic
-    // Here I'm saving the new generated assistant message in Chroma
-    var result = await LameChain
-        .StartWith(new StepInstruction(
-            _factory.GetCommand<MessagePromptCommand, ChatMessage>(systemMessage: request.SystemMessage, request.Settings),
-            new StepSettings(new ChatCommandRequest(request.Prompt, request.ChatHistory))),
-            request.Settings //Default Settings for all the chains
-        )
-        .UseBroadcaster(GetBroadcastAction()) // Add an Action with the right signature to process the broadcasted chain events (logging them or storing them)
-        .Store<ChatMessage>(
-            new StepInstruction(
-                _factory.GetStoreable<ChatMessage>(_chromaService.OnNewChatMessage),
-                new StepSettings(new StoreableCommandRequest<ChatMessage>(collectionName: $"ChatBot-{_apiSettings.DefaultUserName}"))
+    public async Task<ChainResult> ConditionalChainExamples(CommandChatRequest request)
+    {           
+        // Use Store<TPrevious> to retrieve and store the result of a step using a lambda with your required logic
+        // Here I'm saving the new generated assistant message in Chroma
+        var result = await LameChain
+            .StartWith(new StepSettings(
+                _factory.GetCommand<MessagePromptCommand, ChatMessage>(systemMessage: request.SystemMessage, request.Settings),
+                new ChatCommandRequest(request.Prompt, request.ChatHistory)),
+                request.Settings //Default Settings for all the chains
             )
-        )
-        .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
-
-    // Store a ChainStep result IF a boolean Expression is met (no LLM routing)
-    result = await LameChain
-        .StartWith(new StepInstruction(
-            _factory.GetCommand<MessagePromptCommand, ChatMessage>(systemMessage: request.SystemMessage, request.Settings),
-            new StepSettings(new ChatCommandRequest(request.Prompt, request.ChatHistory))),
-            request.Settings, //Default Settings for all the chains
-            finalSysMessage: "" // There is no need to fill neither this or the chainIntent since there is no user final message required
-        )
-        .UseBroadcaster(GetBroadcastAction())
-        .ThenIf<StoredStep<ChatMessage>>(() => request.ChatHistory.Count > 10, // This is a simple example of how to use the Expressions to pass conditions that will be evaluated on chain execution to run the 'True' branch or not 
-            new StepSettings(), // this are the conditional step settings. You probably won't need them in unless you are using the LLM in the lambda your are passing. You can use them to feed data as usual and use it in the step logic as needed
-            new StepInstruction(
-                _factory.GetStoreable<ChatMessage>(_chromaService.OnNewChatMessage), // In this example I'm just storing a chat conversation using Chroma without too much processing. Pass a function adapted to the chain model and your logic here
-                new StepSettings(new StoreableCommandRequest<ChatMessage>(collectionName: $"ChatBot-{_apiSettings.DefaultUserName}"))
+            .UseBroadcaster(GetBroadcastAction()) // Add an Action with the right signature to process the broadcasted chain events (logging them or storing them)
+            .Store<ChatMessage>(
+                new StepSettings(
+                    _factory.GetStoreable<ChatMessage>(_chromaService.OnNewChatMessage),
+                    new StoreableCommandRequest<ChatMessage>(collectionName: $"ChatBot-{_apiSettings.DefaultUserName}")
+                )
             )
-        )
-        .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
+            .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
 
-    // This is a more explicit / readable usage of the Fluent API to work with StoredSteps.
-    result = await LameChain
-        .StartWith(new StepInstruction(
-            _factory.GetCommand<MessagePromptCommand, ChatMessage>(systemMessage: request.SystemMessage, request.Settings),
-            new StepSettings(new ChatCommandRequest(request.Prompt, request.ChatHistory))),
-            request.Settings)
-        .UseBroadcaster(GetBroadcastAction())
-        .StoreIf<ChatMessage>(() => request.ChatHistory.Count > 10,
-            new StepSettings(),
-            new StepInstruction(
-                _factory.GetStoreable<ChatMessage>(_chromaService.OnNewChatMessage),
-                new StepSettings(new StoreableCommandRequest<ChatMessage>(collectionName: $"ChatBot-{_apiSettings.DefaultUserName}"))
+        // Store a ChainStep result IF a boolean Expression is met (no LLM routing)
+        result = await LameChain
+            .StartWith(new StepSettings(
+                _factory.GetCommand<MessagePromptCommand, ChatMessage>(systemMessage: request.SystemMessage, request.Settings),
+                new ChatCommandRequest(request.Prompt, request.ChatHistory)),
+                request.Settings, //Default Settings for all the chains
+                finalSysMessage: "" // There is no need to fill neither this or the chainIntent since there is no user final message required
             )
-        )
-        .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
+            .UseBroadcaster(GetBroadcastAction())
+            .ThenIf<StoredStep<ChatMessage>>(() => request.ChatHistory.Count > 10, // This is a simple example of how to use the Expressions to pass conditions that will be evaluated on chain execution to run the 'True' branch or not 
+                new StepSettings(), // this are the conditional step settings. You probably won't need them in unless you are using the LLM in the lambda your are passing. You can use them to feed data as usual and use it in the step logic as needed
+                new StepSettings(
+                    _factory.GetStoreable<ChatMessage>(_chromaService.OnNewChatMessage), // In this example I'm just storing a chat conversation using Chroma without too much processing. Pass a function adapted to the chain model and your logic here
+                    new StoreableCommandRequest<ChatMessage>(collectionName: $"ChatBot-{_apiSettings.DefaultUserName}")
+                )
+            )
+            .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
 
-    return result;
-}
+        // This is a more explicit / readable usage of the Fluent API to work with StoredSteps.
+        result = await LameChain
+            .StartWith(new StepSettings(
+                _factory.GetCommand<MessagePromptCommand, ChatMessage>(systemMessage: request.SystemMessage, request.Settings),
+                new ChatCommandRequest(request.Prompt, request.ChatHistory)),
+                request.Settings)
+            .UseBroadcaster(GetBroadcastAction())
+            .StoreIf<ChatMessage>(() => request.ChatHistory.Count > 10,
+                new StepSettings(),
+                new StepSettings(
+                    _factory.GetStoreable<ChatMessage>(_chromaService.OnNewChatMessage),
+                    new StoreableCommandRequest<ChatMessage>(collectionName: $"ChatBot-{_apiSettings.DefaultUserName}")
+                )
+            )
+            .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
+
+        return result;
+    }
 
 ```
 
+
+And a working example of conditional steps:
+
+``` csharp
+
+    public async Task<ChainResult> ConditionalChatChain(CommandChatRequest request)
+        => await LameChain
+            .StartWith(
+                new StepSettings(
+                    _factory.GetCommand<MessagePromptCommand, ChatMessage>(systemMessage: request.SystemMessage, request.Settings),
+                    new ChatCommandRequest(request.Prompt, request.ChatHistory), //Note: this is an example. There is no processing or validation of the chat history, it is supposed to be passed in the right order with the system message at first etc
+                    feedFwd: request.ChatHistory.Count > 0 && request.ChatHistory.First().Role == ChatRole.System.ToString() ? 
+                    $"This is the original system instruction for the chat. Use it to understand the context of the conversation and the any provided assistant instructions:\n{request.ChatHistory.First().Content}" : string.Empty),
+                request.Settings, //Default Settings for all the chains
+                finalSysMessage: "", // There is no need to fill this since there is no user final message required
+                chainIntent: "Enhanced chat") // Add the chainIntent if you want to provide some global context to all steps / LLM requests.
+            .UseBroadcaster(GetBroadcastAction())
+            .ThenIf(() => request.ChatHistory.Count > 2, // This is just a dummy condition to trigger the subchain (and the subchain is just a dummy chain to sequentiate a few example steps) 
+                new StepSettings(),
+                LameChain.SubChainWith<StoredStep<ChatMessage>>(
+                    new StepSettings(
+                        _factory.GetStoreable<ChatMessage>(_chromaService.OnNewChatMessage), 
+                        new StoreableCommandRequest<ChatMessage>(collectionName: $"ChatBot-{_apiSettings.DefaultUserName}")
+                    )
+                )
+                .Then(new StepSettings(_factory.GetMessagePromptCommand("Your task is to generate an alternate version of the provided assistant response"), 
+                    new PromptCommandRequest("Generate an alternate version of the provided assistant response without changing the core of the original content", isGuidanceAppend: true), 
+                    feedFwd:"Use this content  as a source to generate yours. Do not chat with the user, just return a version of the lyrics as instructed."
+                ))
+                .Then(new StepSettings(
+                        _factory.GetMessagePromptCommand("Your task is to translate the previous output to pirate english"), // suitable for banking environments
+                        feedFwd: null,
+                    requestPrompt:"Translate the previous output to pirate english without changing the core of the original content", 
+                    isGuidanceAppend: true))
+                .ForwardFirstType<StoredStep<ChatMessage>>()
+            )
+            .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
+
+```
 
 ## 🛠️ Sample Implementation
 
