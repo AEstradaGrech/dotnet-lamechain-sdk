@@ -35,7 +35,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                 if (!string.IsNullOrEmpty(part?.Response))
                     sb.Append(part.Response);
 
-           return new Message(ChatRole.Assistant.ToString(), sb.ToString());
+           return new Message { Role = ChatRole.Assistant, Content = sb.ToString() };
         }
 
         public async Task<Message> ChatPrompt(ChatRequest request)
@@ -46,7 +46,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                 if (!string.IsNullOrEmpty(part?.Message.Content))
                     sb.Append(part.Message.Content);
 
-            return new Message(ChatRole.Assistant.ToString(), sb.ToString());
+            return new Message { Role = ChatRole.Assistant, Content = sb.ToString() };
         }
 
         public IAsyncEnumerable<GenerateResponseStream?> GeneratePromptStream(GenerateRequest request)
@@ -136,13 +136,16 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                         return await validator.Prompt(new JsonRefineRequest<T> { ValidatedPrompt = request.Prompt, SystemMessage = request.System, ValidationType = type,  RawOutput = sb.ToString(), UseChatEndpoint = true });
                     
                 }
-                catch(StructuredOutputException ex)
+                catch(JsonOutputValidationException ex)
                 {
                     if (i == validations)
                         throw new PromptRetryException($"{nameof(StructuredPrompt)} >> JSON OUTPUT VALIDATIONS LIMIT REACHED", retries: validations);
                 }
                 catch (Exception ex)
                 {
+                    if (ex.GetType() == typeof(InvalidDataException))
+                        throw ex;
+
                     if (ex.GetType() == typeof(PromptRetryException))
                         throw ex;
 
@@ -189,7 +192,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                         return await validator.Prompt(new JsonRefineRequest<T> { ValidatedPrompt = usermsg.Content, SystemMessage = sysmsg.Content, ValidationType = type, RawOutput = sb.ToString(), UseChatEndpoint = true });
 
                 }
-                catch (StructuredOutputException ex)
+                catch (JsonOutputValidationException ex)
                 {
                     if (i == validations)
                         throw new PromptRetryException($"{nameof(StructuredPrompt)} >> JSON OUTPUT VALIDATIONS LIMIT REACHED", retries: validations);

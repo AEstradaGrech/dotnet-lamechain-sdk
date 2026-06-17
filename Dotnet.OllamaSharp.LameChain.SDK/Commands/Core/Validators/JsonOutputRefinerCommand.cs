@@ -3,6 +3,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Exceptions;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
@@ -39,7 +40,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
                     boolValidation = await validateResponse(_ollama, validationReq);
 
                     if (!boolValidation.Answer)
-                        throw new InvalidDataException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(validateResponse)} >> VALIDATION FAIL - REASON: {boolValidation.Justification}");
+                        throw new JsonOutputValidationException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(Prompt)}",boolValidation.Justification);
 
                     else return JsonSerializer.Deserialize<TRefined>(validationReq.RawOutput);
                 
@@ -72,7 +73,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
                     boolValidation = validateResponse(_ollama, validationReq).Result;
 
                     if (!boolValidation.Answer)
-                        throw new InvalidDataException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(validateResponse)} >> VALIDATION FAIL - REASON: {boolValidation.Justification}");
+                        throw new JsonOutputValidationException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(PromptSync)}", boolValidation.Justification);
 
                     else return Task.FromResult(JsonSerializer.Deserialize<TRefined>(validationReq.RawOutput));
 

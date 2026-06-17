@@ -2,5 +2,6 @@
   <Folder Name="/Solution Items/">
     <File Path="README.md" />
   </Folder>
+  <Project Path="Dotnet.OllamaSharp.LameChain.SDK.Tests/Dotnet.OllamaSharp.LameChain.SDK.Tests.csproj" Id="2659f2d6-5398-42c5-95a8-53a6e1cf8e65" />
   <Project Path="Dotnet.OllamaSharp.LameChain.SDK/Dotnet.OllamaSharp.LameChain.SDK.csproj" />
 </Solution>
