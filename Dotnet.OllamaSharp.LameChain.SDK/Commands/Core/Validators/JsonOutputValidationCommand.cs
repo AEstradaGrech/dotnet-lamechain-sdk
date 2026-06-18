@@ -55,7 +55,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
                 _ollama.CommandPrompt<ReasonedBoolResponse>(request.ToOllamaGenerate(systemMessage, _settings));
         }
 
-        protected override string getDefaultInstruction() => @" You are a JSON output validator. Your task is to review the '<validable-content>' section and evaluate the provided 'input', 'output' and 'instruction' to determine if the
+        protected override string getDefaultInstruction() => @"You are a JSON output validator. Your task is to review the '<validable-content>' section and evaluate the provided 'input', 'output' and 'instruction' to determine if the
 the provided 'output' content is correct and consistent with the 'input' and the 'instruction' that generated it, and also validate if it is compliant with the VALIDATED OUTPUT SCHEMA.
 
 You must output YOUR response in JSON format according to this fields:

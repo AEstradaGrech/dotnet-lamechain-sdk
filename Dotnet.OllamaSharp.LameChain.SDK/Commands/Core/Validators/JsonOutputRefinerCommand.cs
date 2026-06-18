@@ -108,10 +108,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
         private Task<ReasonedBoolResponse> validateResponse(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
         {
             var command = _retrieverLambda == null ?
-                new JsonOutputValidationCommand<ReasonedBoolResponse>(ollama, null, _settings) :
-                new JsonOutputValidationCommand<ReasonedBoolResponse>(ollama, _dbSourceName, "json-validate", _retrieverLambda, null, _settings);
+                new JsonOutputValidationCommand<TRefined>(ollama, null, _settings) :
+                new JsonOutputValidationCommand<TRefined>(ollama, _dbSourceName, "json-validate", _retrieverLambda, null, _settings);
 
-            var validationRequest = toValidationRequest<ReasonedBoolResponse>(request);
+            var validationRequest = toValidationRequest<TRefined>(request);
 
             validationRequest.GuidanceMessage = guidanceMessage;
             validationRequest.ValidatedPrompt = request.ValidatedPrompt;
