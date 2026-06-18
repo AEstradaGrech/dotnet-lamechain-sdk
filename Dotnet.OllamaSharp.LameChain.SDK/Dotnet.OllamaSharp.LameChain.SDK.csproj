@@ -15,9 +15,9 @@
 	<PropertyGroup>
 		<AssemblyName>Estrada.OllamaSharp.LameChain.SDK</AssemblyName>
 		<PackageId>Estrada.OllamaSharp.LameChain.SDK</PackageId>
-		<Version>0.0.1-beta-001</Version>
+		<Version>0.0.1-beta-002</Version>
 		<AssemblyVersion>0.0.1.0</AssemblyVersion>
-		<InformationalVersion>0.0.1-beta-001</InformationalVersion>
+		<InformationalVersion>0.0.1-beta-002</InformationalVersion>
 		<Title>Dotnet OllamaSharp LameChain SDK</Title>
 		<Authors>Alvaro Estrada</Authors>
 		<Description>.Net SDK to create complex chains of LLM instructions in a Fluent way and execute them with ollama using the OllamaSharp integration (https://github.com/awaescher/OllamaSharp)</Description>

@@ -9,7 +9,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
     {
         public ChatCommandRequest() : base() { }
         public ChatCommandRequest(string message, string? guidanceMessage, bool isGuidanceAppend = false, string? model = null) : base(message, guidanceMessage, isGuidanceAppend, model) { ChatHistory = new List<ChatMessage>(); }
-        public ChatCommandRequest(string message, List<ChatMessage> messages, bool includeSystem = true,  string? model = null) : base(message, model)
+        public ChatCommandRequest(string message, List<ChatMessage> messages, bool includeSystem = true,  string? model = null) : base(message: message, model: model)
         {
             ChatHistory = messages;
             IncludeSystemMessage = includeSystem;
@@ -36,7 +36,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
 
             return new ChatRequest
             {
-                Model = Model,
+                Model = getModelForRequest(settings),
                 Messages = messages,
                 Stream = false,
                 Options = settings.ToOllamaRequest() ?? new RequestOptions()

@@ -31,7 +31,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
 
         public virtual ChatRequest ToOllamaChat(string commandSysmsg, CommandSettings settings = null)
             => new ChatRequest {
-                Model = string.IsNullOrEmpty(Model) ? settings != null && !string.IsNullOrEmpty(settings.Model) ? settings.Model : "qwen2.5:7b" : Model,
+                Model = getModelForRequest(settings),
                 Messages = [new Message(ChatRole.System, commandSysmsg), new Message(ChatRole.User, Prompt)],
                 Stream = false,
                 Options = settings.ToOllamaRequest() ?? new RequestOptions()
@@ -39,7 +39,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
 
         public virtual GenerateRequest ToOllamaGenerate(string commandSysmsg, CommandSettings settings = null)
             => new GenerateRequest {
-                Model = string.IsNullOrEmpty(Model) ? settings != null && !string.IsNullOrEmpty(settings.Model) ? settings.Model : "qwen2.5:7b" : Model,
+                Model = getModelForRequest(settings),
                 Prompt = Prompt,
                 System = commandSysmsg,
                 Stream = false,
@@ -77,5 +77,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
 
             return clone;
         }
+
+        protected string getModelForRequest(CommandSettings? settings) => string.IsNullOrEmpty(Model) ? settings != null && !string.IsNullOrEmpty(settings.Model) ? settings.Model : "qwen2.5:7b" : Model;
     }
 }

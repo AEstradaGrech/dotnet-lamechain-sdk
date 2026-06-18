@@ -34,7 +34,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
             foreach (var choice in multiChoiceReq.Choices)
                 sb.AppendLine(choice);
 
-            var chatReq = new ChatCommandRequest(request.Prompt,[], includeSystem: true,  request.Model ?? _settings.Model);
+            var chatReq = new ChatCommandRequest(request.Prompt,[], includeSystem: true, model: request.Model ?? _settings.Model);
 
             var response = await _ollama.CommandPrompt<MultiChoiceResponse>(
                 chatReq.ToOllamaChat(

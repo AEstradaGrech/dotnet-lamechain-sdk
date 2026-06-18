@@ -138,7 +138,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             var validation = validateResponse(ollama, request).Result;
 
             if(!validation.Answer)
-                throw new InvalidDataException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(validateResponse)} >> VALIDATION FAIL - REASON: {validation.Justification}");
+                throw new JsonOutputValidationException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(doubleBool)}", validation.Justification);
 
             return Task.FromResult(review);
         }
