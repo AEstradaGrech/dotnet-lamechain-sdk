@@ -4,7 +4,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
 
-namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
+namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands
 {
     public class MessagePromptCommand : BasePromptCommand<ChatMessage>
     {

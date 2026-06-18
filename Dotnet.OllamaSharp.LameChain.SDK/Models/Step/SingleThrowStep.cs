@@ -1,4 +1,4 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;

@@ -4,7 +4,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuratio
 using DotnetLlamaSharp.Domain.Services.Inference;
 using OllamaSharp.Models.Chat;
 
-namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators
+namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands
 {
     public class QueryAugmentationCommand : SourceableCommand
     {

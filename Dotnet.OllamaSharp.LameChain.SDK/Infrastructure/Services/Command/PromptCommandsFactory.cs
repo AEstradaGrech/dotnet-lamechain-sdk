@@ -1,6 +1,5 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues;
-using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.TextGenerators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Model;
