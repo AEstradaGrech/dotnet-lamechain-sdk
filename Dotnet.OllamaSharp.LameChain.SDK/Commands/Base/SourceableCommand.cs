@@ -6,9 +6,10 @@ using DotnetLlamaSharp.Domain.Services.Inference;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Base
 {
-    // EL OBJETIVO ES GENERAR UNA FUENTE DE DATOS PARA LLMs
-    // PRODUCE SIEMPRE UNA LISTA DE STRINGS
-    // PUEDEN PRODUCIRSE POR INFERENCIA A LLM (RagExpansionCommand | QueryAugmentCommand) O NO (SimilaritySearch, WebSearch, ReadSummariesFromADirectory... COMANDOS QUE NO USAN LLM PERO SON UTILES O NECESARIOS PARA OTRO LLM-COMMAND)
+    /// <summary>
+    /// A sourceable is a type of command that is intended to be used as a source of string data to feed other steps from it.
+    /// A Sourceable command always returns a List<string>
+    /// </summary>
     public abstract class SourceableCommand : DbPromptCommand<List<string>>
     {
         public SourceableCommand() : base() {}
