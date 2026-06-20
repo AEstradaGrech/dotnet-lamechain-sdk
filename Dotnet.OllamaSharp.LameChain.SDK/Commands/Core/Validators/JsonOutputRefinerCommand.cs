@@ -7,6 +7,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Exceptions;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
@@ -97,10 +98,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             reviewRequest.GuidanceMessage = guidanceMessage;
             reviewRequest.ValidatedPrompt = request.ValidatedPrompt;
-            reviewRequest.Prompt = $"Review the provided 'output' and return a corrected version. This is the original 'input' : {request.ValidatedPrompt}.";
+            //reviewRequest.Prompt = $"Review the provided 'output' and return a corrected version. This is the original 'input' : {request.ValidatedPrompt}.";
 
-            if (!string.IsNullOrEmpty(guidanceMessage))
-                reviewRequest.Prompt += $"This is the detected problem: {guidanceMessage}";
+            //if (!string.IsNullOrEmpty(guidanceMessage))
+            //    reviewRequest.Prompt += $"This is the detected problem: {guidanceMessage}";
             //reviewRequest.Prompt += "Correct the JSON RESPONSE content. The JSON RESPONSE output is incorrect, return a correct version. Review the provied 'instruction' and the 'input' and correct the JSON OUTPUT response. Review the INVALID REASON and return a corrected version of the JSON output. Fix the JSON OUTPUT content. Rewrite the content to match the 'input' intent accordingly to its 'instruction";
             return command.PromptSync(reviewRequest);
         }
@@ -115,7 +116,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             validationRequest.GuidanceMessage = guidanceMessage;
             validationRequest.ValidatedPrompt = request.ValidatedPrompt;
-            validationRequest.Prompt = "Is the provided output content VALID? (anwer true or false).";
+            //validationRequest.Prompt = "Is the provided output content VALID? (anwer true or false).";
 
             return command.PromptSync(validationRequest);
         }
@@ -127,7 +128,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             if (validation.Answer) 
                 return Task.FromResult(JsonSerializer.Deserialize<TRefined>(request.RawOutput));
 
-            return reviewResponse(ollama, request, $"# WARNING: a previous reviewer has marked the response as INVALID. Take into account the reason to have a better understanding of the problem. INVALID REASON: {validation.Justification}");
+            return reviewResponse(ollama, request, getJustificationGuidanceMessage(validation.Justification));
         }
         private Task<TRefined> doubleBool(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
         {
@@ -152,5 +153,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
                 ResponseExamples = request.ResponseExamples,
                 UseChatEndpoint = request.UseChatEndpoint
             };
+
+        private string getJustificationGuidanceMessage(string justification)
+            => $"# WARNING: a previous reviewer has marked the response as INVALID. Take into account the reason to have a better understanding of the problem. INVALID REASON: {justification}";
     }
 }
