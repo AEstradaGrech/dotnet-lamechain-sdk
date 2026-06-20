@@ -59,7 +59,7 @@ To do that, follow this steps:
 
 <<CHOICES>>
 
-# MAXIMUM SELECTIONS ALLOWED: 0 - <<MAX_SEL>>
+# MAXIMUM SELECTIONS ALLOWED: from 0 to <<MAX_SEL>> (inclusive range).
 
 # IMPORTANT: follow this rules in order to generate your final response:
 
