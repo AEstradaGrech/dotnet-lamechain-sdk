@@ -1,4 +1,5 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
@@ -22,7 +23,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
         //Register Services etc
         public static IServiceCollection ConfigureOllamaSettings(this IServiceCollection services, IConfiguration appConfig)
             => services.Configure<OllamaSettings>(appConfig.GetSection(nameof(OllamaSettings)));
-        
+        public static IServiceCollection ConfigureClaudeSettings(this IServiceCollection services, IConfiguration appConfig)
+            => services.Configure<ClaudeSettings>(appConfig.GetSection(nameof(ClaudeSettings)));
         public static IServiceCollection AddOllamaSharpApiClient(this IServiceCollection services, IConfiguration appConfig, ServiceLifetime lifetime = ServiceLifetime.Scoped)
             => lifetime switch
             {
@@ -129,6 +131,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                     return new OllamaApiClient(settings);
                 })
             };
+
+        public static IServiceCollection ConfigureClaudeApiClient(this IServiceCollection services, IConfiguration appConfig, ServiceLifetime lifetime = ServiceLifetime.Scoped)
+           => lifetime switch {
+               ServiceLifetime.Scoped => services.ConfigureClaudeSettings(appConfig).AddScoped<IClaudeClient, ClaudeClient>(),
+               ServiceLifetime.Transient => services.ConfigureClaudeSettings(appConfig).AddTransient<IClaudeClient, ClaudeClient>(),
+               ServiceLifetime.Singleton => services.ConfigureClaudeSettings(appConfig).AddSingleton<IClaudeClient, ClaudeClient>()
+           };
 
         public static IServiceCollection AddLameChainServices(this IServiceCollection services, IConfiguration appConfig, ServiceLifetime lifetime)
         {

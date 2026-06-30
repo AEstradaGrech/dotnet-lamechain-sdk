@@ -23,7 +23,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
 
         public override async Task<IChaineable> Forge(IChaineable previous)
         {
-            await runStep(previous);
+             await runStep(previous);
 
             if (Outputs.Count == 0)
                 throw new InvalidOperationException($"{nameof(SmartConditionalStep)} >> {nameof(Forge)} >> An error has occured while running the EvaluatorCommand >> INVALID CHAIN RUN");
