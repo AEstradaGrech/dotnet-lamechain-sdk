@@ -26,7 +26,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators
                 Options = _settings.ToOllamaRequest()
             };
 
-            var response = await _ollama.ChatPrompt(chatReq);
+            var response = await _ollama.ChatPrompt(chatReq, request.Provider);
 
             return new ChatMessage(response.Role.ToString(), response.Content);
         }

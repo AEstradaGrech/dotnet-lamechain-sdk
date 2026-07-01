@@ -1,6 +1,8 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
@@ -81,7 +83,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
         }
 
         // Validators with defaultInstruction & optional guidanceMessage
-        protected virtual JsonOutputRefinerCommand<T> validatorFor<T>(string? guidanceMessage = null, CommandSettings? settings = null) 
-            where T : class => new JsonOutputRefinerCommand<T>(_ollama, guidanceMessage, settings ?? _settings);
+        protected virtual CommandPromptValidation<T> validatorFor<T>(int validations, EPromptValidation type, string? guidanceMessage = null, CommandSettings? settings = null, bool useChatEndpoint = true)
+            where T : class => new CommandPromptValidation<T> {
+                Validations = validations,
+                ValidationType = type,
+                Validator = new JsonOutputRefinerCommand<T>(_ollama, guidanceMessage, settings ?? _settings),
+                UseChatEndpoint = useChatEndpoint
+            };
     }
 }

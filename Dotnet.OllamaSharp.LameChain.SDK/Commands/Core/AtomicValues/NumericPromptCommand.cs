@@ -6,10 +6,6 @@ using DotnetLlamaSharp.Domain.Services.Inference;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
 {
-    // Esto acopla los atomic command a Chroma
-    // Deberia usarse solo el guidance message como system y punto
-    // ChromaNumericPrompt : NumericPromptCommand : BasePromptCommand<float>
-    // añade constructor a repo y hace override de DbPromptCommand.getInstructionMessage() 
     public class NumericPromptCommand : DbPromptCommand<float?>
     {
         public NumericPromptCommand() : base() { }
@@ -19,13 +15,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
 
         public override async Task<float?> Prompt(PromptCommandRequest request)
         {
-            var response = await _ollama.CommandPrompt<NumericResponse>(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), _settings.CommandValidations, _settings.ValidationType, validatorFor<NumericResponse>());
+            var response = await _ollama.CommandPrompt<NumericResponse>(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), validatorFor<NumericResponse>(_settings.CommandValidations, _settings.ValidationType));
 
             return response.Result;
         }
 
         protected override string getDefaultInstruction()
             => "Analyze the user request and output your 'numeric result' according to the provided JSON schema, ONLY in case it can be answered with a number. If the question can't be answered with a number, output a null value according to the JSON schema.";
-        /*Analyze the user request and, in case it can be answered with a number, output your numeric response according to the provided JSON schema. If the question can't be answered with a number, output null according to the JSON schema*/
     }
 }

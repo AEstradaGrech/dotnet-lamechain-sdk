@@ -13,8 +13,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands
         public override async Task<ChatMessage> Prompt(PromptCommandRequest request)
         {
             var message = request.GetType() == typeof(ChatCommandRequest) ?
-                await _ollama.ChatPrompt(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings)) :
-                await _ollama.GeneratePrompt(request.ToOllamaGenerate(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings));
+                await _ollama.ChatPrompt(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), provider: request.Provider) :
+                await _ollama.GeneratePrompt(request.ToOllamaGenerate(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), provider: request.Provider);
 
             return new ChatMessage(message.Role.ToString(), message.Content);
         }

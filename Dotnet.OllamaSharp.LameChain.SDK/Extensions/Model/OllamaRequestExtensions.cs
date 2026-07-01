@@ -1,7 +1,9 @@
 ﻿using Anthropic.SDK.Constants;
 using Anthropic.SDK.Messaging;
+using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
 using ClaudeMessage = Anthropic.SDK.Messaging.Message;
+using OllamaMessage = OllamaSharp.Models.Chat.Message;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
 {
@@ -35,6 +37,36 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
             }
 
             return claudeReq;
+        }
+
+        public static ChatRequest GenerateRequestToChat(this GenerateRequest req)
+        {
+            if (string.IsNullOrEmpty(req.System) && string.IsNullOrEmpty(req.Prompt))
+                throw new InvalidOperationException($"{nameof(GenerateRequest)}.{nameof(GenerateRequestToChat)} >> No system or user prompt found in request");
+
+            ChatRequest chatRequest = new ChatRequest 
+            { 
+                Model = req.Model,
+                Options = req.Options,
+                KeepAlive = req.KeepAlive,
+                Template = req.Template,
+                Format = req.Format,
+                Stream = req.Stream,
+                Think = req.Think,
+                Messages = []
+            };
+
+            var messages = new List<OllamaMessage>();
+
+            if(!string.IsNullOrEmpty(req.System))
+                messages.Add(new OllamaMessage(ChatRole.System, req.System));
+            
+            if(!string.IsNullOrEmpty(req.Prompt))
+                messages.Add(new OllamaMessage(ChatRole.User, req.Prompt));
+
+            chatRequest.Messages = messages;
+
+            return chatRequest;
         }
     }
 }

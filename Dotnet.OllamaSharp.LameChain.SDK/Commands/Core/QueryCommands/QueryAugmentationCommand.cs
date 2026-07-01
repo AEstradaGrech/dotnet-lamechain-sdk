@@ -28,7 +28,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands
 
             for (int i = 0; i < expanseReq.Results; i++)
             {
-                var result = await getAugmentedQuery(_ollama, request.ToOllamaChat(systemMessage, _settings));
+                var result = await getAugmentedQuery(_ollama, request.ToOllamaChat(systemMessage, _settings), request.Provider);
 
                 results.Add(result.Trim());
 
@@ -44,9 +44,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands
             return results;
         }
 
-        private async Task<string> getAugmentedQuery(IOllamaInferenceService ollama, ChatRequest request)
+        private async Task<string> getAugmentedQuery(IOllamaInferenceService ollama, ChatRequest request, string provider)
         {
-            var message = await ollama.ChatPrompt(request);
+            var message = await ollama.ChatPrompt(request, provider);
 
             return message.Content.Trim();
         }

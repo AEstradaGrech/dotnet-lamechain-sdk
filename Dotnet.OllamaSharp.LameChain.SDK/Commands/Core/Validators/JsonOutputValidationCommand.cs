@@ -1,9 +1,7 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
-using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using System.Text.Json;
@@ -38,8 +36,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             request.Prompt = validatedText;
 
             return promptRequest.UseChatEndpoint ?
-                await _ollama.CommandPrompt<ReasonedBoolResponse>(request.ToOllamaChat(systemMessage, _settings)) :
-                await _ollama.CommandPrompt<ReasonedBoolResponse>(request.ToOllamaGenerate(systemMessage, _settings));
+                await _ollama.CommandPrompt<ReasonedBoolResponse>(request.ToOllamaChat(systemMessage, _settings), validation: null, provider: request.Provider, withJsonInfo: false) :
+                await _ollama.CommandPrompt<ReasonedBoolResponse>(request.ToOllamaGenerate(systemMessage, _settings), validation: null, provider: request.Provider, withJsonInfo: false);
         }
 
         public override Task<ReasonedBoolResponse> PromptSync(PromptCommandRequest request)
@@ -60,8 +58,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             request.Prompt = validatedText;
 
             return promptRequest.UseChatEndpoint ?
-                _ollama.CommandPrompt<ReasonedBoolResponse>(request.ToOllamaChat(systemMessage, _settings), validations: 0, type: EPromptValidation.REVIEW_ONLY, validator:null, withJsonInfo: false) :
-                _ollama.CommandPrompt<ReasonedBoolResponse>(request.ToOllamaGenerate(systemMessage, _settings));
+                _ollama.CommandPrompt<ReasonedBoolResponse>(request.ToOllamaChat(systemMessage, _settings), validation: null, provider: request.Provider, withJsonInfo: false) :
+                _ollama.CommandPrompt<ReasonedBoolResponse>(request.ToOllamaGenerate(systemMessage, _settings), validation: null, provider: request.Provider, withJsonInfo: false);
         }
 
         private string getValidatedTaskDefinition() => @"

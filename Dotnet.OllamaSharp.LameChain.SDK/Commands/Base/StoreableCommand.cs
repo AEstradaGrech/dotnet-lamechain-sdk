@@ -6,10 +6,6 @@ using DotnetLlamaSharp.Domain.Services.Inference;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Base
 {
-    // ESTO SON STEPS PUTO FUMAO
-    // a - PREV CHECKPOINT --> si esta typado como el anterior, deserializa el opt y lo guarda
-    // b - Prompt & Store --> hace un prompt con o sin Dbguidance y guarda el resultado donde apunte la lambda
-    // c - Feed & Store --> guarda en boosters la info de feeds y la guarda cuando le llega el turno
     public class StoreableCommand<TStored> : DbPromptCommand<TStored> where TStored : class
     {
         // pass the document / chunk to store and the index / collection and return the db insert result (which might feed the next chain)
@@ -46,7 +42,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Base
 
             if(!castedReq.IsStoreOnly)
             {
-                var result = await _ollama.CommandPrompt<TStored>(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend)), _settings.CommandValidations, _settings.ValidationType, validatorFor<TStored>());
+                var result = await _ollama.CommandPrompt<TStored>(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend)), validatorFor<TStored>(_settings.CommandValidations, _settings.ValidationType));
 
                 castedReq.Stored = result;
             }

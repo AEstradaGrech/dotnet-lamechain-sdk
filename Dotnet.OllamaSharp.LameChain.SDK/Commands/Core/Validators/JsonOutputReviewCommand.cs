@@ -1,7 +1,6 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using System.Text.Json;
@@ -28,7 +27,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             systemMessage = systemMessage.Replace("<<PROMPT>>", $"- input: {promptRequest.ValidatedPrompt}\n- output: {promptRequest.RawOutput}\n- instruction: {promptRequest.SystemMessage}").Replace("<<SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TReviewed)).ToJsonString());
 
-            return await _ollama.CommandPrompt<TReviewed>(request.ToOllamaChat(systemMessage, _settings));
+            return promptRequest.UseChatEndpoint ?
+                 await _ollama.CommandPrompt<TReviewed>(request.ToOllamaChat(systemMessage, _settings), validation: null, withJsonInfo: true) :
+                 await _ollama.CommandPrompt<TReviewed>(request.ToOllamaGenerate(systemMessage, _settings), validation: null, withJsonInfo: true);
         }
 
         public override Task<TReviewed> PromptSync(PromptCommandRequest request)
@@ -42,8 +43,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             systemMessage = systemMessage.Replace("<<PROMPT>>", $"- input: {promptRequest.ValidatedPrompt}\n- output: {promptRequest.RawOutput}\n- instruction: {promptRequest.SystemMessage}").Replace("<<SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TReviewed)).ToJsonString());
 
             return promptRequest.UseChatEndpoint ?
-                _ollama.CommandPrompt<TReviewed>(request.ToOllamaChat(systemMessage, _settings), validations: 0, type: EPromptValidation.REVIEW_ONLY, null, withJsonInfo: true) :
-                _ollama.CommandPrompt<TReviewed>(request.ToOllamaGenerate(systemMessage, _settings), validations: 0, type: EPromptValidation.REVIEW_ONLY, null, withJsonInfo: true);
+                _ollama.CommandPrompt<TReviewed>(request.ToOllamaChat(systemMessage, _settings), validation: null, withJsonInfo: true) :
+                _ollama.CommandPrompt<TReviewed>(request.ToOllamaGenerate(systemMessage, _settings), validation: null, withJsonInfo: true);
         }
 
         protected override string getDefaultInstruction() => @"You are a JSON output reviewer. Your task is to review the provided content inside the '<validable-content>' section and correct the content and the format whenever necessary.

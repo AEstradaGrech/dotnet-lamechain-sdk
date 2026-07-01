@@ -25,6 +25,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             _commandRequest = commandRequest;
         }
 
+        public bool IsOfType<T>() where T : BaseHandler => this is T;
+        public T AsType<T>() where T : BaseHandler => (T)this;
         public BaseHandler UpdateHandler(string provider, ChatRequest commandRequest)
             => provider switch {
                 "ollama" => new OllamaHandler(_serviceProvider, _config, commandRequest),

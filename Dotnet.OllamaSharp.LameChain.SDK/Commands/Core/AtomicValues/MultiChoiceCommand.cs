@@ -40,9 +40,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
                 chatReq.ToOllamaChat(
                     systemUpdate: systemMessage.Replace("<<MAX_SEL>>", $"{multiChoiceReq.MaxSelections}").Replace("<<CHOICES>>", sb.ToString()), 
                     _settings),
-                _settings.CommandValidations,
-                _settings.ValidationType,
-                validatorFor<MultiChoiceResponse>());
+                validatorFor<MultiChoiceResponse>(_settings.CommandValidations, _settings.ValidationType));
 
             return response.Selected;
         }

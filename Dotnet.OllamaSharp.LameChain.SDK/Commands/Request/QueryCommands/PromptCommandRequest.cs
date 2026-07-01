@@ -15,6 +15,31 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
             IsGuidanceAppend = isGuidanceAppend;
             Prompt = message;
             Model = model;
+
+            //model = null -> use defaults (ollama + _settings.apiModels[0]
+            //model != null & split -> is 'provider/model' format
+            //model != null & !split -> default provider (ollama) + selected ollama model
+            if (!string.IsNullOrEmpty(Model))
+            {
+                var split = Model.Split("/");
+
+                if(split.Length > 1)
+                {
+                    Provider = split[0];
+                    Model = split[1];
+                }
+                else
+                {
+                    Provider = "ollama";
+                    Model = model;
+                }
+            }
+            else
+            {
+                Provider = "ollama";
+                Model = string.Empty;
+            }
+            
         }
 
         public PromptCommandRequest(string message, string? guidanceMessage, bool isGuidanceAppend = true, string? model = null) : this(message, isGuidanceAppend, model) 
@@ -26,6 +51,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
         public string? GuidanceMessage { get; set; } = null; 
         public bool IsGuidanceAppend { get; set; }
         public string? Model { get; set; }
+        public string Provider { get; }
 
         public Dictionary<string, string> NestedGuidances = new Dictionary<string, string>();// FOR CHAIN SUPPORT --> Step reads its NestedFeeds list -> if feed is tagged as CMD then it creates a request.GuidanceMessage from the feed and adds it here with the subCommandName&Tag to use it
 
@@ -34,7 +60,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                 Model = getModelForRequest(settings),
                 Messages = [new Message(ChatRole.System, commandSysmsg), new Message(ChatRole.User, Prompt)],
                 Stream = false,
-                Options = settings.ToOllamaRequest() ?? new RequestOptions()
+                Options = settings == null ? new RequestOptions() : settings.ToOllamaRequest()
             };
 
         public virtual GenerateRequest ToOllamaGenerate(string commandSysmsg, CommandSettings settings = null)
@@ -43,7 +69,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                 Prompt = Prompt,
                 System = commandSysmsg,
                 Stream = false,
-                Options = settings.ToOllamaRequest()
+                Options = settings == null ? new RequestOptions() : settings.ToOllamaRequest() 
             };
 
         public PromptCommandRequest Clone()
@@ -78,6 +104,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
             return clone;
         }
 
-        protected string getModelForRequest(CommandSettings? settings) => string.IsNullOrEmpty(Model) ? settings != null && !string.IsNullOrEmpty(settings.Model) ? settings.Model : "qwen2.5:7b" : Model;
+        protected string getModelForRequest(CommandSettings? settings) => string.IsNullOrEmpty(Model) ? settings != null && !string.IsNullOrEmpty(settings.Model) ? settings.Model : string.Empty : Model.Contains("/") ? Model.Split("/").Last() : Model;
     }
 }

@@ -1,9 +1,11 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Evaluators;
+using Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Exceptions;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using Microsoft.Extensions.Configuration;
@@ -21,11 +23,6 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
         private readonly IOllamaApiClient _client;
         private readonly OllamaSettings _settings;
         private BaseHandler _handler;
-        //private readonly InferenceHandler _handler <- OllamaHandler, ClaudeHandler X_Handler
-        /*
-            _handler = _handler.updateProvider(request.provider) -> switch & return ChildClassForProvider
-            _handler.GetResponse(request) <- devuelve sb w/ content y en principio ya esta (validator funciona igual pero usa handler)
-         */
 
         public OllamaInferenceService(IOllamaApiClient client, IConfiguration config, IServiceProvider provider, IOptions<OllamaSettings> settings)
         {
@@ -35,28 +32,53 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             
         }
        
-        public async Task<Message> GeneratePrompt(GenerateRequest request)
+        public async Task<Message> GeneratePrompt(GenerateRequest request, string provider)
         {
-            var sb = new System.Text.StringBuilder();
+            provider = provider.Trim();
+            
+            if (string.IsNullOrEmpty(provider))
+                throw new InvalidDataException($"{nameof(OllamaInferenceService)}.{nameof(GeneratePrompt)} >> NO LLM PROVIDER SELECTED");
 
+
+            if (string.IsNullOrEmpty(request.Model))
+                request.Model = _settings.DefaultModel; //TODO: getDefaultModelForProvider(provider)
+
+            string llmResponse = string.Empty;
             request.Stream = false;
 
-            await foreach (var part in _client.GenerateAsync(request))
-                if (!string.IsNullOrEmpty(part?.Response))
-                    sb.Append(part.Response);
+            if (!_handler.IsOfType<OllamaHandler>())
+            {
+                _handler = _handler.UpdateHandler(provider, request.GenerateRequestToChat());
 
-           return new Message { Role = ChatRole.Assistant, Content = sb.ToString() };
+                llmResponse = await _handler.GetLlmResponse();
+            }
+
+            else llmResponse = await _handler.AsType<OllamaHandler>().GenerateLlmResponse(request);
+
+           return new Message { Role = ChatRole.Assistant, Content = llmResponse };
         }
 
-        public async Task<Message> ChatPrompt(ChatRequest request)
+        public async Task<Message> ChatPrompt(ChatRequest request, string provider)
         {
-            var sb = new System.Text.StringBuilder();
+            provider = provider.Trim();
 
-            await foreach (var part in _client.ChatAsync(request))
-                if (!string.IsNullOrEmpty(part?.Message.Content))
-                    sb.Append(part.Message.Content);
+            if (string.IsNullOrEmpty(provider))
+                throw new InvalidDataException($"{nameof(OllamaInferenceService)}.{nameof(GeneratePrompt)} >> NO LLM PROVIDER SELECTED");
 
-            return new Message { Role = ChatRole.Assistant, Content = sb.ToString() };
+            if (string.IsNullOrEmpty(request.Model))
+                request.Model = _settings.DefaultModel; //TODO: getDefaultModelForProvider(provider)
+
+            string llmResponse = string.Empty;
+            request.Stream = false;
+
+            if (!_handler.IsProvider(provider))
+                _handler = _handler.UpdateHandler(provider, request);
+
+            else _handler.SetCommandRequest(request);
+
+            llmResponse = await _handler.GetLlmResponse();
+
+            return new Message { Role = ChatRole.Assistant, Content = llmResponse };
         }
 
         public IAsyncEnumerable<GenerateResponseStream?> GeneratePromptStream(GenerateRequest request)
@@ -76,7 +98,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
         public async Task<EmbedResponse> GetEmbeddings(EmbedRequest request)
             => await _client.EmbedAsync(request);
 
-        public async Task<T> StructuredPrompt<T>(string prompt, string model, string? systemGuidance = null, RequestOptions? options = null) where T : class
+        public async Task<T> StructuredPrompt<T>(string prompt, string model, string provider, string? systemGuidance = null, RequestOptions? options = null) where T : class
         {
             if (string.IsNullOrEmpty(prompt) && string.IsNullOrEmpty(systemGuidance))
                 throw new InvalidDataException($"{nameof(OllamaInferenceService)} >> {nameof(StructuredPrompt)} >> no messages to send");
@@ -93,36 +115,39 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
 
             if (options == null)
                 options = _settings;
-            //---------------------------------
+
             var request = new ChatRequest
             {
-                Model = model ?? _settings.DefaultModel,
+                Model = string.IsNullOrEmpty(model) ? _settings.DefaultModel : model,
                 Messages = !string.IsNullOrEmpty(systemGuidance) ? [new Message { Role = ChatRole.System, Content = systemGuidance }, new Message { Role = ChatRole.User, Content = prompt}] : [new Message { Role = ChatRole.User, Content = prompt }],
                 Format = JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(T)),
+                Options = options,
                 Stream = false
             };
+
+            if (!_handler.IsProvider(provider))
+                _handler.UpdateHandler(provider, request);
             
-            var sb = new System.Text.StringBuilder();
-          
-            await foreach (var part in _client.ChatAsync(request))
-                if (!string.IsNullOrEmpty(part?.Message.Content))
-                    sb.Append(part.Message.Content);
-            //------------------------------
-            return JsonSerializer.Deserialize<T>(sb.ToString());
+            else _handler.SetCommandRequest(request);
+
+            string llmResponse = await _handler.GetLlmResponse();
+
+            return JsonSerializer.Deserialize<T>(llmResponse);
         }
 
-        public async Task<T> CommandPrompt<T>(GenerateRequest request, int validations = 0, EPromptValidation type = EPromptValidation.REVIEW_ONLY, JsonOutputRefinerCommand<T> validator = null, bool withJsonInfo = true) where T : class
+        public async Task<T> CommandPrompt<T>(GenerateRequest request, CommandPromptValidation<T>? validation = null, string provider = "ollama", bool withJsonInfo = true) where T : class
         {
-            var sb = new System.Text.StringBuilder();
-
+            string llmResponse = string.Empty;
+            int validations = validation != null ? validation.Validations : 0;
             for (int i = 0; i < validations + 1; i++)
             {
                 try
                 {
-                    sb = new System.Text.StringBuilder();
+                    if (string.IsNullOrEmpty(request.Model))
+                        request.Model = _settings.DefaultModel; //TODO: getDefaultModelForProvider(provider)
 
                     if (string.IsNullOrEmpty(request.Prompt))
-                        throw new InvalidDataException($"{nameof(OllamaInferenceService)} >> {nameof(StructuredPrompt)} >> no messages to send");
+                        throw new InvalidDataException($"{nameof(OllamaInferenceService)} >> {nameof(CommandPrompt)} >> no messages to send");
 
                     if (i == 0 && withJsonInfo && typeof(T).IsAssignableTo(typeof(StructuredOutput)))
                     {
@@ -137,46 +162,47 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                     request.Format = JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(T));
                     request.Stream = false;
 
-                    await foreach (var part in _client.GenerateAsync(request))
-                        if (!string.IsNullOrEmpty(part?.Response))
-                            sb.Append(part.Response);
+                    if(!_handler.IsOfType<OllamaHandler>())
+                    {
+                        _handler = _handler.UpdateHandler(provider, request.GenerateRequestToChat());
+
+                        llmResponse = await _handler.GetLlmResponse();                        
+                    }
+
+                    else llmResponse = await _handler.AsType<OllamaHandler>().GenerateLlmResponse(request);
 
                     //has no default | db message. Orchestrates commands with default | db message. uses the ChromaCommands FactoryMethod to get a ChromaRepo for the child commands
-                    if (validations > 0 && validator != null)
-                        return await validator.Prompt(new JsonRefineRequest<T> { ValidatedPrompt = request.Prompt, SystemMessage = request.System, ValidationType = type,  RawOutput = sb.ToString(), UseChatEndpoint = true });
+                    if (validation != null && validations > 0)
+                        return await validation.Validator.Prompt(new JsonRefineRequest<T> { ValidatedPrompt = request.Prompt, SystemMessage = request.System, ValidationType = validation.ValidationType,  RawOutput = llmResponse, UseChatEndpoint = validation.UseChatEndpoint });
                     
                 }
                 catch(JsonOutputValidationException ex)
                 {
                     if (i == validations)
-                        throw new PromptRetryException($"{nameof(StructuredPrompt)} >> JSON OUTPUT VALIDATIONS LIMIT REACHED", retries: validations);
+                        throw new PromptRetryException($"{nameof(CommandPrompt)} >> JSON OUTPUT VALIDATIONS LIMIT REACHED", retries: validations);
                 }
                 catch (Exception ex)
                 {
-                    if (ex.GetType() == typeof(InvalidDataException))
-                        throw ex;
-
-                    if (ex.GetType() == typeof(PromptRetryException))
-                        throw ex;
-
-                    if (i == validations)
-                        throw new PromptRetryException($"{nameof(StructuredPrompt)} >> JSON OUTPUT VALIDATIONS LIMIT REACHED", retries: validations);
+                    throw ex;
                 }
             }
 
-            return JsonSerializer.Deserialize<T>(sb.ToString());
+            return string.IsNullOrEmpty(llmResponse) ? default(T) : JsonSerializer.Deserialize<T>(llmResponse);
         }
 
-        public async Task<T> CommandPrompt<T>(ChatRequest chatRequest, int validations = 0, EPromptValidation type = EPromptValidation.REVIEW_ONLY, JsonOutputRefinerCommand<T> validator = null, bool withJsonInfo = true) where T : class
+        public async Task<T> CommandPrompt<T>(ChatRequest chatRequest, CommandPromptValidation<T>? validation = null, string provider = "ollama", bool withJsonInfo = true) where T : class
         {
             string llmResponse = string.Empty;
-
+            int validations = validation != null ? validation.Validations : 0;
             for (int i = 0; i < validations + 1; i++)
             {
                 try
                 {
+                    if (string.IsNullOrEmpty(chatRequest.Model))
+                        chatRequest.Model = _settings.DefaultModel; //TODO: getDefaultModelForProvider(provider)
+
                     if (chatRequest.Messages.Count() == 0)
-                        throw new InvalidDataException($"{nameof(OllamaInferenceService)} >> {nameof(StructuredPrompt)} >> no messages to send");
+                        throw new InvalidDataException($"{nameof(OllamaInferenceService)} >> {nameof(CommandPrompt)} >> no messages to send");
 
                     var sysmsg = chatRequest.Messages.FirstOrDefault(m => m.Role == ChatRole.System);
                     var usermsg = chatRequest.Messages.LastOrDefault(m => m.Role == ChatRole.User);
@@ -191,22 +217,22 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                     chatRequest.Format = JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(T));
                     chatRequest.Stream = false;
 
-                    if (!_handler.IsProvider("claude"))
-                        _handler = _handler.UpdateHandler("claude", chatRequest);
+                    if (!_handler.IsProvider(provider))
+                        _handler = _handler.UpdateHandler(provider, chatRequest);
 
                     else _handler.SetCommandRequest(chatRequest);
 
                     llmResponse = await _handler.GetLlmResponse();
 
                     //has no default | db message. Orchestrates commands with default | db message. uses the ChromaCommands FactoryMethod to get a ChromaRepo for the child commands
-                    if (validations > 0 && validator != null)
-                        return await validator.Prompt(new JsonRefineRequest<T> { ValidatedPrompt = usermsg.Content, SystemMessage = sysmsg.Content, ValidationType = type, RawOutput = llmResponse, UseChatEndpoint = true });
+                    if (validation != null && validations > 0)
+                        return await validation.Validator.Prompt(new JsonRefineRequest<T> { ValidatedPrompt = usermsg.Content, SystemMessage = sysmsg.Content, ValidationType = validation.ValidationType, RawOutput = llmResponse, UseChatEndpoint = validation.UseChatEndpoint });
 
                 }
                 catch (JsonOutputValidationException ex)
                 {
                     if (i == validations)
-                        throw new PromptRetryException($"{nameof(StructuredPrompt)} >> JSON OUTPUT VALIDATIONS LIMIT REACHED", retries: validations);
+                        throw new PromptRetryException($"{nameof(CommandPrompt)} >> JSON OUTPUT VALIDATIONS LIMIT REACHED", retries: validations);
                 }
                 catch (Exception ex)
                 {
