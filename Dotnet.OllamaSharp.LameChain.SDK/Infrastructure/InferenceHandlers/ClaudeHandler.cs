@@ -1,6 +1,6 @@
 ﻿using Anthropic.SDK.Messaging;
 using Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OllamaSharp.Models.Chat;

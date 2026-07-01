@@ -1,7 +1,8 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Clients;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
 using DotnetLlamaSharp.Domain.Services.Embeddings;
 using DotnetLlamaSharp.Domain.Services.Inference;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
+using System.Net.Http.Headers;
 using static OllamaSharp.OllamaApiClient;
 
 
@@ -25,6 +27,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             => services.Configure<OllamaSettings>(appConfig.GetSection(nameof(OllamaSettings)));
         public static IServiceCollection ConfigureClaudeSettings(this IServiceCollection services, IConfiguration appConfig)
             => services.Configure<ClaudeSettings>(appConfig.GetSection(nameof(ClaudeSettings)));
+        public static IServiceCollection ConfigureGroqSettings(this IServiceCollection services, IConfiguration appConfig)
+            => services.Configure<GroqSettings>(appConfig.GetSection(nameof(GroqSettings)));
+
         public static IServiceCollection AddOllamaSharpApiClient(this IServiceCollection services, IConfiguration appConfig, ServiceLifetime lifetime = ServiceLifetime.Scoped)
             => lifetime switch
             {
@@ -95,7 +100,19 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                 })
             };
 
+        public static IServiceCollection AddGroqApiClient(this IServiceCollection services, IConfiguration appConfig)
+        {
+            services.AddHttpClient<IGroqClient, GroqClient>(client =>
+            {
+                var cfg = appConfig.GetSection(nameof(GroqSettings)).Get<GroqSettings>();
+                client.BaseAddress = new Uri(cfg.BaseUrl);
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", cfg.ApiKey);
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            });
 
+            return services;
+        }
+           
         // IChatClient is for Microsoft.Extensions.AI, IOllamaApiClient is for OllamaSharp, you can register both if you want to use them side by side
         public static IServiceCollection AddOllamaIChatClient(this IServiceCollection services, IConfiguration appConfig, ServiceLifetime lifetime = ServiceLifetime.Scoped)
             => lifetime switch

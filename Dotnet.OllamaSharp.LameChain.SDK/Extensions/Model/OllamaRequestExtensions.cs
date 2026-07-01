@@ -1,5 +1,6 @@
 ﻿using Anthropic.SDK.Constants;
 using Anthropic.SDK.Messaging;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Request;
 using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
 using ClaudeMessage = Anthropic.SDK.Messaging.Message;
@@ -67,6 +68,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
             chatRequest.Messages = messages;
 
             return chatRequest;
+        }
+
+        public static GroqChatRequest AsGroqRequest(this ChatRequest req)
+        {
+            return new GroqChatRequest();
         }
     }
 }
