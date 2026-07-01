@@ -3,6 +3,7 @@ using Anthropic.SDK.Messaging;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Request;
 using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
+using System.Text.Json;
 using ClaudeMessage = Anthropic.SDK.Messaging.Message;
 using OllamaMessage = OllamaSharp.Models.Chat.Message;
 
@@ -14,6 +15,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
         {
             if (ollamaRequest.Messages.Count() == 0)
                 throw new InvalidOperationException($"{nameof(ChatRequest)}.{nameof(AsClaudeRequest)} >> No messages present in the request");
+
+            if (ollamaRequest.Options == null)
+                ollamaRequest.Options = new RequestOptions();
 
             var claudeReq = new MessageParameters
             {
@@ -38,6 +42,39 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
             }
 
             return claudeReq;
+        }
+
+        public static GroqChatRequest AsGroqRequest(this ChatRequest req, bool includeReasoning = false)
+        {
+            if (req.Messages.Count() == 0)
+                throw new InvalidOperationException($"{nameof(ChatRequest)}.{nameof(AsClaudeRequest)} >> No messages present in the request");
+
+            if (req.Options == null)
+                req.Options = new RequestOptions();
+
+            var request = new GroqChatRequest
+            {
+                Model = req.Model,
+                Temperature = req.Options.Temperature ?? .7f,
+                FrequencyPenalty = req.Options.FrequencyPenalty = 0,
+                PresencePenalty = req.Options.PresencePenalty ?? .0f,
+                MaxCompletionTokens = req.Options.NumPredict,
+                TopP = req.Options.TopP ?? 1.0f,
+                Stream = req.Stream,
+                IncludeReasoning = includeReasoning,
+                ResponseFormat = new
+                {
+                    type = "json_schema",
+                    json_schema = new
+                    {
+                        name = "response",
+                        schema = req.Format,
+                        strict = true
+                    }
+                }
+            };
+
+            return request;
         }
 
         public static ChatRequest GenerateRequestToChat(this GenerateRequest req)
@@ -68,11 +105,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
             chatRequest.Messages = messages;
 
             return chatRequest;
-        }
-
-        public static GroqChatRequest AsGroqRequest(this ChatRequest req)
-        {
-            return new GroqChatRequest();
         }
     }
 }

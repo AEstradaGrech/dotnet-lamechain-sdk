@@ -159,7 +159,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Request
             CitationOptions = "disabled";
             DisableToolValidation = false;
             FrequencyPenalty = 0f;
-            N = 1;
             ParallelToolCalls = true;
             PresencePenalty = 0f;
             Temperature = 1f;
@@ -171,8 +170,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Request
         public string? Model { get; set; }
         public List<Message>? Messages { get; set; }
 
-        // Existing/overlapping fields
-        public string? Format { get; set; }
+        // RESPONSE JSON SCHEMA
+        public object? ResponseFormat { get; set; }
 
         // Documented additional fields
         // Allowed values: "enabled", "disabled" (default "enabled")
@@ -196,9 +195,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Request
         // The maximum number of completion tokens (optional)
         public int? MaxCompletionTokens { get; set; }
 
-        // Defaults to 1 (only 1 supported)
-        public int N { get; set; }
-
         // Defaults to true
         public bool ParallelToolCalls { get; set; }
 
@@ -207,9 +203,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Request
 
         // Allowed values: none, default, low, medium, high (optional)
         public string? ReasoningEffort { get; set; }
-
-        // Object specifying required response format (optional)
-        public object? ResponseFormat { get; set; }
 
         // Settings for web search tools (optional)
         public object? SearchSettings { get; set; }

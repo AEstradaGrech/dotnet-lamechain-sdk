@@ -9,7 +9,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
     public class GroqHandler : BaseHandler
     {
         private IGroqClient _client;
-        public GroqHandler(IServiceProvider serviceProvider, IConfiguration config, ChatRequest commandRequest, string provider) : base(serviceProvider, config, commandRequest, provider)
+        public GroqHandler(IServiceProvider serviceProvider, IConfiguration config, ChatRequest commandRequest) : base(serviceProvider, config, commandRequest, "groq")
         {
             _client = serviceProvider.GetRequiredService<IGroqClient>();
 

@@ -31,6 +31,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             => provider switch {
                 "ollama" => new OllamaHandler(_serviceProvider, _config, commandRequest),
                 "claude" => new ClaudeHandler(_serviceProvider, _config, commandRequest),
+                "groq" => new GroqHandler(_serviceProvider, _config, commandRequest),
                 _ => new OllamaHandler(_serviceProvider, _config, commandRequest)
             };
 
