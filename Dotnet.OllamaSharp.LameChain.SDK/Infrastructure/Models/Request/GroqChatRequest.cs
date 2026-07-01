@@ -157,6 +157,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Request
         {
             // defaults per documented summaries
             CitationOptions = "disabled";
+            ToolChoice = "none";
             DisableToolValidation = false;
             FrequencyPenalty = 0f;
             ParallelToolCalls = true;
@@ -214,7 +215,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Request
         public List<string>? Stop { get; set; }
 
         // Controls which (if any) tool is called. Can be string ("none","auto","required") or object specifying a tool.
-        public object? ToolChoice { get; set; }
+        public object ToolChoice { get; set; } = "none";
 
         // List of tools (functions) the model may call (optional)
         public List<object>? Tools { get; set; }
@@ -224,9 +225,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Request
 
         // Nucleus sampling. Defaults to 1. Range: 0 .. 1
         public float TopP { get; set; }
-
-        // Optional end-user identifier
-        public string? User { get; set; }
 
         // If true, stream partial deltas. Defaults to false
         public bool Stream { get; set; }

@@ -24,14 +24,23 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Clients
             if (!_settings.Endpoints.ContainsKey("chat"))
                 throw new InvalidDataException($"{nameof(GroqClient)}.{GetChatCompletion} >> Chat Completions Endpoint not found in app settings");
 
-            var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+            var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+                DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower
+            };
 
+            var x = JsonSerializer.Serialize<GroqChatRequest>(request, options);
+            
             var response = await _httpClient.PostAsJsonAsync<GroqChatRequest>(_settings.EndpointByKey("chat"), request, options);
 
             if(!response.IsSuccessStatusCode)
-                throw new HttpIOException(HttpRequestError.InvalidResponse, "ERROR / TODO");
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                throw new HttpIOException(HttpRequestError.InvalidResponse, $"{response.ReasonPhrase}: {errorBody}");
+            }
 
-            var completionResponse = await response.Content.ReadFromJsonAsync<GroqChatCompletion>();
+            var completionResponse = await response.Content.ReadFromJsonAsync<GroqChatCompletion>(options);
 
             return completionResponse;
         }

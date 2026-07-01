@@ -54,19 +54,21 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
 
             var request = new GroqChatRequest
             {
+                Messages = req.Messages.ToList(),
                 Model = req.Model,
                 Temperature = req.Options.Temperature ?? .7f,
                 FrequencyPenalty = req.Options.FrequencyPenalty = 0,
                 PresencePenalty = req.Options.PresencePenalty ?? .0f,
                 MaxCompletionTokens = req.Options.NumPredict,
+                ReasoningEffort = "medium",
                 TopP = req.Options.TopP ?? 1.0f,
                 Stream = req.Stream,
+                Stop = null,
                 IncludeReasoning = includeReasoning,
-                ResponseFormat = new
-                {
+                ResponseFormat = req.Format == null ? null :
+                new {
                     type = "json_schema",
-                    json_schema = new
-                    {
+                    json_schema = new {
                         name = "response",
                         schema = req.Format,
                         strict = true
