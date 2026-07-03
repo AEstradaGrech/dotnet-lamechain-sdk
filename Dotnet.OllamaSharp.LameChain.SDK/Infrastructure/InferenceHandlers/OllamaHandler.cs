@@ -9,6 +9,7 @@ using OllamaSharp.Models.Chat;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Xml.Linq;
 
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
@@ -16,50 +17,34 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
     public class OllamaHandler : BaseHandler
     {
         private IOllamaApiClient _client;
-        public OllamaHandler(IServiceProvider provider, IConfiguration config, ChatRequest commandRequest, Dictionary<string, MethodInfo>? toolsLookup = null) 
-            : base(provider, config, commandRequest, "ollama", toolsLookup) 
+        public OllamaHandler(IServiceProvider provider, IConfiguration config) 
+            : base(provider, config, "ollama") 
         {
             _client = provider.GetRequiredService<IOllamaApiClient>();
         }
 
-        public override async Task<string> GetLlmResponse()
+        public override async Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null)
         {
             if (!isValid())
                 throw new InvalidOperationException($"{nameof(OllamaHandler)} >> {nameof(GetLlmResponse)} >> {nameof(isValid)}");
 
             var sb = new StringBuilder();
 
-            if (CommandRequest.Tools != null && CommandRequest.Tools.Count() > 0)
+            await foreach (var part in _client.ChatAsync(request))
             {
-                await foreach (var part in _client.ChatAsync(CommandRequest))
+                if(part?.Message.ToolCalls != null && part?.Message.ToolCalls.Count() > 0)
                 {
-                    if(part?.Message.ToolCalls.Count() > 0)
-                    {
-                        var call = part?.Message.ToolCalls.FirstOrDefault();
-
-                        var name = call.Function.Name;
-
-                        if (!_toolsLookup.ContainsKey(name))
-                            throw new InvalidOperationException($"{nameof(GetLlmResponse)} >> No function MethodInfo found for function name: {name}");
-
-                        var finalMessage = await handleFunctionCall(_toolsLookup[name], call.Function.Arguments); // this will try to execute the Tool (which may include LLM requestS) in the same request context (that's the problem I gues)
-                        //sb.append(finalMessage.Content)
-                    }
-                    else
-                    {
-                        if (!string.IsNullOrEmpty(part?.Message.Content))
-                            sb.Append(part.Message.Content);
-                    }
+                    var toolsLoopResponse = await handleFunctionCall(request, part?.Message, requestTools);
+                    
+                    sb.Append(toolsLoopResponse);
                 }
-            } 
-            else
-            {
-                await foreach (var part in _client.ChatAsync(CommandRequest)) // Tool's UserIntentCommand prompt ends here and crashes
+                else
+                {
                     if (!string.IsNullOrEmpty(part?.Message.Content))
                         sb.Append(part.Message.Content);
+                }
             }
-        
-            
+                        
             return sb.ToString().Trim();
         }
 
@@ -80,15 +65,43 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             return sb.ToString().Trim();
         }
 
-        private async Task<ChatMessage> handleFunctionCall(MethodInfo methodInfo, IDictionary<string, object> arguments)
+        private async Task<ChatResponseStream?> SubmitToolCall(ChatRequest request)
         {
-            var toolResult = await getToolResult(methodInfo, arguments); // real await, no blocking .Result
+            request.Stream = false;
+            ChatResponseStream? response = null;
+            await foreach (var part in _client.ChatAsync(request))
+                if (part != null)
+                    response = part;
+
+            return response;
+        }
+        private async Task<string> handleFunctionCall(ChatRequest request, Message message, Dictionary<string, MethodInfo>? toolsLookup)
+        {
+            if (toolsLookup == null)
+                throw new ArgumentNullException($"{nameof(handleFunctionCall)} >> {nameof(toolsLookup)}");
+
+            var toolCall = message.ToolCalls.FirstOrDefault();
+
+            var toolName = toolCall.Function.Name;
+
+            if (!toolsLookup.ContainsKey(toolName))
+                throw new InvalidOperationException($"{nameof(GetLlmResponse)} >> No function MethodInfo found for function name: {toolName}");
+
+            var toolResult = await getToolResult(toolsLookup[toolName], toolCall.Function.Arguments); // real await, no blocking .Result
 
             var toolMessage = new Message(ChatRole.Tool, JsonSerializer.Serialize(toolResult)); // now serializes the unwrapped value, not a Task
+            
+            toolMessage.ToolName = toolName;
 
-            var finalMesage = new ChatMessage(ChatRole.Assistant.ToString(), string.Empty);
+            var messages = request.Messages.ToList();
+            
+            messages.Add(message);
+            
+            messages.Add(toolMessage);
 
-            return finalMesage;
+            request.Messages = messages;
+
+            return await GetLlmResponse(request, toolsLookup);
         }
 
         private async Task<object?> getToolResult(MethodInfo methodInfo, IDictionary<string, object> arguments)

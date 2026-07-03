@@ -8,14 +8,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
     {
         protected readonly IConfiguration _config;
         protected readonly IServiceProvider _serviceProvider;
-        private ChatRequest _commandRequest;
         protected readonly string _provider;
-        protected Dictionary<string, MethodInfo>? _toolsLookup = null;
-        public ChatRequest CommandRequest => _commandRequest;
-        public bool HasTools => _toolsLookup != null && _toolsLookup.Count() > 0;
+
         public bool IsProvider(string provider) => _provider == provider;
 
-        public BaseHandler(IServiceProvider serviceProvider, IConfiguration config, ChatRequest commandRequest, string provider, Dictionary<string, MethodInfo>? toolsLookup = null)
+        public BaseHandler(IServiceProvider serviceProvider, IConfiguration config, string provider)
         {
             _provider = provider.Trim();
 
@@ -24,28 +21,21 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             _config = config;
             _serviceProvider = serviceProvider;
-            _commandRequest = commandRequest;
-            _toolsLookup = toolsLookup;
         }
 
         public bool IsOfType<T>() where T : BaseHandler => this is T;
         public T AsType<T>() where T : BaseHandler => (T)this;
-        public BaseHandler UpdateHandler(string provider, ChatRequest commandRequest, Dictionary<string, MethodInfo>? requestTools = null)
+        public BaseHandler UpdateHandler(string provider)
             => provider switch {
-                "ollama" => new OllamaHandler(_serviceProvider, _config, commandRequest, requestTools),
-                "claude" => new ClaudeHandler(_serviceProvider, _config, commandRequest, requestTools),
-                "groq" => new GroqHandler(_serviceProvider, _config, commandRequest, requestTools),
-                _ => new OllamaHandler(_serviceProvider, _config, commandRequest, requestTools)
+                "ollama" => new OllamaHandler(_serviceProvider, _config),
+                "claude" => new ClaudeHandler(_serviceProvider, _config),
+                "groq" => new GroqHandler(_serviceProvider, _config),
+                _ => new OllamaHandler(_serviceProvider, _config)
             };
 
-        public void SetCommandRequest(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null)
-        {
-            _commandRequest = request;
-            _toolsLookup = requestTools;
-        }
-        public abstract Task<string> GetLlmResponse(); // override & serviceProvider.GetRequiredService<HandlerClient>() <- cada uno pide una copia de SU http client
+        public abstract Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null); // override & serviceProvider.GetRequiredService<HandlerClient>() <- cada uno pide una copia de SU http client
 
         protected virtual bool isValid()
-            => _config != null && _commandRequest != null;
+            => _serviceProvider != null && _config != null && !string.IsNullOrEmpty(_provider);
     }
 }

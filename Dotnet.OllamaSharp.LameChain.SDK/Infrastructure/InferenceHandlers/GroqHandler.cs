@@ -10,8 +10,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
     public class GroqHandler : BaseHandler
     {
         private IGroqClient _client;
-        public GroqHandler(IServiceProvider serviceProvider, IConfiguration config, ChatRequest commandRequest, Dictionary<string, MethodInfo>? toolsLookup = null) 
-            : base(serviceProvider, config, commandRequest, "groq", toolsLookup)
+        public GroqHandler(IServiceProvider serviceProvider, IConfiguration config) 
+            : base(serviceProvider, config, "groq")
         {
             _client = serviceProvider.GetRequiredService<IGroqClient>();
 
@@ -19,14 +19,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 throw new ArgumentNullException($"{nameof(GroqHandler)} >> {nameof(IGroqClient)} is not registered as service.");
         }
 
-        public override async Task<string> GetLlmResponse()
+        public override async Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null)
         {
             if (!isValid())
                 throw new InvalidOperationException($"{GetLlmResponse} >> {nameof(isValid)}");
 
-            var request = CommandRequest.AsGroqRequest();
-
-            var response = await _client.GetChatCompletion(request);
+            var response = await _client.GetChatCompletion(request.AsGroqRequest());
 
             if (response.Choices.Count == 0)
                 throw new InvalidDataException($"{nameof(GroqHandler)}.{nameof(GetLlmResponse)}.{nameof(_client.GetChatCompletion)} >> No message choices present in the response");

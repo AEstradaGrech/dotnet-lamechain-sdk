@@ -27,7 +27,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
         {
             _client = client;
             _settings = settings.Value;
-            _handler = new OllamaHandler(provider, config, commandRequest: null);
+            _handler = new OllamaHandler(provider, config);
             
         }
        
@@ -47,9 +47,9 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
 
             if (!_handler.IsOfType<OllamaHandler>())
             {
-                _handler = _handler.UpdateHandler(provider, request.GenerateRequestToChat());
+                _handler = _handler.UpdateHandler(provider);
 
-                llmResponse = await _handler.GetLlmResponse();
+                llmResponse = await _handler.GetLlmResponse(request.GenerateRequestToChat());
             }
 
             else llmResponse = await _handler.AsType<OllamaHandler>().GenerateLlmResponse(request);
@@ -71,11 +71,9 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             request.Stream = false;
 
             if (!_handler.IsProvider(provider))
-                _handler = _handler.UpdateHandler(provider, request, requestTools);
+                _handler = _handler.UpdateHandler(provider);
 
-            else _handler.SetCommandRequest(request, requestTools);
-
-            llmResponse = await _handler.GetLlmResponse();
+            llmResponse = await _handler.GetLlmResponse(request, requestTools);
 
             return new Message { Role = ChatRole.Assistant, Content = llmResponse };
         }
@@ -125,11 +123,9 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             };
 
             if (!_handler.IsProvider(provider))
-                _handler.UpdateHandler(provider, request);
+                _handler.UpdateHandler(provider);
             
-            else _handler.SetCommandRequest(request);
-
-            string llmResponse = await _handler.GetLlmResponse();
+            string llmResponse = await _handler.GetLlmResponse(request);
 
             return JsonSerializer.Deserialize<T>(llmResponse);
         }
@@ -163,9 +159,9 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
 
                     if(!_handler.IsOfType<OllamaHandler>())
                     {
-                        _handler = _handler.UpdateHandler(provider, request.GenerateRequestToChat());
+                        _handler = _handler.UpdateHandler(provider);
 
-                        llmResponse = await _handler.GetLlmResponse();                        
+                        llmResponse = await _handler.GetLlmResponse(request.GenerateRequestToChat());                        
                     }
 
                     else llmResponse = await _handler.AsType<OllamaHandler>().GenerateLlmResponse(request);
@@ -217,11 +213,9 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                     chatRequest.Stream = false;
 
                     if (!_handler.IsProvider(provider))
-                        _handler = _handler.UpdateHandler(provider, chatRequest, requestTools);
+                        _handler = _handler.UpdateHandler(provider);
 
-                    else _handler.SetCommandRequest(chatRequest, requestTools);
-
-                    llmResponse = await _handler.GetLlmResponse();
+                    llmResponse = await _handler.GetLlmResponse(chatRequest, requestTools);
 
                     //has no default | db message. Orchestrates commands with default | db message. uses the ChromaCommands FactoryMethod to get a ChromaRepo for the child commands
                     if (validation != null && validations > 0)
