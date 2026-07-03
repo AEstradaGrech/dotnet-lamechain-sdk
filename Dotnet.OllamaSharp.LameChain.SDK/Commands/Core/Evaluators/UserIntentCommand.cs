@@ -3,6 +3,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
+using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators
@@ -23,10 +24,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators
                 Model = request.Model,
                 Messages = [new Message(ChatRole.System, systemMessage), new Message(ChatRole.User, request.Prompt)],
                 Stream = false,
-                Options = _settings.ToOllamaRequest()
+                Options = _settings != null ? _settings.ToOllamaRequest() : new RequestOptions()
             };
 
-            var response = await _ollama.ChatPrompt(chatReq, request.Provider);
+            var response = await _ollama.ChatPrompt(chatReq, request.Provider, GetRequestTools(request));
 
             return new ChatMessage(response.Role.ToString(), response.Content);
         }

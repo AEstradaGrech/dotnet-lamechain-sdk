@@ -8,6 +8,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using OllamaSharp.Models;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Schema;
 using System.Text.Json.Serialization;
@@ -58,7 +59,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
             if (request.GetType() != typeof(TReq))
                 throw new InvalidOperationException($"{nameof(BasePromptCommand<T>)} >> request of type {request.GetType().Name} is not of type {typeof(TReq)}");
         }
-       
+
+        /// <summary>
+        /// Gets the tools dictionary from the request if it has tools, otherwise returns null
+        /// </summary>
+        protected Dictionary<string, MethodInfo>? GetRequestTools(PromptCommandRequest request)
+        {
+            return request.HasTools ? request.Tools : null;
+        }
+
         public async Task<JsonPromptResult> JsonPrompt(PromptCommandRequest request, CommandSettings? settingsOverride = null, bool returnFullInstruction= false, string? preInstruction = null)
         {
             if (settingsOverride != null)

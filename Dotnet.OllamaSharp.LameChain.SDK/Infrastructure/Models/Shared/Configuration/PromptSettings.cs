@@ -76,7 +76,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configur
                RepeatLastN = RepeatLastN,
                MiroStat = MiroStat,
                MiroStatEta = MiroStatEta,
-               MiroStatTau = MiroStatTau,
+               MiroStatTau = MiroStatTau
            };
     }
 }

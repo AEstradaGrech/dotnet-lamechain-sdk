@@ -39,7 +39,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                 Model = getModelForRequest(settings),
                 Messages = messages,
                 Stream = false,
-                Options = settings.ToOllamaRequest() ?? new RequestOptions()
+                Tools = HasTools ? GetToolDefinitions() : null,
+                Options = settings == null ? new RequestOptions() : settings.ToOllamaRequest()
             };
         }
     }

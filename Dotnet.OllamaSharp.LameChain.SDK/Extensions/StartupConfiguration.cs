@@ -1,4 +1,5 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services;
@@ -147,6 +148,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                     };
                     return new OllamaApiClient(settings);
                 })
+            };
+
+        public static IServiceCollection WithToolsFrom<TService>(this IServiceCollection services, ServiceLifetime lifetime = ServiceLifetime.Scoped) where TService : ToolsService<TService>, new()
+            => lifetime switch
+            {
+                ServiceLifetime.Scoped => services.AddScoped<IToolsService<TService>, TService>(),
+                ServiceLifetime.Transient => services.AddScoped<IToolsService<TService>, TService>(),
+                ServiceLifetime.Singleton => services.AddScoped<IToolsService<TService>, TService>(),
+                _ => services.AddScoped<IToolsService<TService>, TService>(),
             };
 
         public static IServiceCollection ConfigureClaudeApiClient(this IServiceCollection services, IConfiguration appConfig, ServiceLifetime lifetime = ServiceLifetime.Scoped)

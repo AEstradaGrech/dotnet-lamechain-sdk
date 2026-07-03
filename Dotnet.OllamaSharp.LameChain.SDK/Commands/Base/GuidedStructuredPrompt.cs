@@ -16,6 +16,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
         public GuidedStructuredPrompt(IOllamaInferenceService ollama) : base(ollama) { }
         public GuidedStructuredPrompt(IOllamaInferenceService ollama, string? systemMessage = null, CommandSettings? settings = null) : base(ollama, systemMessage, settings){ }
         public override async Task<TJson> Prompt(PromptCommandRequest request)
-            => await _ollama.CommandPrompt<TJson>(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), validatorFor<TJson>(_settings.CommandValidations, _settings.ValidationType));
+            => await _ollama.CommandPrompt<TJson>(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), _settings == null ? null : validatorFor<TJson>(_settings.CommandValidations, _settings.ValidationType), request.Provider, request.HasTools ? request.Tools : null);
     }
 }

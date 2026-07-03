@@ -32,7 +32,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators
 
             systemMessage = systemMessage.Replace("<<CHOICES>>", sb.ToString().Trim());
 
-            return await _ollama.CommandPrompt<ScoredStringChoice>(request.ToOllamaChat(systemMessage, _settings), validatorFor<ScoredStringChoice>(_settings.CommandValidations, _settings.ValidationType), provider: request.Provider);
+            return await _ollama.CommandPrompt<ScoredStringChoice>(request.ToOllamaChat(systemMessage, _settings), _settings == null ? null : validatorFor<ScoredStringChoice>(_settings.CommandValidations, _settings.ValidationType), provider: request.Provider, requestTools: GetRequestTools(request));
         }
 
         protected override string getDefaultInstruction()

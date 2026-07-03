@@ -1,10 +1,8 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators;
-using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Exceptions;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
@@ -13,6 +11,7 @@ using Microsoft.Extensions.Options;
 using OllamaSharp;
 using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Schema;
 
@@ -28,7 +27,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
         {
             _client = client;
             _settings = settings.Value;
-            _handler = new OllamaHandler(provider, config, null);
+            _handler = new OllamaHandler(provider, config, commandRequest: null);
             
         }
        
@@ -58,7 +57,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
            return new Message { Role = ChatRole.Assistant, Content = llmResponse };
         }
 
-        public async Task<Message> ChatPrompt(ChatRequest request, string provider)
+        public async Task<Message> ChatPrompt(ChatRequest request, string provider, Dictionary<string, MethodInfo>? requestTools = null)
         {
             provider = provider.Trim();
 
@@ -72,9 +71,9 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             request.Stream = false;
 
             if (!_handler.IsProvider(provider))
-                _handler = _handler.UpdateHandler(provider, request);
+                _handler = _handler.UpdateHandler(provider, request, requestTools);
 
-            else _handler.SetCommandRequest(request);
+            else _handler.SetCommandRequest(request, requestTools);
 
             llmResponse = await _handler.GetLlmResponse();
 
@@ -190,7 +189,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             return string.IsNullOrEmpty(llmResponse) ? default(T) : JsonSerializer.Deserialize<T>(llmResponse);
         }
 
-        public async Task<T> CommandPrompt<T>(ChatRequest chatRequest, CommandPromptValidation<T>? validation = null, string provider = "ollama", bool withJsonInfo = true) where T : class
+        public async Task<T> CommandPrompt<T>(ChatRequest chatRequest, CommandPromptValidation<T>? validation = null, string provider = "ollama", Dictionary<string, MethodInfo>? requestTools = null, bool withJsonInfo = true) where T : class
         {
             string llmResponse = string.Empty;
             int validations = validation != null ? validation.Validations : 0;
@@ -218,9 +217,9 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                     chatRequest.Stream = false;
 
                     if (!_handler.IsProvider(provider))
-                        _handler = _handler.UpdateHandler(provider, chatRequest);
+                        _handler = _handler.UpdateHandler(provider, chatRequest, requestTools);
 
-                    else _handler.SetCommandRequest(chatRequest);
+                    else _handler.SetCommandRequest(chatRequest, requestTools);
 
                     llmResponse = await _handler.GetLlmResponse();
 
@@ -242,5 +241,6 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
 
             return string.IsNullOrEmpty(llmResponse) ? default(T) : JsonSerializer.Deserialize<T>(llmResponse);
         }
+
     }
 }

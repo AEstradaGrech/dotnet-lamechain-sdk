@@ -3,13 +3,15 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OllamaSharp.Models.Chat;
+using System.Reflection;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 {
     public class GroqHandler : BaseHandler
     {
         private IGroqClient _client;
-        public GroqHandler(IServiceProvider serviceProvider, IConfiguration config, ChatRequest commandRequest) : base(serviceProvider, config, commandRequest, "groq")
+        public GroqHandler(IServiceProvider serviceProvider, IConfiguration config, ChatRequest commandRequest, Dictionary<string, MethodInfo>? toolsLookup = null) 
+            : base(serviceProvider, config, commandRequest, "groq", toolsLookup)
         {
             _client = serviceProvider.GetRequiredService<IGroqClient>();
 

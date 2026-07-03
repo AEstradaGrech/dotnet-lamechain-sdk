@@ -16,7 +16,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Evaluators
             : base(ollama, messageSourceName, messageName, retriever, guidanceMessage, settings) { }
 
         public override async Task<ReasonedScoreResponse> Prompt(PromptCommandRequest request)
-            => await _ollama.CommandPrompt<ReasonedScoreResponse>(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), validatorFor<ReasonedScoreResponse>(_settings.CommandValidations, _settings.ValidationType), provider: request.Provider);
+            => await _ollama.CommandPrompt<ReasonedScoreResponse>(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), _settings == null ? null : validatorFor<ReasonedScoreResponse>(_settings.CommandValidations, _settings.ValidationType), provider: request.Provider, requestTools: GetRequestTools(request));
 
         protected override string getDefaultInstruction()
             => @"Analyze the user request and reason a coherent score for the given input that represents the best a response that ranges from 0.0 to 1.0 to indicate 'NEGATIVE' or 'POSITIVE' according to the provided JSON schema. Add also a brief yet accurate 'justification' comment explaining your score";

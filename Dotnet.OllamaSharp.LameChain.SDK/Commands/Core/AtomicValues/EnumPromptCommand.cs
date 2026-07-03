@@ -30,7 +30,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
 
             systemMessage = systemMessage.Replace("<<CHOICES>>", sb.ToString().Trim());
 
-            var response = await _ollama.CommandPrompt<IntegerChoiceResponse>(request.ToOllamaChat(systemMessage, _settings), validatorFor<IntegerChoiceResponse>(_settings.CommandValidations, _settings.ValidationType));
+            var response = await _ollama.CommandPrompt<IntegerChoiceResponse>(request.ToOllamaChat(systemMessage, _settings), _settings == null ? null : validatorFor<IntegerChoiceResponse>(_settings.CommandValidations, _settings.ValidationType), request.Provider, GetRequestTools(request));
 
             return (TEnum)Convert.ChangeType(response.Result, type);
         }

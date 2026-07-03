@@ -15,7 +15,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators
             : base(ollama, messageSourceName, messageName, retriever, guidanceMessage, settings) { }
 
         public override async Task<ScoredBoolResponse> Prompt(PromptCommandRequest request)
-            => await _ollama.CommandPrompt<ScoredBoolResponse>(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), validatorFor<ScoredBoolResponse>(_settings.CommandValidations, _settings.ValidationType), provider: request.Provider);
+            => await _ollama.CommandPrompt<ScoredBoolResponse>(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), _settings == null ? null : validatorFor<ScoredBoolResponse>(_settings.CommandValidations, _settings.ValidationType), provider: request.Provider, requestTools: GetRequestTools(request));
 
         protected override string getDefaultInstruction()
             => @"Analyze the user request and reason a coherent response that can be sythetized in a boolean response to indicate 'YES' or 'NO' according to the provided JSON schema. 
