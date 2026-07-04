@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Schema;
 
 
-namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Tools
+namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities
 {
     public static class OllamaTools
     {

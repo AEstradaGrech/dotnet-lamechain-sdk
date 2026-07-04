@@ -1,5 +1,5 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Tools;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
 using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
 using System.Reflection;

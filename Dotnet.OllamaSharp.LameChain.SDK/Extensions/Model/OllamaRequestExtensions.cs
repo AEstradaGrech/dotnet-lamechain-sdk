@@ -44,7 +44,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
             return claudeReq;
         }
 
-        public static GroqChatRequest AsGroqRequest(this ChatRequest req, bool includeReasoning = false)
+        public static GroqChatRequest AsGroqRequest(this ChatRequest req, string? reasoningEffort = null, bool? includeReasoning = null)
         {
             if (req.Messages.Count() == 0)
                 throw new InvalidOperationException($"{nameof(ChatRequest)}.{nameof(AsClaudeRequest)} >> No messages present in the request");
@@ -60,11 +60,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
                 FrequencyPenalty = req.Options.FrequencyPenalty = 0,
                 PresencePenalty = req.Options.PresencePenalty ?? .0f,
                 MaxCompletionTokens = req.Options.NumPredict,
-                ReasoningEffort = "medium",
                 TopP = req.Options.TopP ?? 1.0f,
                 Stream = req.Stream,
                 Stop = null,
+                ReasoningEffort = reasoningEffort,
                 IncludeReasoning = includeReasoning,
+                Tools = req.Tools.Count() > 0 ? req.Tools.ToList() : null,
+                ToolChoice = req.Tools.Count() > 0 ? "auto" : "none",
+                ParallelToolCalls = false,
                 ResponseFormat = req.Format == null ? null :
                 new {
                     type = "json_schema",

@@ -2,6 +2,7 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Request;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Response.GroqProvider;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.JsonConverters;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -30,7 +31,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Clients
                 DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower
             };
 
-            var x = JsonSerializer.Serialize<GroqChatRequest>(request, options);
+            if(request.Tools.Count() > 0)
+            {
+                options.Converters.Add(new ToolArgumentsConverter());
+                options.Converters.Add(new GroqToolCallConverter());
+                options.Converters.Add(new GroqToolMessageConverter());
+            }
             
             var response = await _httpClient.PostAsJsonAsync<GroqChatRequest>(_settings.EndpointByKey("chat"), request, options);
 
@@ -39,7 +45,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Clients
                 var errorBody = await response.Content.ReadAsStringAsync();
                 throw new HttpIOException(HttpRequestError.InvalidResponse, $"{response.ReasonPhrase}: {errorBody}");
             }
-
+            
             var completionResponse = await response.Content.ReadFromJsonAsync<GroqChatCompletion>(options);
 
             return completionResponse;
