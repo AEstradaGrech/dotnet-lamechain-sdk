@@ -4,6 +4,7 @@ using System.Text;
 using Xunit;
 using FluentAssertions;
 using Moq;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using DotnetLlamaSharp.Infrastructure.Services.Inference;
 using OllamaSharp;
@@ -24,6 +25,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
     {
         private readonly Mock<IOllamaApiClient> _mockClient;
         private readonly Mock<IOptions<OllamaSettings>> _mockOptions;
+        private readonly Mock<IConfiguration> _mockConfig;
+        private readonly Mock<IServiceProvider> _mockServiceProvider;
         private readonly OllamaSettings _settings;
         private readonly OllamaInferenceService _service;
 
@@ -33,7 +36,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             _settings = new OllamaSettings { DefaultModel = "test-model" };
             _mockOptions = new Mock<IOptions<OllamaSettings>>();
             _mockOptions.Setup(o => o.Value).Returns(_settings);
-            _service = new OllamaInferenceService(_mockClient.Object, _mockOptions.Object);
+            _mockConfig = new Mock<IConfiguration>();
+            _mockServiceProvider = new Mock<IServiceProvider>();
+            _mockServiceProvider.Setup(sp => sp.GetService(typeof(IOllamaApiClient))).Returns(_mockClient.Object);
+            _service = new OllamaInferenceService(_mockClient.Object, _mockConfig.Object, _mockServiceProvider.Object, _mockOptions.Object);
         }
 
         #region Constructor Tests
@@ -46,9 +52,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             var options = new Mock<IOptions<OllamaSettings>>();
             var settings = new OllamaSettings();
             options.Setup(o => o.Value).Returns(settings);
+            var config = new Mock<IConfiguration>();
+            var serviceProvider = new Mock<IServiceProvider>();
+            serviceProvider.Setup(sp => sp.GetService(typeof(IOllamaApiClient))).Returns(client.Object);
 
             // Act
-            var service = new OllamaInferenceService(client.Object, options.Object);
+            var service = new OllamaInferenceService(client.Object, config.Object, serviceProvider.Object, options.Object);
 
             // Assert
             service.Should().NotBeNull();
@@ -74,7 +83,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(responses));
 
             // Act
-            var result = await _service.GeneratePrompt(request);
+            var result = await _service.GeneratePrompt(request, "ollama");
 
             // Assert
             result.Should().NotBeNull();
@@ -95,7 +104,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(responses));
 
             // Act
-            var result = await _service.GeneratePrompt(request);
+            var result = await _service.GeneratePrompt(request, "ollama");
 
             // Assert
             result.Should().NotBeNull();
@@ -123,7 +132,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerableNullable(responses));
 
             // Act
-            var result = await _service.GeneratePrompt(request);
+            var result = await _service.GeneratePrompt(request, "ollama");
 
             // Assert
             result.Should().NotBeNull();
@@ -146,7 +155,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(responses));
 
             // Act
-            var result = await _service.GeneratePrompt(request);
+            var result = await _service.GeneratePrompt(request, "ollama");
 
             // Assert
             result.Should().NotBeNull();
@@ -165,7 +174,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(responses));
 
             // Act
-            await _service.GeneratePrompt(request);
+            await _service.GeneratePrompt(request, "ollama");
 
             // Assert
             request.Stream.Should().BeFalse();
@@ -191,7 +200,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(responses));
 
             // Act
-            var result = await _service.ChatPrompt(request);
+            var result = await _service.ChatPrompt(request, "ollama");
 
             // Assert
             result.Should().NotBeNull();
@@ -220,7 +229,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerableNullable(responses));
 
             // Act
-            var result = await _service.ChatPrompt(request);
+            var result = await _service.ChatPrompt(request, "ollama");
 
             // Assert
             result.Should().NotBeNull();
@@ -242,7 +251,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(responses));
 
             // Act
-            var result = await _service.ChatPrompt(request);
+            var result = await _service.ChatPrompt(request, "ollama");
 
             // Assert
             result.Should().NotBeNull();
@@ -266,7 +275,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(responses));
 
             // Act
-            var result = await _service.ChatPrompt(request);
+            var result = await _service.ChatPrompt(request, "ollama");
 
             // Assert
             result.Content.Should().Be("Part1Part2Part3");
@@ -284,7 +293,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(responses));
 
             // Act
-            var result = await _service.ChatPrompt(request);
+            var result = await _service.ChatPrompt(request, "ollama");
 
             // Assert
             result.Should().NotBeNull();
@@ -484,7 +493,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(responses));
 
             // Act
-            var result = await _service.StructuredPrompt<TestStructuredOutput>(prompt, model);
+            var result = await _service.StructuredPrompt<TestStructuredOutput>(prompt, model, "ollama");
 
             // Assert
             result.Should().NotBeNull();
@@ -500,7 +509,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
             // Act & Assert
             await Assert.ThrowsAsync<InvalidDataException>(() =>
-                _service.StructuredPrompt<TestStructuredOutput>(prompt!, "model", systemGuidance));
+                _service.StructuredPrompt<TestStructuredOutput>(prompt!, "model", "ollama", systemGuidance));
         }
 
         [Fact]
@@ -512,7 +521,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
             // Act & Assert
             await Assert.ThrowsAsync<InvalidDataException>(() =>
-                _service.StructuredPrompt<TestStructuredOutput>(prompt, "model", systemGuidance));
+                _service.StructuredPrompt<TestStructuredOutput>(prompt, "model", "ollama", systemGuidance));
         }
 
         [Fact]
@@ -531,7 +540,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(responses));
 
             // Act
-            var result = await _service.StructuredPrompt<TestStructuredOutput>(prompt, model!);
+            var result = await _service.StructuredPrompt<TestStructuredOutput>(prompt, model!, "ollama");
 
             // Assert
             _mockClient.Verify(c => c.ChatAsync(It.Is<ChatRequest>(r => r.Model == _settings.DefaultModel)), Times.Once);
@@ -554,7 +563,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(responses));
 
             // Act
-            await _service.StructuredPrompt<TestStructuredOutput>(prompt, model, systemGuidance);
+            await _service.StructuredPrompt<TestStructuredOutput>(prompt, model, "ollama", systemGuidance);
 
             // Assert
             _mockClient.Verify(c => c.ChatAsync(It.Is<ChatRequest>(r =>
@@ -579,7 +588,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerableNullable(responses));
 
             // Act
-            var result = await _service.StructuredPrompt<TestStructuredOutput>(prompt, model);
+            var result = await _service.StructuredPrompt<TestStructuredOutput>(prompt, model, "ollama");
 
             // Assert
             result.Should().NotBeNull();
@@ -605,7 +614,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerableNullable(responses));
 
             // Act
-            var result = await _service.StructuredPrompt<TestStructuredOutput>(prompt, model);
+            var result = await _service.StructuredPrompt<TestStructuredOutput>(prompt, model, "ollama");
 
             // Assert
             result.Should().NotBeNull();
@@ -627,7 +636,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(responses));
 
             // Act
-            await _service.StructuredPrompt<TestStructuredOutput>(prompt, model);
+            await _service.StructuredPrompt<TestStructuredOutput>(prompt, model, "ollama");
 
             // Assert
             _mockClient.Verify(c => c.ChatAsync(It.Is<ChatRequest>(r => r.Stream == false)), Times.Once);
@@ -638,7 +647,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         {
             // Arrange
             var prompt = "test prompt";
-            var model = "test-model";
+            var model = "ollama";
             var customOptions = new RequestOptions();
             var responses = new List<ChatResponseStream>
             {
@@ -650,7 +659,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(responses));
 
             // Act
-            await _service.StructuredPrompt<TestStructuredOutput>(prompt, model, null, customOptions);
+            await _service.StructuredPrompt<TestStructuredOutput>(prompt, model, "ollama", null, customOptions);
 
             // Assert
             _mockClient.Verify(c => c.ChatAsync(It.IsAny<ChatRequest>()), Times.Once);
@@ -710,7 +719,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             var mockValidator = new Mock<JsonOutputRefinerCommand<TestStructuredOutput>>();
 
             // Act
-            await _service.CommandPrompt<TestStructuredOutput>(request, validations: 0, validator: mockValidator.Object);
+            await _service.CommandPrompt<TestStructuredOutput>(request, new CommandPromptValidation<TestStructuredOutput> { Validations = 0, Validator = mockValidator.Object });
 
             // Assert
             mockValidator.Verify(v => v.Prompt(It.IsAny<JsonRefineRequest<TestStructuredOutput>>()), Times.Never);
@@ -737,7 +746,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .ReturnsAsync(mockValidatorResponse);
 
             // Act
-            var result = await _service.CommandPrompt<TestStructuredOutput>(request, validations: 1, validator: mockValidator.Object);
+            var result = await _service.CommandPrompt<TestStructuredOutput>(request, new CommandPromptValidation<TestStructuredOutput> { Validations = 1, Validator = mockValidator.Object });
 
             // Assert
             result.Should().NotBeNull();
@@ -813,7 +822,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
             // Act & Assert
             await Assert.ThrowsAsync<PromptRetryException>(() =>
-                _service.CommandPrompt<TestStructuredOutput>(request, validations: 1));
+                _service.CommandPrompt<TestStructuredOutput>(request, new CommandPromptValidation<TestStructuredOutput> { Validations = 1 }));
         }
 
         [Fact]
@@ -831,7 +840,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
             // Act & Assert
             await Assert.ThrowsAsync<PromptRetryException>(() =>
-                _service.CommandPrompt<TestStructuredOutput>(request, validations: 1));
+                _service.CommandPrompt<TestStructuredOutput>(request, new CommandPromptValidation<TestStructuredOutput> { Validations = 1 }));
         }
 
         [Fact]
@@ -961,7 +970,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             var mockValidator = new Mock<JsonOutputRefinerCommand<TestStructuredOutput>>();
 
             // Act
-            await _service.CommandPrompt<TestStructuredOutput>(chatRequest, validations: 0, validator: mockValidator.Object);
+            await _service.CommandPrompt<TestStructuredOutput>(chatRequest, new CommandPromptValidation<TestStructuredOutput> { Validations = 0, Validator = mockValidator.Object });
 
             // Assert
             mockValidator.Verify(v => v.Prompt(It.IsAny<JsonRefineRequest<TestStructuredOutput>>()), Times.Never);
@@ -995,7 +1004,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .ReturnsAsync(mockValidatorResponse);
 
             // Act
-            var result = await _service.CommandPrompt<TestStructuredOutput>(chatRequest, validations: 1, validator: mockValidator.Object);
+            var result = await _service.CommandPrompt<TestStructuredOutput>(chatRequest, new CommandPromptValidation<TestStructuredOutput> { Validations = 1, Validator = mockValidator.Object });
 
             // Assert
             result.Should().NotBeNull();
@@ -1095,7 +1104,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
             // Act & Assert
             await Assert.ThrowsAsync<PromptRetryException>(() =>
-                _service.CommandPrompt<TestStructuredOutput>(chatRequest, validations: 1));
+                _service.CommandPrompt<TestStructuredOutput>(chatRequest, new CommandPromptValidation<TestStructuredOutput> { Validations = 1 }));
         }
 
         [Fact]
@@ -1120,7 +1129,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
             // Act & Assert
             await Assert.ThrowsAsync<PromptRetryException>(() =>
-                _service.CommandPrompt<TestStructuredOutput>(chatRequest, validations: 1));
+                _service.CommandPrompt<TestStructuredOutput>(chatRequest, new CommandPromptValidation<TestStructuredOutput> { Validations = 1 }));
         }
 
         [Fact]
@@ -1242,7 +1251,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .ReturnsAsync(new TestStructuredOutput());
 
             // Act
-            await _service.CommandPrompt<TestStructuredOutput>(chatRequest, validations: 1, validator: mockValidator.Object);
+            await _service.CommandPrompt<TestStructuredOutput>(chatRequest, new CommandPromptValidation<TestStructuredOutput> { Validations = 1, Validator = mockValidator.Object });
 
             // Assert
             mockValidator.Verify(v => v.Prompt(It.Is<JsonRefineRequest<TestStructuredOutput>>(r =>
@@ -1277,7 +1286,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .ReturnsAsync(new TestStructuredOutput());
 
             // Act
-            await _service.CommandPrompt<TestStructuredOutput>(chatRequest, validations: 1, validator: mockValidator.Object);
+            await _service.CommandPrompt<TestStructuredOutput>(chatRequest, new CommandPromptValidation<TestStructuredOutput> { Validations = 1, Validator = mockValidator.Object });
 
             // Assert
             mockValidator.Verify(v => v.Prompt(It.Is<JsonRefineRequest<TestStructuredOutput>>(r =>
