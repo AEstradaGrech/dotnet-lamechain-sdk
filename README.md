@@ -3,7 +3,7 @@
 [![.NET](https://img.shields.io/badge/.NET-10.0%2B-blue.svg)](https://dotnet.microsoft.com/)
 
 # dotnet-lamechain-sdk
-A fluent .NET framework for chaining structured OllamaSharp prompts with sequence and parallel workflows.
+A fluent .NET framework for chaining structured OllamaSharp prompts with sequence and parallel workflows with tools support.
 
 ## What is LameChain?
 
@@ -16,6 +16,15 @@ It provides a fluent experience for building command chains that can:
 - boost prompts with additional contextual sources
 - generate a final result from multiple intermediate outputs
 
+### Core features:
+
+- Asynchronous inference using a CQRS-style commands system.
+- Structured Output prompts (llm responses parsed to C# POCO classes).
+- Configurable workflows using the FluentApi.
+- Chain steps system to configure different type of nodes in your workflows, with different features for different purposes.
+- Tools support.
+- Multi-provider.
+
 ### The core concepts
 
 LameChain is built around three main components:
@@ -23,12 +32,14 @@ LameChain is built around three main components:
 1. **Commands**: define how to build prompts, call Ollama, and parse JSON results into typed C# objects.
 2. **Chain Steps**: configure and execute command chains, while managing feeds and context.
 3. **Fluent Extensions**: expose a readable API for composing valid chains without manual wiring.
+4. **Ollama Tools**: add functions as tools and let the LLM decide which tools to use to generate a more accurate response.
 
 This structure makes it easy to use commands standalone, while also enabling richer workflows when you need multiple LLM requests or mixed result types.
 
 ## What’s in the box
 
-- A commands-based system for OllamaSharp with structured output support
+- A commands-based system for OllamaSharp with structured output and
+  tool execution support.
 - Fluent chain extensions for building readable sequence/parallel flows
 - Chain rule classes that enforce valid SDK usage
 - Inference and Embeddings services with startup configuration helpers
@@ -912,6 +923,149 @@ And a working example of conditional steps:
                 .ForwardFirstType<StoredStep<ChatMessage>>()
             )
             .ThenExecuteAsync(withFinalMessage: false, withReplay: true);
+
+```
+
+## Ollama Tools:
+
+The OllamaInference service includes a tools-resolution loop that allows you to add functions as tools that a LLM with tools support may select
+and use to provide more accurate responses (available for the CommandPrompt<T>(ChatRequest request, [...]) and ChatPrompt() methods).
+
+You can convert any function in your application using the SDK OllamaTools.FromMethod(MethodInfo method) static method, like this:
+
+``` csharp
+
+ public object GetToolDefinition()
+    => OllamaTools.FromMethod(_toolsService.GetType().GetMethod(nameof(LlamaSharpTools.ChromaSearchTool)));
+
+```
+
+Or, using the SDK Commands system, add the tools to the request by passing the name of the tool and the MethodInfo of the tool function, like this:
+
+``` csharp
+
+    [HttpPost("/commands/tools/rag-example")]
+    public async Task<IActionResult> ProviderMessageTest([FromBody] ChatPromptRequestDto request)
+    {
+        var chatCommandReq = _mapper.Map<ChatPromptRequestDto, CommandChatRequest>(request);
+        
+        var commandReq = _mapper.Map<CommandChatRequest, ChatCommandRequest>(chatCommandReq);
+        
+        commandReq.AddTool(nameof(LlamaSharpTools.ChromaCollectionSelector), _toolsService.GetType().GetMethod(nameof(LlamaSharpTools.ChromaCollectionSelector)));
+        commandReq.AddTool(nameof(LlamaSharpTools.ChromaSearchTool), _toolsService.GetType().GetMethod(nameof(LlamaSharpTools.ChromaSearchTool)));
+
+        var response = await _ollamaCommands.PromptCommand<MessagePromptCommand, ChatMessage>(commandReq, request.SystemMessage, chatCommandReq.Settings);
+
+        if (response != null)
+            return Ok(response);
+
+        return StatusCode((int)HttpStatusCode.InternalServerError);
+    }
+
+```
+
+### ToolService:
+
+Because a tool might do many things and then require many different services from the app, all tools in the SDK must have acces to a IServiceProvider that 
+will provide any of those services (for example, a tool may need to execute a few Lame Commands, so it will require an scope to the IPromptCommandFactory).
+
+Also, the service provider should be injected and scoped by the DI system so, to delegate the instantiation and scope lifetime the tool repositories and other
+dependant services, the SDK makes use of a generic interface, IToolService<T>, where T must be a class inheriting from ToolService.
+
+This way the Ollama Tools can be groupped into 'tool repositories' that will be injected and managed by the .NET DI system, and available during the scope
+of the request to be executed in the tool-resolution loop as the LLM request one tool or another.
+
+Here is an example (available in the sample project). It registers a **LlamaToolsService** as tools repository:
+
+```csharp
+
+    builder.Services
+        .AddConfigurations(builder.Configuration)
+        .ConfigureLameChain(builder.Configuration, ServiceLifetime.Scoped)
+        .WithToolsFrom<LlamaSharpTools>(ServiceLifetime.Scoped)
+        .ConfigureLangSearch(builder.Configuration)
+        .AddChromaConfiguration(builder.Configuration)
+
+```
+
+Then code your tools inside the tools repository and **decorate the method name and the parameters with the Description attributte** so the LLM knows when to use the tool and
+what values to pass as arguments. Here is an example:
+
+```csharp
+
+    [Description("Tool to select the best ChromaDB collection to query based on the user input. Use this tool to get the name of the collection that best matches with the user intent.")]
+    public async Task<string> ChromaCollectionSelector(
+        [Description("User input to analyze to extract the intent and select the best collection")] string userQuery)
+    {
+        _logger.LogWarning($"USING TOOL: {nameof(ChromaCollectionSelector)}");
+
+        //using var scope = _services.CreateScope(); 
+
+        var commandsFactory = _services.GetRequiredService<IPromptCommandsFactory>();
+        var ragService = _services.GetRequiredService<IRagService>();
+
+        var intentCommand = commandsFactory.GetCommand<UserIntentCommand, ChatMessage>();
+
+        var request = new PromptCommandRequest(userQuery);
+
+        var intent = await intentCommand.Prompt(request);
+
+        _logger.LogWarning($"TOOL_CALL >> {nameof(ChromaCollectionSelector)} >> USER INTENT: {intent.Content}");
+
+        var selectorGuidance = $"# IMPORTANT: This is the analysis of the user intent, use it to be more accurate in your selection: {intent.Content}";
+
+        var collectionsCat = await ragService.GetChromaCollectionChoices(withChatCollections: false);
+
+        var choiceCommand = commandsFactory.GetStringChoiceCommand();
+
+        selectorGuidance += "\n# IMPORTANT: Select ONLY the 'COLLECTION NAME' value of the provided list OR empty list if there are no collections relevant for the user query.";
+
+        var selectorPrompt = $"Select the best collection to retrieve data from given this user query: {userQuery}";
+
+        _logger.LogWarning($"TOOL_CALL >> {nameof(ChromaCollectionSelector)} >> SELECTOR PROMPTS:\n>> USER PROMPT: {selectorPrompt}\n>> GUIDANCE: {selectorGuidance}");
+
+        var choiceReq = new StringChoiceRequest(collectionsCat, selectorPrompt, guidance: selectorGuidance, isGuidanceAppend: false, model: null);
+
+        var choice = await choiceCommand.Prompt(choiceReq);
+
+        _logger.LogWarning($"TOOL_CALL >> {nameof(ChromaCollectionSelector)} >> SELECTED: {choice}");
+
+        return choice;
+    }
+
+```
+
+## Multiple providers:
+
+The SDK allows you to use different cloud providers by simply preppending the provider name to the request models (for example, **groq/llama3.3:70b-versatile**) and
+adding the required startup and appsettings configuration.  
+
+(Note: if you dont' pass a provider, the SDK will default to 'ollama' as llm provider)
+
+Here is a configuration example to use Groq as provider:
+
+1 - Add the configuration in your appsettings.json
+
+```json
+
+    "GroqSettings": {
+        "BaseUrl": "https://api.groq.com",
+        "ApiKey": "<your-api-key-here>",
+        "Endpoints": {
+            "chat": "/openai/v1/chat/completions"
+        }
+    }
+
+```
+
+2 - Use the StartupConfiguration extensin to add the provider in the Program.cs
+
+```csharp
+
+    builder.Services
+        .AddConfigurations(builder.Configuration)
+        .ConfigureGroqSettings(builder.Configuration)
+        .AddGroqApiClient(builder.Configuration)
 
 ```
 
