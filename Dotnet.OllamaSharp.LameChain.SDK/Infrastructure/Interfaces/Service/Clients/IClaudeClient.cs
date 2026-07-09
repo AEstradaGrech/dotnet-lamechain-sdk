@@ -1,10 +1,12 @@
-﻿using Anthropic.SDK.Messaging;
+﻿
+using Anthropic.Models.Messages;
+using Microsoft.Extensions.AI;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients
 {
     public interface IClaudeClient
     {
-        Task<MessageResponse> GetMessageResponseAsync(MessageParameters request);
-        Task<Message> GetMessageAsync(MessageParameters request);
+        Task<Message> GetMessageAsync(MessageCreateParams request);
+        Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions options);
     }
 }

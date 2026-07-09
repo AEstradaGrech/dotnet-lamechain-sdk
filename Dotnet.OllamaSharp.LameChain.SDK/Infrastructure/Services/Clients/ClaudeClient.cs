@@ -1,9 +1,10 @@
-﻿using Anthropic.SDK;
-using Anthropic.SDK.Messaging;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Microsoft.Extensions.Options;
-using ClaudeMessage = Anthropic.SDK.Messaging.Message;
+using Anthropic;
+using Anthropic.Models.Messages;
+using Microsoft.Extensions.AI;
+
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Clients
 {
     public class ClaudeClient : IClaudeClient
@@ -17,17 +18,37 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Clients
             if (string.IsNullOrEmpty(_settings.ApiKey)) 
                 throw new InvalidDataException($"{nameof(ClaudeClient)} >> No Claude API KEY configured");
 
-            _client = new AnthropicClient(_settings.ApiKey);
+            _client = new AnthropicClient() { ApiKey = _settings.ApiKey };
+            
         }
 
-        public async Task<ClaudeMessage> GetMessageAsync(MessageParameters request)
+        /// <summary>
+        /// Anthropic SDK implementation
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        public async Task<Message> GetMessageAsync(MessageCreateParams request)
         {
-            var response = await _client.Messages.GetClaudeMessageAsync(request);
+            var chatClient = _client.AsIChatClient(request.Model);
 
-            return response.Message;
+            var res = await chatClient.GetResponseAsync(new ChatMessage());
+            
+            var response = await _client.Messages.Create(request);
+
+            return response;
         }
 
-        public async Task<MessageResponse> GetMessageResponseAsync(MessageParameters request)
-            => await _client.Messages.GetClaudeMessageAsync(request);
+        /// <summary>
+        /// OpenAI standard implementation
+        /// </summary>
+        /// <param name="messages"></param>
+        /// <param name="options"></param>
+        /// <returns></returns>
+        public async Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions options)
+        {   
+            var chatClient = _client.AsIChatClient();
+
+            return await chatClient.GetResponseAsync(messages, options);
+        }
     }
 }

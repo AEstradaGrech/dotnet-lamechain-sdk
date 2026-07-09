@@ -28,7 +28,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             {
                 if(part?.Message.ToolCalls != null && part?.Message.ToolCalls.Count() > 0)
                 {
-                    var toolsLoopResponse = await handleFunctionCall(request, part?.Message, requestTools);
+                    var toolsLoopResponse = await handleFunctionCall<ChatRequest, Message>(request, part?.Message, requestTools);
                     
                     sb.Append(toolsLoopResponse);
                 }
@@ -57,17 +57,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                     sb.Append(part.Response);
 
             return sb.ToString().Trim();
-        }
-
-        private async Task<ChatResponseStream?> SubmitToolCall(ChatRequest request)
-        {
-            request.Stream = false;
-            ChatResponseStream? response = null;
-            await foreach (var part in _client.ChatAsync(request))
-                if (part != null)
-                    response = part;
-
-            return response;
         }
         
         protected override bool isValid()

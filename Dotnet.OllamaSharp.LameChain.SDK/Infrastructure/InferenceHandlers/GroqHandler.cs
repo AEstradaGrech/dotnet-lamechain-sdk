@@ -33,7 +33,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             var responseMessage = response.Choices.FirstOrDefault().Message;
             
             if (responseMessage.ToolCalls != null && responseMessage.ToolCalls.Count() > 0)
-                return await handleFunctionCall(request, responseMessage, requestTools);
+                return await handleFunctionCall<ChatRequest, Message>(request, responseMessage, requestTools);
 
             return response.Choices.FirstOrDefault().Message.Content.Trim();
         }

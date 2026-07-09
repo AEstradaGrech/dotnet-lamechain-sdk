@@ -50,7 +50,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
                 string systemMessage = string.Empty;
 
                 //TODO: review option & remove
-                if(_settings.UseDefaultCommandMessage)
+                if(_settings == null || _settings.UseDefaultCommandMessage)
                     systemMessage = getDefaultInstruction(); // default core message
                 // else try db msg
                 if(string.IsNullOrEmpty(systemMessage) && !IsDefaultSetup) // db core message

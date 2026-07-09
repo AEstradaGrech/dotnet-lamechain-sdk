@@ -32,7 +32,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
         public BaseHandler UpdateHandler(string provider)
             => provider switch {
                 "ollama" => new OllamaHandler(_serviceProvider, _config),
-                "claude" => new ClaudeHandler(_serviceProvider, _config),
+                "anthropic" => new ClaudeHandler(_serviceProvider, _config),
                 "groq" => new GroqHandler(_serviceProvider, _config),
                 _ => new OllamaHandler(_serviceProvider, _config)
             };
@@ -42,34 +42,54 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
         protected virtual bool isValid()
             => _serviceProvider != null && _config != null && !string.IsNullOrEmpty(_provider);
 
-        protected async Task<string> handleFunctionCall(ChatRequest request, Message message, Dictionary<string, MethodInfo>? toolsLookup)
+        protected virtual void validateFunctionCallMessage<T>(T message, Dictionary<string, MethodInfo>? toolsLookup) where T : class
         {
+            var ollamaMessage = message as Message;
+
             if (toolsLookup == null)
                 throw new ArgumentNullException($"{nameof(handleFunctionCall)} >> {nameof(toolsLookup)}");
 
-            var toolCall = message.ToolCalls.FirstOrDefault();
+            if(ollamaMessage.ToolCalls.Count() == 0)
+                throw new InvalidOperationException($"{nameof(GetLlmResponse)} >> No ToolCalls present in the LLM tool request message");
+
+            var toolCall = ollamaMessage.ToolCalls.FirstOrDefault();
 
             var toolName = toolCall.Function.Name;
 
             if (!toolsLookup.ContainsKey(toolName))
                 throw new InvalidOperationException($"{nameof(GetLlmResponse)} >> No function MethodInfo found for function name: {toolName}");
+        }
 
-            var toolResult = await getToolResult(toolsLookup[toolName], toolCall.Function.Arguments); // real await, no blocking .Result
+        protected async Task<string> handleFunctionCall<TReq, TMessage>(TReq request, TMessage message, Dictionary<string, MethodInfo>? toolsLookup)
+            where TReq : class
+            where TMessage : class
+        {
+            validateFunctionCallMessage<TMessage>(message, toolsLookup);
 
-            var messages = request.Messages.ToList();
+            var ollamaRequest = request as ChatRequest;
 
-            messages.AddRange(getToolResponseMessages(toolName, message, toolResult));
+            var ollamaMessage = message as Message;
 
-            request.Messages = messages;
+            var toolCall = ollamaMessage.ToolCalls.FirstOrDefault();
 
-            return await GetLlmResponse(request, toolsLookup);
+            var toolName = toolCall.Function.Name;
+
+            var toolResult = await getToolResult(toolsLookup[toolName], toolCall.Function.Arguments);
+
+            var messages = ollamaRequest.Messages.ToList();
+
+            messages.AddRange(getToolResponseMessages(toolName, ollamaMessage, toolResult));
+
+            ollamaRequest.Messages = messages;
+
+            return await GetLlmResponse(ollamaRequest, toolsLookup);
         }
 
         protected virtual List<Message> getToolResponseMessages(string toolName, Message toolRequestMessage, object? toolResult)
         {
             var messages = new List<Message>();
 
-            var toolResponseMessage = new Message(ChatRole.Tool, JsonSerializer.Serialize(toolResult)); // now serializes the unwrapped value, not a Task
+            var toolResponseMessage = new Message(ChatRole.Tool, JsonSerializer.Serialize(toolResult));
 
             toolResponseMessage.ToolName = toolName;
 
