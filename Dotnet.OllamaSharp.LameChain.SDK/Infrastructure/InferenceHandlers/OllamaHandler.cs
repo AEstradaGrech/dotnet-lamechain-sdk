@@ -11,8 +11,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
     public class OllamaHandler : BaseHandler
     {
         private IOllamaApiClient _client;
-        public OllamaHandler(IServiceProvider provider, IConfiguration config) 
-            : base(provider, config, "ollama") 
+        public OllamaHandler(IServiceProvider provider, IConfiguration config, Action<string, string>? notifyAction = null) 
+            : base(provider, config, "ollama", notifyAction) 
         {
             _client = provider.GetRequiredService<IOllamaApiClient>();
         }
@@ -34,6 +34,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 }
                 else
                 {
+                    if (!string.IsNullOrEmpty(part?.Message.Thinking))
+                        notifyThinking(request.Model, part?.Message.Thinking);
+
                     if (!string.IsNullOrEmpty(part?.Message.Content))
                         sb.Append(part.Message.Content);
                 }

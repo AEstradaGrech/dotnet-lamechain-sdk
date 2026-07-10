@@ -7,6 +7,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
 using OllamaSharp.Models;
@@ -21,16 +22,22 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
     {
         private readonly IOllamaApiClient _client;
         private readonly OllamaSettings _settings;
+        private readonly ILogger<OllamaInferenceService> _logger;
         private BaseHandler _handler;
 
-        public OllamaInferenceService(IOllamaApiClient client, IConfiguration config, IServiceProvider provider, IOptions<OllamaSettings> settings)
+        public OllamaInferenceService(IOllamaApiClient client, IConfiguration config, IServiceProvider provider, IOptions<OllamaSettings> settings, ILogger<OllamaInferenceService> logger)
         {
             _client = client;
             _settings = settings.Value;
-            _handler = new OllamaHandler(provider, config);
+            _logger = logger;
+            _handler = new OllamaHandler(provider, config, new Action<string,string>(onHandlerNotify));
             
         }
        
+        private void onHandlerNotify(string title, string message)
+        {
+            _logger.Log(LogLevel.Information, $"{title} >> {message}");
+        }
         public async Task<Message> GeneratePrompt(GenerateRequest request, string provider)
         {
             provider = provider.Trim();

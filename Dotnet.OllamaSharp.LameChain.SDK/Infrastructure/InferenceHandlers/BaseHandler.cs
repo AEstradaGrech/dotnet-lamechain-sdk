@@ -14,9 +14,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
         protected readonly IServiceProvider _serviceProvider;
         protected readonly string _provider;
 
+        protected readonly Action<string, string> _onHandlerNotify;
+
         public bool IsProvider(string provider) => _provider == provider;
 
-        public BaseHandler(IServiceProvider serviceProvider, IConfiguration config, string provider)
+        public BaseHandler(IServiceProvider serviceProvider, IConfiguration config, string provider, Action<string, string>? notifyAction = null)
         {
             _provider = provider.Trim();
 
@@ -25,16 +27,19 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             _config = config;
             _serviceProvider = serviceProvider;
+
+            if(notifyAction != null)
+                _onHandlerNotify += notifyAction;
         }
 
         public bool IsOfType<T>() where T : BaseHandler => this is T;
         public T AsType<T>() where T : BaseHandler => (T)this;
         public BaseHandler UpdateHandler(string provider)
             => provider switch {
-                "ollama" => new OllamaHandler(_serviceProvider, _config),
-                "anthropic" => new ClaudeHandler(_serviceProvider, _config),
-                "groq" => new GroqHandler(_serviceProvider, _config),
-                _ => new OllamaHandler(_serviceProvider, _config)
+                "ollama" => new OllamaHandler(_serviceProvider, _config, _onHandlerNotify),
+                "anthropic" => new ClaudeHandler(_serviceProvider, _config, _onHandlerNotify),
+                "groq" => new GroqHandler(_serviceProvider, _config, _onHandlerNotify),
+                _ => new OllamaHandler(_serviceProvider, _config, _onHandlerNotify)
             };
 
         public abstract Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null); // override & serviceProvider.GetRequiredService<HandlerClient>() <- cada uno pide una copia de SU http client
@@ -74,6 +79,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             var toolName = toolCall.Function.Name;
 
+            notifyToolCall(ollamaRequest.Model, toolName);
+
             var toolResult = await getToolResult(toolsLookup[toolName], toolCall.Function.Arguments);
 
             var messages = ollamaRequest.Messages.ToList();
@@ -83,6 +90,34 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             ollamaRequest.Messages = messages;
 
             return await GetLlmResponse(ollamaRequest, toolsLookup);
+        }
+
+        protected async Task<string> handleThinking<TRequest, TMessage>(TRequest request, TMessage thinkMessage, Dictionary<string, MethodInfo>? toolsLookup)
+        {
+            //validateThinkMessage<TMessage>(thinkMessage)
+            var ollamaMessage = thinkMessage as Message;
+            var ollamaRequest = request as ChatRequest;
+
+            if (string.IsNullOrEmpty(ollamaMessage.Thinking))
+                throw new InvalidDataException($"{GetType().Name} >> {nameof(handleThinking)} >> No thinking content found in message");
+
+            var messages = ollamaRequest.Messages.ToList();
+
+            messages.Add(ollamaMessage);
+            
+            return await GetLlmResponse(ollamaRequest, toolsLookup);
+        }
+
+        protected void notifyThinking(string model, string thinking)
+        {
+            if (_onHandlerNotify != null)
+                _onHandlerNotify.Invoke($"- LLM THINKING: {_provider}/{model}", thinking);
+        }
+
+        protected void notifyToolCall(string model, string toolName)
+        {
+            if (_onHandlerNotify != null)
+                _onHandlerNotify.Invoke($"- LLM THINKING: {_provider}/{model}", toolName);
         }
 
         protected virtual List<Message> getToolResponseMessages(string toolName, Message toolRequestMessage, object? toolResult)

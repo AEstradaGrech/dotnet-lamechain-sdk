@@ -39,7 +39,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
             return chatRequest;
         }
 
-        public static GroqChatRequest AsGroqRequest(this ChatRequest req, string? reasoningEffort = null, bool? includeReasoning = null)
+        public static GroqChatRequest AsGroqRequest(this ChatRequest req, string? reasoningEffort = null)
         {
             if (req.Messages.Count() == 0)
                 throw new InvalidOperationException($"{nameof(ChatRequest)}.{nameof(AsGroqRequest)} >> No messages present in the request");
@@ -57,11 +57,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
                 MaxCompletionTokens = req.Options.NumPredict,
                 TopP = req.Options.TopP ?? 1.0f,
                 Stream = req.Stream,
-                Stop = null,
-                ReasoningEffort = reasoningEffort,
-                IncludeReasoning = includeReasoning,
-                Tools = req.Tools.Count() > 0 ? req.Tools.ToList() : null,
-                ToolChoice = req.Tools.Count() > 0 ? "auto" : "none",
+                Stop = req.Options.Stop != null && req.Options.Stop.Length > 0 ? req.Options.Stop.ToList() : null,
+                IncludeReasoning = req.Think == true ? true : null,
+                ReasoningEffort = req.Think == true ? string.IsNullOrEmpty(reasoningEffort) ? "medium" : reasoningEffort : null,
+                Tools = req.Tools != null && req.Tools.Count() > 0 ? req.Tools.ToList() : null,
+                ToolChoice = req.Tools != null && req.Tools.Count() > 0 ? "auto" : "none",
                 ParallelToolCalls = false,
                 ResponseFormat = req.Format == null ? null :
                 new {
@@ -185,6 +185,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
                     contents.Add(new FunctionCallContent(toolCall.Id, toolCall.Function.Name, toolCall.Function.Arguments));
             }
 
+            // restore thinking content
+            if(!string.IsNullOrEmpty(ollamaMessage.Thinking))
+                contents.Add(new TextReasoningContent(ollamaMessage.Thinking));
+            
             // Plain text (skip thinking on the way out — see ToOllamaMessage note about signatures)
             if (!string.IsNullOrEmpty(ollamaMessage.Content))
                 contents.Add(new TextContent(ollamaMessage.Content));

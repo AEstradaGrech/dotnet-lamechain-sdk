@@ -16,7 +16,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
         }
         public List<ChatMessage> ChatHistory { get; set; } = new List<ChatMessage>();
         public bool IncludeSystemMessage { get; set; } = true;
-
         /// <summary>
         /// In this override the original command system message should be already in the ChatHistory, always in the first place
         /// </summary>
@@ -39,6 +38,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                 Model = getModelForRequest(settings),
                 Messages = messages,
                 Stream = false,
+                Think = ThinkEnabled,
                 Tools = HasTools ? GetToolDefinitions() : null,
                 Options = settings == null ? new RequestOptions() : settings.ToOllamaRequest()
             };

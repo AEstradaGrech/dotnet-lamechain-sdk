@@ -34,7 +34,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
         public string? Model { get { return _model; } set { _model = setModel(value); } }
         public string Provider { get; private set; }
         public bool HasTools => _tools.Count > 0;
-
+        public bool ThinkEnabled { get; set; }
         public IEnumerable<object> GetToolDefinitions()
         {
             if (!HasTools) return [];
@@ -54,6 +54,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                 Model = getModelForRequest(settings),
                 Messages = [new Message(ChatRole.System, commandSysmsg), new Message(ChatRole.User, Prompt)],
                 Stream = false,
+                Think = ThinkEnabled,
                 Tools = HasTools ? GetToolDefinitions() : null,
                 Options = settings == null ? new RequestOptions() : settings.ToOllamaRequest()
             };

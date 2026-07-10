@@ -31,11 +31,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Clients
                 DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower
             };
 
-            if(request.Tools.Count() > 0)
+            options.Converters.Add(new GroqToolMessageConverter());
+
+            if (request.Tools != null && request.Tools.Count() > 0)
             {
                 options.Converters.Add(new ToolArgumentsConverter());
                 options.Converters.Add(new GroqToolCallConverter());
-                options.Converters.Add(new GroqToolMessageConverter());
+                
             }
             
             var response = await _httpClient.PostAsJsonAsync<GroqChatRequest>(_settings.EndpointByKey("chat"), request, options);

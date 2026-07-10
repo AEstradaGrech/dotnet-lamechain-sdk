@@ -11,8 +11,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
     public class GroqHandler : BaseHandler
     {
         private IGroqClient _client;
-        public GroqHandler(IServiceProvider serviceProvider, IConfiguration config) 
-            : base(serviceProvider, config, "groq")
+        public GroqHandler(IServiceProvider serviceProvider, IConfiguration config, Action<string, string>? notifyAction = null) 
+            : base(serviceProvider, config, "groq", notifyAction)
         {
             _client = serviceProvider.GetRequiredService<IGroqClient>();
 
@@ -34,6 +34,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             
             if (responseMessage.ToolCalls != null && responseMessage.ToolCalls.Count() > 0)
                 return await handleFunctionCall<ChatRequest, Message>(request, responseMessage, requestTools);
+
+            if (!string.IsNullOrEmpty(responseMessage.Thinking))
+                notifyThinking(request.Model, responseMessage.Thinking);
 
             return response.Choices.FirstOrDefault().Message.Content.Trim();
         }

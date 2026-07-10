@@ -9,8 +9,21 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.JsonConverte
     {
         private List<string> _unsupportedFields = new List<string> { nameof(Message.ToolName), nameof(Message.Images), nameof(Message.Thinking), nameof(Message.ToolCalls) };
         public override Message? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-            => JsonSerializer.Deserialize<Message?>(ref reader, getSafeSerializerOptions(options));
+        {
+            // Pull the whole message object out of the reader as a DOM element.
+            using var doc = JsonDocument.ParseValue(ref reader);
 
+            var root = doc.RootElement;
+
+            var message = root.Deserialize<Message?>(getSafeSerializerOptions(options));
+
+            if (message == null) return null;
+
+            if (root.TryGetProperty("reasoning", out var property) && property.ValueKind == JsonValueKind.String)
+                message.Thinking = property.GetString();
+
+            return message;
+        }
         public override void Write(Utf8JsonWriter writer, Message value, JsonSerializerOptions options)
         {
             if (value.Role == ChatRole.Tool)

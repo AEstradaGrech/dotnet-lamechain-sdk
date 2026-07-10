@@ -15,8 +15,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
     public class ClaudeHandler : BaseHandler
     {
         private readonly IClaudeClient _client;
-        public ClaudeHandler(IServiceProvider provider, IConfiguration config) 
-            : base(provider, config, "anthropic") 
+        public ClaudeHandler(IServiceProvider provider, IConfiguration config, Action<string, string>? notifyAction = null) 
+            : base(provider, config, "anthropic", notifyAction) 
         {
             _client = provider.GetRequiredService<IClaudeClient>();
         }
@@ -29,10 +29,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             var response = await _client.GetResponseAsync(request.Messages.ToChatMessages(), request.ToChatClientRequest(mapRequestTools(requestTools)));
             
             if(response.FinishReason.Value == ChatFinishReason.ToolCalls)
-            {
                 return await handleFunctionCall<ChatRequest, AIMessage>(request, response.Messages.FirstOrDefault(), requestTools);
-            }
-
+            
             else return response.Messages.FirstOrDefault().Text;
         }
 
@@ -50,6 +48,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             var llmMessage = message as AIMessage;
 
             var toolCallMessage = llmMessage.Contents.Where(x => x.GetType().IsAssignableTo(typeof(FunctionCallContent))).FirstOrDefault() as FunctionCallContent;
+
+            notifyToolCall(claudeRequest.Model, toolCallMessage.Name);
 
             var method = toolsLookup[toolCallMessage.Name];
 
