@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.JsonConverters
 {
-    public class GroqToolMessageConverter : JsonConverter<Message>
+    public class GroqMessageConverter : JsonConverter<Message>
     {
         private List<string> _unsupportedFields = new List<string> { nameof(Message.ToolName), nameof(Message.Images), nameof(Message.Thinking), nameof(Message.ToolCalls) };
         public override Message? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
@@ -56,7 +56,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.JsonConverte
             result.PropertyNamingPolicy = currentOptions.PropertyNamingPolicy;
             result.DictionaryKeyPolicy = currentOptions.DictionaryKeyPolicy;
             currentOptions.Converters.ToList().ForEach(converter => {
-                if (!(converter is GroqToolMessageConverter))
+                if (!(converter is GroqMessageConverter))
                     result.Converters.Add(converter);
             });
 

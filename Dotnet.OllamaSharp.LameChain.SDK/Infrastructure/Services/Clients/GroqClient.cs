@@ -31,7 +31,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Clients
                 DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower
             };
 
-            options.Converters.Add(new GroqToolMessageConverter());
+            options.Converters.Add(new GroqMessageConverter());
 
             if (request.Tools != null && request.Tools.Count() > 0)
             {

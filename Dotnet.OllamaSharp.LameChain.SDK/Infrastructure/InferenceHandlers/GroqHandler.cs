@@ -25,6 +25,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             if (!isValid())
                 throw new InvalidOperationException($"{GetLlmResponse} >> {nameof(isValid)}");
 
+            if (request.Messages.Count() == 0)
+                throw new InvalidDataException($"{GetType().Name} >> {nameof(GetLlmResponse)} >> No messages present in the request");
+
+            notifyRequest(request.Model, request.Messages.Last().Content);
+
             var response = await _client.GetChatCompletion(request.AsGroqRequest());
 
             if (response.Choices.Count == 0)

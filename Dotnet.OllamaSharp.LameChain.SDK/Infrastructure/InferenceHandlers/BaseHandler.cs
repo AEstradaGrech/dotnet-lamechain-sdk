@@ -108,6 +108,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             return await GetLlmResponse(ollamaRequest, toolsLookup);
         }
 
+        protected void notifyRequest(string model, string prompt)
+        {
+            if (_onHandlerNotify != null)
+                _onHandlerNotify.Invoke($"- LLM REQUEST: {_provider}/{model}", prompt);
+        }
+
         protected void notifyThinking(string model, string thinking)
         {
             if (_onHandlerNotify != null)

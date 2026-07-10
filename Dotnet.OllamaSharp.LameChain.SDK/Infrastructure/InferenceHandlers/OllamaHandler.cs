@@ -22,6 +22,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             if (!isValid())
                 throw new InvalidOperationException($"{nameof(OllamaHandler)} >> {nameof(GetLlmResponse)} >> {nameof(isValid)}");
 
+            if (request.Messages.Count() == 0)
+                throw new InvalidDataException($"{GetType().Name} >> {nameof(GetLlmResponse)} >> No messages present in the request");
+
+            notifyRequest(request.Model, request.Messages.Last().Content);
+
             var sb = new StringBuilder();
 
             await foreach (var part in _client.ChatAsync(request))

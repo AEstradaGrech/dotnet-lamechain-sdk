@@ -7,15 +7,17 @@ using AIRole = Microsoft.Extensions.AI.ChatRole;
 using OllamaRole = OllamaSharp.Models.Chat.ChatRole;
 using System.Text.Json.Nodes;
 using System.Text.Json;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
+using Anthropic.Models.Messages;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
 {
     public static class OllamaRequestExtensions
     {
-        public static ChatOptions ToChatClientRequest(this ChatRequest ollamaRequest, IList<AITool>? tools, bool allowParallelToolCall = false, ReasoningOptions? reasoning = null)
+        public static ChatOptions ToClaudeChatClientRequest(this ChatRequest ollamaRequest, IList<AITool>? tools, bool allowParallelToolCall = false, Effort reasoningEffort = Effort.Medium)
         {
             if (ollamaRequest.Messages.Count() == 0)
-                throw new InvalidOperationException($"{nameof(ChatRequest)}.{nameof(ToChatClientRequest)} >> No messages present in the request");
+                throw new InvalidOperationException($"{nameof(ChatRequest)}.{nameof(ToClaudeChatClientRequest)} >> No messages present in the request");
 
             if (ollamaRequest.Options == null)
                 ollamaRequest.Options = new RequestOptions();
@@ -25,16 +27,47 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
                 ModelId = ollamaRequest.Model,
                 ToolMode = tools != null ? new AutoChatToolMode() : null,
                 MaxOutputTokens = ollamaRequest.Options.NumPredict,
-                TopP = ollamaRequest.Options.TopP,
-                TopK = ollamaRequest.Options.TopK,
+                TopP = ollamaRequest.Model.Contains("opus") ? null : ollamaRequest.Options.TopP,
+                TopK = ollamaRequest.Model.Contains("opus") ? null : ollamaRequest.Options.TopK,
                 AllowMultipleToolCalls = allowParallelToolCall,
                 FrequencyPenalty = ollamaRequest.Options.FrequencyPenalty,
                 PresencePenalty = ollamaRequest.Options.PresencePenalty,
-                Reasoning = reasoning,
                 StopSequences = ollamaRequest.Options.Stop,
                 ResponseFormat = ollamaRequest.Format != null ? new ChatResponseFormatJson(JsonSerializer.SerializeToElement(ollamaRequest.Format)) : new ChatResponseFormatText(),
+                
                 Tools = tools
             };
+
+            if(ollamaRequest.Think == true)
+            {
+                chatRequest.TopK = null;
+                chatRequest.TopP = null;
+
+                switch (reasoningEffort)
+                {
+                    case (Effort.Low):
+                        chatRequest.MaxOutputTokens = ((int)EReasoningMinTokens.Low) + ollamaRequest.Options.NumPredict;
+                        break;
+
+                    case (Effort.Medium):
+                        chatRequest.MaxOutputTokens = ((int)EReasoningMinTokens.Medium) + ollamaRequest.Options.NumPredict;
+                        break;
+
+                    case (Effort.High):
+                    default:
+                        chatRequest.MaxOutputTokens = ((int)EReasoningMinTokens.High) + ollamaRequest.Options.NumPredict;
+                        break;
+                }
+
+                chatRequest.RawRepresentationFactory = _ => new MessageCreateParams
+                {
+                    Model = ollamaRequest.Model,                       
+                    MaxTokens = (long)chatRequest.MaxOutputTokens,  
+                    Messages = [],                                        
+                    Thinking = new ThinkingConfigAdaptive { Display = Display.Summarized },
+                    OutputConfig = new OutputConfig { Effort = reasoningEffort }
+                };
+            }
 
             return chatRequest;
         }

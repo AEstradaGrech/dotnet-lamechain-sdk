@@ -1,4 +1,5 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model;
+﻿using Anthropic.Models.Messages;
+using Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
 using Microsoft.Extensions.AI;
@@ -26,12 +27,24 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             if (!isValid())
                 throw new InvalidOperationException($"{GetLlmResponse} >> {nameof(isValid)}");
 
-            var response = await _client.GetResponseAsync(request.Messages.ToChatMessages(), request.ToChatClientRequest(mapRequestTools(requestTools)));
-            
-            if(response.FinishReason.Value == ChatFinishReason.ToolCalls)
-                return await handleFunctionCall<ChatRequest, AIMessage>(request, response.Messages.FirstOrDefault(), requestTools);
-            
-            else return response.Messages.FirstOrDefault().Text;
+            if (request.Messages.Count() == 0)
+                throw new InvalidDataException($"{GetType().Name} >> {nameof(GetLlmResponse)} >> No messages present in the request");
+
+            notifyRequest(request.Model, request.Messages.Last().Content);
+
+            var response = await _client.GetResponseAsync(request.Messages.ToChatMessages(), request.ToClaudeChatClientRequest(mapRequestTools(requestTools), allowParallelToolCall: false, Effort.High));
+
+            if (response.FinishReason.Value == ChatFinishReason.ToolCalls)
+            {
+               return await handleFunctionCall<ChatRequest, AIMessage>(request, response.Messages.FirstOrDefault(), requestTools);
+            }
+            else
+            {
+                if (response.Messages.FirstOrDefault().Contents.OfType<TextReasoningContent>().Any())
+                    notifyThinking(request.Model, string.Concat(response.Messages.FirstOrDefault().Contents.OfType<TextReasoningContent>().Select(x => x.Text)));
+
+                return response.Messages.FirstOrDefault().Text;
+            }
         }
 
         protected override bool isValid()
