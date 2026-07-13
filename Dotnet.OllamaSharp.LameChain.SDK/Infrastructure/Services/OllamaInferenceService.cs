@@ -72,12 +72,16 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                 throw new InvalidDataException($"{nameof(OllamaInferenceService)}.{nameof(GeneratePrompt)} >> NO LLM PROVIDER SELECTED");
 
             if (string.IsNullOrEmpty(request.Model))
-                request.Model = _settings.DefaultModel; //TODO: getDefaultModelForProvider(provider)
+                request.Model = !string.IsNullOrEmpty(_handler.ScopedModel) ? _handler.ScopedModel : _settings.DefaultModel; //TODO: getDefaultModelForProvider(provider) request.Model = _provider.IsSolvingTools ? _provider.CurrentModel : _settings.DefaultModelByProvider(_provider.Name)
 
             string llmResponse = string.Empty;
             request.Stream = false;
 
-            if (!_handler.IsProvider(provider))
+            // the handler is scoped by request but when it calls any tool
+            // and the default settings are applied, it updates the handler to the default ollama provider
+            // to solve the any tool using a LLM request. Because the handler keeps its state during the request
+            // the boolean is preserved and avoids the SDK handler update
+            if (!_handler.IsProvider(provider) && !_handler.IsSolvingTools)
                 _handler = _handler.UpdateHandler(provider);
 
             llmResponse = await _handler.GetLlmResponse(request, requestTools);
@@ -129,7 +133,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                 Stream = false
             };
 
-            if (!_handler.IsProvider(provider))
+            if (!_handler.IsProvider(provider) && !_handler.IsSolvingTools)
                 _handler.UpdateHandler(provider);
             
             string llmResponse = await _handler.GetLlmResponse(request);
@@ -145,9 +149,6 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             {
                 try
                 {
-                    if (string.IsNullOrEmpty(request.Model))
-                        request.Model = _settings.DefaultModel; //TODO: getDefaultModelForProvider(provider)
-
                     if (string.IsNullOrEmpty(request.Prompt))
                         throw new InvalidDataException($"{nameof(OllamaInferenceService)} >> {nameof(CommandPrompt)} >> no messages to send");
 
@@ -164,7 +165,10 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                     request.Format = JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(T));
                     request.Stream = false;
 
-                    if(!_handler.IsOfType<OllamaHandler>())
+                    if (string.IsNullOrEmpty(request.Model))
+                        request.Model = !string.IsNullOrEmpty(_handler.ScopedModel) ? _handler.ScopedModel : _settings.DefaultModel; //TODO: getDefaultModelForProvider(provider) request.Model = _provider.IsSolvingTools ? _provider.CurrentModel : _settings.DefaultModelByProvider(_provider.Name)
+
+                    if (!_handler.IsOfType<OllamaHandler>() && provider != "ollama" && !_handler.IsSolvingTools)
                     {
                         _handler = _handler.UpdateHandler(provider);
 
@@ -200,9 +204,6 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             {
                 try
                 {
-                    if (string.IsNullOrEmpty(chatRequest.Model))
-                        chatRequest.Model = _settings.DefaultModel; //TODO: getDefaultModelForProvider(provider)
-
                     if (chatRequest.Messages.Count() == 0)
                         throw new InvalidDataException($"{nameof(OllamaInferenceService)} >> {nameof(CommandPrompt)} >> no messages to send");
 
@@ -219,7 +220,10 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                     chatRequest.Format = JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(T));
                     chatRequest.Stream = false;
 
-                    if (!_handler.IsProvider(provider))
+                    if (string.IsNullOrEmpty(chatRequest.Model))
+                        chatRequest.Model = !string.IsNullOrEmpty(_handler.ScopedModel) ? _handler.ScopedModel : _settings.DefaultModel; //TODO: getDefaultModelForProvider(provider) request.Model = _provider.IsSolvingTools ? _provider.CurrentModel : _settings.DefaultModelByProvider(_provider.Name)
+
+                    if (!_handler.IsProvider(provider) && !_handler.IsSolvingTools)
                         _handler = _handler.UpdateHandler(provider);
 
                     llmResponse = await _handler.GetLlmResponse(chatRequest, requestTools);

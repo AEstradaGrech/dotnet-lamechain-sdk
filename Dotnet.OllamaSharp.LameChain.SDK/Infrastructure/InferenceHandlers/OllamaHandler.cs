@@ -25,7 +25,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             if (request.Messages.Count() == 0)
                 throw new InvalidDataException($"{GetType().Name} >> {nameof(GetLlmResponse)} >> No messages present in the request");
 
-            notifyRequest(request.Model, request.Messages.Last().Content);
+            _requestModel = request.Model;
+
+            notifyRequest(_requestModel, request.Messages.Last().Content);
 
             var sb = new StringBuilder();
 
@@ -34,7 +36,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 if(part?.Message.ToolCalls != null && part?.Message.ToolCalls.Count() > 0)
                 {
                     var toolsLoopResponse = await handleFunctionCall<ChatRequest, Message>(request, part?.Message, requestTools);
-                    
+
                     sb.Append(toolsLoopResponse);
                 }
                 else
@@ -57,6 +59,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             if (string.IsNullOrEmpty(request.System) && string.IsNullOrEmpty(request.Prompt))
                 throw new InvalidDataException($"{nameof(OllamaHandler)}.{nameof(GenerateLlmResponse)} >> No system message or user prompt present in the request");
+
+            _requestModel = request.Model;
 
             var sb = new StringBuilder();
 

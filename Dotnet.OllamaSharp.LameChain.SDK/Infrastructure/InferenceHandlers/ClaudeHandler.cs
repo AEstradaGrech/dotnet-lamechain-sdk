@@ -5,6 +5,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
 using System.Reflection;
 using System.Text.Json;
@@ -30,7 +31,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             if (request.Messages.Count() == 0)
                 throw new InvalidDataException($"{GetType().Name} >> {nameof(GetLlmResponse)} >> No messages present in the request");
 
-            notifyRequest(request.Model, request.Messages.Last().Content);
+            _requestModel = request.Model;
+
+            notifyRequest(_requestModel, request.Messages.Last().Content);
 
             var response = await _client.GetResponseAsync(request.Messages.ToChatMessages(), request.ToClaudeChatClientRequest(mapRequestTools(requestTools), allowParallelToolCall: false, Effort.High));
 
@@ -43,7 +46,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 if (response.Messages.FirstOrDefault().Contents.OfType<TextReasoningContent>().Any())
                     notifyThinking(request.Model, string.Concat(response.Messages.FirstOrDefault().Contents.OfType<TextReasoningContent>().Select(x => x.Text)));
 
-                return response.Messages.FirstOrDefault().Text;
+                var llmResponse = response.Messages.FirstOrDefault().Text;
+
+                if(request.Format != null)
+                {
+                    if (llmResponse.StartsWith("```json"))
+                        llmResponse = llmResponse.Replace("```json", "").Replace("```", "").Trim();
+                }
+
+                return llmResponse;
             }
         }
 
@@ -54,6 +65,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             where TReq : class
             where TMessage : class
         {
+            _isSolvingTools = true;
+
             validateFunctionCallMessage<TMessage>(message, toolsLookup);
 
             var claudeRequest = request as ChatRequest;
@@ -78,7 +91,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             
             claudeRequest.Messages = messages;
             // send it again in ollama format so it maps again to Microsoft models and loop recursively
-            return await GetLlmResponse(claudeRequest, toolsLookup);
+            var toolExecutionResponse = await GetLlmResponse(claudeRequest, toolsLookup);
+
+            _isSolvingTools = false;
+
+            return toolExecutionResponse;
         }
 
 

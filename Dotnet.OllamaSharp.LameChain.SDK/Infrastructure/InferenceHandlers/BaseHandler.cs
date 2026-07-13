@@ -13,9 +13,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
         protected readonly IConfiguration _config;
         protected readonly IServiceProvider _serviceProvider;
         protected readonly string _provider;
-
+        protected bool _isSolvingTools = false;
+        protected string _requestModel = string.Empty;
         protected readonly Action<string, string> _onHandlerNotify;
 
+
+        public string Name => _provider;
+        public string ScopedModel => _requestModel;
+        public bool IsSolvingTools => _isSolvingTools;
         public bool IsProvider(string provider) => _provider == provider;
 
         public BaseHandler(IServiceProvider serviceProvider, IConfiguration config, string provider, Action<string, string>? notifyAction = null)
@@ -71,6 +76,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
         {
             validateFunctionCallMessage<TMessage>(message, toolsLookup);
 
+            _isSolvingTools = true;
+
             var ollamaRequest = request as ChatRequest;
 
             var ollamaMessage = message as Message;
@@ -89,7 +96,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             ollamaRequest.Messages = messages;
 
-            return await GetLlmResponse(ollamaRequest, toolsLookup);
+            var toolExecutionResponse = await GetLlmResponse(ollamaRequest, toolsLookup);
+
+            _isSolvingTools = false;
+
+            return toolExecutionResponse;
         }
 
         protected async Task<string> handleThinking<TRequest, TMessage>(TRequest request, TMessage thinkMessage, Dictionary<string, MethodInfo>? toolsLookup)
