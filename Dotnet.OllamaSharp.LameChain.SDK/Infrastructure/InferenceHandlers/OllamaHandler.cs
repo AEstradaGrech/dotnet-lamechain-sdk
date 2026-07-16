@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OllamaSharp;
 using OllamaSharp.Models;
@@ -11,10 +12,16 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
     public class OllamaHandler : BaseHandler
     {
         private IOllamaApiClient _client;
+        private OllamaSettings _settings;
         public OllamaHandler(IServiceProvider provider, IConfiguration config, Action<string, string>? notifyAction = null) 
             : base(provider, config, "ollama", notifyAction) 
         {
             _client = provider.GetRequiredService<IOllamaApiClient>();
+
+            _settings = tryGetConfig<OllamaSettings>(config);
+
+            if (_settings == null)
+                throw new ArgumentNullException($"{GetType().Name} >> {nameof(_settings)} not configured");
         }
 
         public override async Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null)

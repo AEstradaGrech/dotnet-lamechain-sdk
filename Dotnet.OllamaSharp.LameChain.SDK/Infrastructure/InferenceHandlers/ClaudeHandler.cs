@@ -1,6 +1,7 @@
 ﻿using Anthropic.Models.Messages;
 using Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -17,10 +18,16 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
     public class ClaudeHandler : BaseHandler
     {
         private readonly IClaudeClient _client;
+        private ClaudeSettings _settings;
         public ClaudeHandler(IServiceProvider provider, IConfiguration config, Action<string, string>? notifyAction = null) 
             : base(provider, config, "anthropic", notifyAction) 
         {
             _client = provider.GetRequiredService<IClaudeClient>();
+
+            _settings = tryGetConfig<ClaudeSettings>(config);
+
+            if(_settings == null)
+                throw new ArgumentNullException($"{GetType().Name} >> {nameof(_settings)} not configured");
         }
 
         public override async Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null)

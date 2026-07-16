@@ -128,7 +128,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             {
                 Model = string.IsNullOrEmpty(model) ? _settings.DefaultModel : model,
                 Messages = !string.IsNullOrEmpty(systemGuidance) ? [new Message { Role = ChatRole.System, Content = systemGuidance }, new Message { Role = ChatRole.User, Content = prompt}] : [new Message { Role = ChatRole.User, Content = prompt }],
-                Format = JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(T)),
+                Format = JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(T), new JsonSchemaExporterOptions { TreatNullObliviousAsNonNullable = true }),
                 Options = options,
                 Stream = false
             };
@@ -162,7 +162,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                         else request.System += $"\n\n{requestModel.ToSystemMessage()}";
                     }
 
-                    request.Format = JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(T));
+                    request.Format = JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(T), new JsonSchemaExporterOptions { TreatNullObliviousAsNonNullable = true });
                     request.Stream = false;
 
                     if (string.IsNullOrEmpty(request.Model))
@@ -217,7 +217,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
                         sysmsg.Content += $"\n\n{requestModel.ToSystemMessage()}";
                     }
 
-                    chatRequest.Format = JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(T));
+                    chatRequest.Format = JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(T), new JsonSchemaExporterOptions { TreatNullObliviousAsNonNullable = true });
                     chatRequest.Stream = false;
 
                     if (string.IsNullOrEmpty(chatRequest.Model))

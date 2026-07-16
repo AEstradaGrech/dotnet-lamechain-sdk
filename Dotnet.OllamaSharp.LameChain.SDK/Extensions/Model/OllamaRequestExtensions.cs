@@ -100,9 +100,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
                 new {
                     type = "json_schema",
                     json_schema = new {
-                        name = "response",
+                        name = "response_schema",
                         schema = req.Format,
-                        strict = true
+                        strict = false
                     }
                 }
             };

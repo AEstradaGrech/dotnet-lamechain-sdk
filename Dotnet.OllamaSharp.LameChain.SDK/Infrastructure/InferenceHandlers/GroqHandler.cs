@@ -1,5 +1,6 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OllamaSharp.Models.Chat;
@@ -11,6 +12,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
     public class GroqHandler : BaseHandler
     {
         private IGroqClient _client;
+        private GroqSettings _settings;
         public GroqHandler(IServiceProvider serviceProvider, IConfiguration config, Action<string, string>? notifyAction = null) 
             : base(serviceProvider, config, "groq", notifyAction)
         {
@@ -18,6 +20,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             if (_client == null)
                 throw new ArgumentNullException($"{nameof(GroqHandler)} >> {nameof(IGroqClient)} is not registered as service.");
+
+            _settings = tryGetConfig<GroqSettings>(config);
+
+            if (_settings == null)
+                throw new ArgumentNullException($"{GetType().Name} >> {nameof(_settings)} not configured");
         }
 
         public override async Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null)
@@ -31,6 +38,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             _requestModel = request.Model;
 
             notifyRequest(_requestModel, request.Messages.Last().Content);
+
+            if (request.Format != null)
+            {
+                request.Model = _settings.JsonModels.FirstOrDefault();
+
+                notifyRequest(request.Model, "The selected model does not support Structured Output responses, using default model from settings");
+            }
 
             var response = await _client.GetChatCompletion(request.AsGroqRequest());
 
@@ -52,7 +66,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
         {
             var messages = new List<Message>();
 
-            var toolResponseMessage = new Message(ChatRole.Tool, JsonSerializer.Serialize(toolResult)); // now serializes the unwrapped value, not a Task
+            var toolResponseMessage = new Message(ChatRole.Tool, JsonSerializer.Serialize(toolResult));
 
             toolResponseMessage.ToolName = toolName;
             

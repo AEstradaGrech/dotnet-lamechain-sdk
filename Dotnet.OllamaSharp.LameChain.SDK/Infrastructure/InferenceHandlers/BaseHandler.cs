@@ -2,6 +2,7 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using OllamaSharp.Models.Chat;
 using System.Reflection;
 using System.Text.Json;
@@ -47,7 +48,25 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 _ => new OllamaHandler(_serviceProvider, _config, _onHandlerNotify)
             };
 
-        public abstract Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null); // override & serviceProvider.GetRequiredService<HandlerClient>() <- cada uno pide una copia de SU http client
+        protected T tryGetConfig<T>(IConfiguration configuration) where T : class
+        {
+            try
+            {
+                var options = _serviceProvider.GetRequiredService<IOptions<T>>();
+
+                if (options.Value == null)
+                    throw new ArgumentNullException($"{GetType().Name} >> {nameof(tryGetConfig)} >> No settings configured as options found. Attempting to retrieve settings form AppSettings");
+
+                return options.Value;
+            }
+            catch (Exception ex)
+            {
+                notify(ex.Message);
+            }
+
+            return configuration.GetSection(nameof(T)).Get<T>();
+        }
+        public abstract Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null);
 
         protected virtual bool isValid()
             => _serviceProvider != null && _config != null && !string.IsNullOrEmpty(_provider);
@@ -103,20 +122,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             return toolExecutionResponse;
         }
 
-        protected async Task<string> handleThinking<TRequest, TMessage>(TRequest request, TMessage thinkMessage, Dictionary<string, MethodInfo>? toolsLookup)
+        protected void notify(string prompt)
         {
-            //validateThinkMessage<TMessage>(thinkMessage)
-            var ollamaMessage = thinkMessage as Message;
-            var ollamaRequest = request as ChatRequest;
-
-            if (string.IsNullOrEmpty(ollamaMessage.Thinking))
-                throw new InvalidDataException($"{GetType().Name} >> {nameof(handleThinking)} >> No thinking content found in message");
-
-            var messages = ollamaRequest.Messages.ToList();
-
-            messages.Add(ollamaMessage);
-            
-            return await GetLlmResponse(ollamaRequest, toolsLookup);
+            if (_onHandlerNotify != null)
+                _onHandlerNotify.Invoke($"- PROVIDER NOTIFY: {_provider}", prompt);
         }
 
         protected void notifyRequest(string model, string prompt)
