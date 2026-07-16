@@ -6,12 +6,9 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
 using System.Reflection;
-using System.Text.Json;
 using AIMessage = Microsoft.Extensions.AI.ChatMessage;
-using AIRole = Microsoft.Extensions.AI.ChatRole;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 {
@@ -26,6 +23,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             _settings = tryGetConfig<ClaudeSettings>(config);
 
+            if (string.IsNullOrEmpty(_settings.DefaultModel))
+                _settings.DefaultModel = _settings.ModelIdFor(Model.ClaudeSonnet4_6);
+
             if(_settings == null)
                 throw new ArgumentNullException($"{GetType().Name} >> {nameof(_settings)} not configured");
         }
@@ -37,6 +37,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             if (request.Messages.Count() == 0)
                 throw new InvalidDataException($"{GetType().Name} >> {nameof(GetLlmResponse)} >> No messages present in the request");
+
+            if(!_settings.Models.Contains(request.Model))
+            {
+                request.Model = _settings.DefaultModel;
+
+                notify($"Request model is not an anthropic model, using default model: {request.Model}");
+            }
 
             _requestModel = request.Model;
 

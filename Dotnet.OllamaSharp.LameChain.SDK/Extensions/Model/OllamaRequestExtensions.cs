@@ -5,7 +5,7 @@ using OllamaSharp.Models.Chat;
 using OllamaMessage = OllamaSharp.Models.Chat.Message;
 using AIRole = Microsoft.Extensions.AI.ChatRole;
 using OllamaRole = OllamaSharp.Models.Chat.ChatRole;
-using System.Text.Json.Nodes;
+
 using System.Text.Json;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
 using Anthropic.Models.Messages;
@@ -21,7 +21,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
 
             if (ollamaRequest.Options == null)
                 ollamaRequest.Options = new RequestOptions();
-            
+
             var chatRequest = new ChatOptions
             {
                 ModelId = ollamaRequest.Model,
