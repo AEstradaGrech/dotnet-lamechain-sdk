@@ -164,7 +164,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
             // round-tripped back to Claude (an unsigned thinking block is rejected when thinking is on).
             var reasoning = aiMessage.Contents.OfType<TextReasoningContent>().FirstOrDefault();
             if (reasoning != null)
-                ollamaMessage.Thinking = reasoning.Text;
+                ollamaMessage.Thinking = $"{reasoning.Text} sign:{reasoning.ProtectedData}";
 
             // Assistant tool-call blocks -> Ollama ToolCalls (CallId kept on ToolCall.Id)
             var functionCalls = aiMessage.Contents.OfType<FunctionCallContent>().ToList();
@@ -242,6 +242,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
             {
                 if (message.Role == OllamaRole.Tool)
                 {
+                    //retrieve Thinking add 
                     // reuse the id emitted by the immediately-preceding assistant tool call
                     yield return new ChatMessage(
                         AIRole.Tool,
@@ -252,8 +253,23 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
                 var chatMessage = message.ToChatMessage();
 
                 var call = chatMessage.Contents.OfType<FunctionCallContent>().FirstOrDefault();
+                //chatMessage.Contents.Add(new TextReasoningContent())
                 if (call != null)
+                {
+                    var thinkingContent = chatMessage.Contents.OfType<TextReasoningContent>();
+                    if (thinkingContent.Any())
+                    {
+                        var toolThink = thinkingContent.FirstOrDefault();
+                        
+                        var thinkingSplit = message.Thinking.Split("sign:");
+
+                        toolThink.Text = thinkingSplit.First().Trim();
+                        toolThink.ProtectedData = thinkingSplit.Last();
+
+                    }
                     lastToolCallId = call.CallId;
+                }
+                    
 
                 yield return chatMessage;
             }

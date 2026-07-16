@@ -53,7 +53,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             if (response.FinishReason.Value == ChatFinishReason.ToolCalls)
             {
-               return await handleFunctionCall<ChatRequest, AIMessage>(request, response.Messages.FirstOrDefault(), requestTools);
+                if (response.Messages.FirstOrDefault().Contents.OfType<TextReasoningContent>().Any())
+                    notifyThinking(request.Model, string.Concat(response.Messages.FirstOrDefault().Contents.OfType<TextReasoningContent>().Select(x => x.Text)));
+
+                return await handleFunctionCall<ChatRequest, AIMessage>(request, response.Messages.FirstOrDefault(), requestTools);
             }
             else
             {
