@@ -18,6 +18,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuratio
 using Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using DotnetLlamaSharp.Infrastructure.Services.Inference;
+using Microsoft.Extensions.Logging;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 {
@@ -195,6 +196,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             // Arrange
             var mockServiceProvider = new Mock<IServiceProvider>();
             mockServiceProvider.Setup(sp => sp.GetService(typeof(IOllamaApiClient))).Returns(new Mock<IOllamaApiClient>().Object);
+            mockServiceProvider.Setup(sp => sp.GetService(typeof(IOptions<OllamaSettings>))).Returns(Options.Create(new OllamaSettings { DefaultModel = "test-model" }));
             var handler = new TestBaseHandler(mockServiceProvider.Object, new Mock<IConfiguration>().Object, "test");
 
             // Act
@@ -211,6 +213,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             // Arrange
             var mockServiceProvider = new Mock<IServiceProvider>();
             mockServiceProvider.Setup(sp => sp.GetService(typeof(IGroqClient))).Returns(new Mock<IGroqClient>().Object);
+            mockServiceProvider.Setup(sp => sp.GetService(typeof(IOptions<GroqSettings>))).Returns(Options.Create(BuildTestGroqSettings()));
             var handler = new TestBaseHandler(mockServiceProvider.Object, new Mock<IConfiguration>().Object, "test");
 
             // Act
@@ -226,6 +229,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             // Arrange
             var mockServiceProvider = new Mock<IServiceProvider>();
             mockServiceProvider.Setup(sp => sp.GetService(typeof(IOllamaApiClient))).Returns(new Mock<IOllamaApiClient>().Object);
+            mockServiceProvider.Setup(sp => sp.GetService(typeof(IOptions<OllamaSettings>))).Returns(Options.Create(new OllamaSettings { DefaultModel = "test-model" }));
             var handler = new TestBaseHandler(mockServiceProvider.Object, new Mock<IConfiguration>().Object, "test");
 
             // Act
@@ -375,6 +379,16 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             return new Message(ChatRole.Assistant, string.Empty) { ToolCalls = new List<Message.ToolCall> { toolCall } };
         }
 
+        internal static GroqSettings BuildTestGroqSettings()
+            => new GroqSettings
+            {
+                DefaultModel = "test-model",
+                ToolModels = new List<string> { "test-model" },
+                JsonModels = new List<string> { "test-model" },
+                ReasoningModels = new List<string>(),
+                Endpoints = new Dictionary<string, string>()
+            };
+
         #endregion
     }
 
@@ -389,6 +403,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             _mockClient = new Mock<IOllamaApiClient>();
             _mockServiceProvider = new Mock<IServiceProvider>();
             _mockServiceProvider.Setup(sp => sp.GetService(typeof(IOllamaApiClient))).Returns(_mockClient.Object);
+            _mockServiceProvider.Setup(sp => sp.GetService(typeof(IOptions<OllamaSettings>))).Returns(Options.Create(new OllamaSettings { DefaultModel = "test-model" }));
             _mockConfig = new Mock<IConfiguration>();
         }
 
@@ -576,8 +591,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             _mockClient = new Mock<IGroqClient>();
             _mockServiceProvider = new Mock<IServiceProvider>();
             _mockServiceProvider.Setup(sp => sp.GetService(typeof(IGroqClient))).Returns(_mockClient.Object);
+            _mockServiceProvider.Setup(sp => sp.GetService(typeof(IOptions<GroqSettings>))).Returns(Options.Create(BaseHandlerTests.BuildTestGroqSettings()));
             _mockConfig = new Mock<IConfiguration>();
         }
+
+        private static void LogAction(string provider, string msg)
+            => Console.WriteLine($"MOCK {provider} - {msg}");
 
         #region Constructor Tests
 
@@ -585,7 +604,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         public void Constructor_WithValidServiceProvider_ResolvesGroqClient()
         {
             // Act
-            var handler = new GroqHandler(_mockServiceProvider.Object, _mockConfig.Object);
+            var handler = new GroqHandler(_mockServiceProvider.Object, _mockConfig.Object, LogAction);
 
             // Assert
             handler.Should().NotBeNull();
@@ -749,6 +768,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         private readonly Mock<IOptions<OllamaSettings>> _mockOptions;
         private readonly Mock<IConfiguration> _mockConfig;
         private readonly Mock<IServiceProvider> _mockServiceProvider;
+        private readonly Mock<ILogger<OllamaInferenceService>> _mockLogger;
         private readonly OllamaSettings _settings;
         private readonly OllamaInferenceService _service;
 
@@ -760,13 +780,19 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             _mockOptions = new Mock<IOptions<OllamaSettings>>();
             _mockOptions.Setup(o => o.Value).Returns(_settings);
             _mockConfig = new Mock<IConfiguration>();
+            _mockLogger = new Mock<ILogger<OllamaInferenceService>>();
             _mockServiceProvider = new Mock<IServiceProvider>();
             _mockServiceProvider.Setup(sp => sp.GetService(typeof(IOllamaApiClient))).Returns(_mockOllamaClient.Object);
             _mockServiceProvider.Setup(sp => sp.GetService(typeof(IGroqClient))).Returns(_mockGroqClient.Object);
+            // Both concrete handler ctors now resolve their settings via BaseHandler.tryGetConfig<T>,
+            // which requires IOptions<T> to be resolvable from the service provider (or it falls back
+            // to IConfiguration.GetSection, which a bare mock can't satisfy).
+            _mockServiceProvider.Setup(sp => sp.GetService(typeof(IOptions<OllamaSettings>))).Returns(_mockOptions.Object);
+            _mockServiceProvider.Setup(sp => sp.GetService(typeof(IOptions<GroqSettings>))).Returns(Options.Create(BaseHandlerTests.BuildTestGroqSettings()));
             // Deliberately NOT registering IClaudeClient - ClaudeHandler is out of scope, and any
             // accidental attempt to resolve it should fail loudly rather than silently succeed.
 
-            _service = new OllamaInferenceService(_mockOllamaClient.Object, _mockConfig.Object, _mockServiceProvider.Object, _mockOptions.Object);
+            _service = new OllamaInferenceService(_mockOllamaClient.Object, _mockConfig.Object, _mockServiceProvider.Object, _mockOptions.Object, _mockLogger.Object);
         }
 
         #region GeneratePrompt / IsOfType<OllamaHandler> Branch Tests
@@ -789,7 +815,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         }
 
         [Fact]
-        public async Task GeneratePrompt_ProviderClaudeButHandlerStillOllamaHandler_IgnoresProviderAndUsesGenerateLlmResponsePath()
+        public async Task GeneratePrompt_ProviderAnthropicButHandlerStillOllamaHandler_IgnoresProviderAndUsesGenerateLlmResponsePath()
         {
             // Arrange: characterizes the asymmetry between the GenerateRequest overloads (which branch
             // on "is the cached handler currently an OllamaHandler") and the ChatRequest overloads
@@ -801,7 +827,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(new List<GenerateResponseStream> { new GenerateResponseStream { Response = "answer" } }));
 
             // Act
-            var result = await _service.GeneratePrompt(request, "claude");
+            var result = await _service.GeneratePrompt(request, "anthropic");
 
             // Assert
             result.Content.Should().Be("answer");

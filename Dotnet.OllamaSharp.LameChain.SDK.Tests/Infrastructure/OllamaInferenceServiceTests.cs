@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Xunit;
-using FluentAssertions;
+﻿using FluentAssertions;
 using Moq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
@@ -13,11 +9,10 @@ using OllamaSharp.Models.Chat;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Exceptions;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Evaluators;
-using System.Text.Json;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
+using Microsoft.Extensions.Logging;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 {
@@ -27,6 +22,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         private readonly Mock<IOptions<OllamaSettings>> _mockOptions;
         private readonly Mock<IConfiguration> _mockConfig;
         private readonly Mock<IServiceProvider> _mockServiceProvider;
+        private readonly Mock<ILogger<OllamaInferenceService>> _mockLogger;
         private readonly OllamaSettings _settings;
         private readonly OllamaInferenceService _service;
 
@@ -37,9 +33,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             _mockOptions = new Mock<IOptions<OllamaSettings>>();
             _mockOptions.Setup(o => o.Value).Returns(_settings);
             _mockConfig = new Mock<IConfiguration>();
+            _mockLogger = new Mock<ILogger<OllamaInferenceService>>();
             _mockServiceProvider = new Mock<IServiceProvider>();
             _mockServiceProvider.Setup(sp => sp.GetService(typeof(IOllamaApiClient))).Returns(_mockClient.Object);
-            _service = new OllamaInferenceService(_mockClient.Object, _mockConfig.Object, _mockServiceProvider.Object, _mockOptions.Object);
+            // OllamaHandler's ctor resolves its settings via BaseHandler.tryGetConfig<OllamaSettings>,
+            // which requires IOptions<OllamaSettings> to be resolvable from the service provider.
+            _mockServiceProvider.Setup(sp => sp.GetService(typeof(IOptions<OllamaSettings>))).Returns(_mockOptions.Object);
+            _service = new OllamaInferenceService(_mockClient.Object, _mockConfig.Object, _mockServiceProvider.Object, _mockOptions.Object, _mockLogger.Object);
         }
 
         #region Constructor Tests
@@ -55,9 +55,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             var config = new Mock<IConfiguration>();
             var serviceProvider = new Mock<IServiceProvider>();
             serviceProvider.Setup(sp => sp.GetService(typeof(IOllamaApiClient))).Returns(client.Object);
+            serviceProvider.Setup(sp => sp.GetService(typeof(IOptions<OllamaSettings>))).Returns(options.Object);
 
             // Act
-            var service = new OllamaInferenceService(client.Object, config.Object, serviceProvider.Object, options.Object);
+            var service = new OllamaInferenceService(client.Object, config.Object, serviceProvider.Object, options.Object, _mockLogger.Object);
 
             // Assert
             service.Should().NotBeNull();
@@ -188,7 +189,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         public async Task ChatPrompt_WithValidRequest_ShouldReturnAggregatedMessage()
         {
             // Arrange
-            var request = new ChatRequest { Model = "test-model" };
+            var request = new ChatRequest { Model = "test-model", Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
             var responses = new List<ChatResponseStream>
             {
                 new ChatResponseStream { Message = new Message { Content = "Hello " } },
@@ -214,7 +215,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         public async Task ChatPrompt_WithNullAndEmptyContent_ShouldFilterThem()
         {
             // Arrange
-            var request = new ChatRequest { Model = "test-model" };
+            var request = new ChatRequest { Model = "test-model", Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
             var responses = new List<ChatResponseStream?>
             {
                 null,
@@ -240,7 +241,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         public async Task ChatPrompt_WithSingleContent_ShouldReturnMessage()
         {
             // Arrange
-            var request = new ChatRequest { Model = "test-model" };
+            var request = new ChatRequest { Model = "test-model", Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
             var responses = new List<ChatResponseStream>
             {
                 new ChatResponseStream { Message = new Message { Content = "Single content" } }
@@ -262,7 +263,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         public async Task ChatPrompt_WithMultipleContentParts_ShouldConcatenateAll()
         {
             // Arrange
-            var request = new ChatRequest { Model = "test-model" };
+            var request = new ChatRequest { Model = "test-model", Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
             var responses = new List<ChatResponseStream>
             {
                 new ChatResponseStream { Message = new Message { Content = "Part1" } },
@@ -285,7 +286,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         public async Task ChatPrompt_WithEmptyResponses_ShouldReturnEmptyMessage()
         {
             // Arrange
-            var request = new ChatRequest { Model = "test-model" };
+            var request = new ChatRequest { Model = "test-model", Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
             var responses = new List<ChatResponseStream>();
 
             _mockClient
