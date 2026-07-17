@@ -19,6 +19,14 @@ using Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using DotnetLlamaSharp.Infrastructure.Services.Inference;
 using Microsoft.Extensions.Logging;
+using AIChatMessage = Microsoft.Extensions.AI.ChatMessage;
+using AIChatResponse = Microsoft.Extensions.AI.ChatResponse;
+using AIChatOptions = Microsoft.Extensions.AI.ChatOptions;
+using AIChatFinishReason = Microsoft.Extensions.AI.ChatFinishReason;
+using AIChatRole = Microsoft.Extensions.AI.ChatRole;
+using AIContent = Microsoft.Extensions.AI.AIContent;
+using AITextContent = Microsoft.Extensions.AI.TextContent;
+using AITextReasoningContent = Microsoft.Extensions.AI.TextReasoningContent;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 {
@@ -41,8 +49,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         private readonly string _cannedResponse;
         public int GetLlmResponseCallCount { get; private set; }
 
-        public TestBaseHandler(IServiceProvider serviceProvider, IConfiguration config, string provider, string cannedResponse = "canned-response")
-            : base(serviceProvider, config, provider)
+        // Captured the moment the (overridden) GetLlmResponse runs - this is exactly the window
+        // BaseHandler.handleFunctionCall sets _isSolvingTools = true for, right before recursing.
+        public bool? IsSolvingToolsDuringGetLlmResponse { get; private set; }
+
+        public TestBaseHandler(IServiceProvider serviceProvider, IConfiguration config, string provider, string cannedResponse = "canned-response", Action<string, string>? notifyAction = null)
+            : base(serviceProvider, config, provider, notifyAction)
         {
             _cannedResponse = cannedResponse;
         }
@@ -50,6 +62,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         public override Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null)
         {
             GetLlmResponseCallCount++;
+            IsSolvingToolsDuringGetLlmResponse = IsSolvingTools;
             return Task.FromResult(_cannedResponse);
         }
 
@@ -332,6 +345,50 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         }
 
         [Fact]
+        public async Task HandleFunctionCall_WithNotifyActionConfigured_InvokesNotifyToolCallWithToolName()
+        {
+            // Arrange
+            var toolsService = new TestToolsService();
+            var mockServiceProvider = new Mock<IServiceProvider>();
+            mockServiceProvider.Setup(sp => sp.GetService(typeof(IToolsService<TestToolsService>))).Returns(toolsService);
+            var notifications = new List<(string Title, string Message)>();
+            var handler = new TestBaseHandler(mockServiceProvider.Object, new Mock<IConfiguration>().Object, "test", "recursive-response",
+                (title, message) => notifications.Add((title, message)));
+
+            var toolMessage = BuildToolCallMessage("Echo", new Dictionary<string, object?> { ["input"] = JsonSerializer.SerializeToElement("hello") });
+            var request = new ChatRequest { Model = "test-model", Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
+            var toolsLookup = new Dictionary<string, MethodInfo> { ["Echo"] = typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))! };
+
+            // Act
+            await handler.InvokeHandleFunctionCall(request, toolMessage, toolsLookup);
+
+            // Assert
+            notifications.Should().ContainSingle(n => n.Message == "Echo");
+        }
+
+        [Fact]
+        public async Task HandleFunctionCall_DuringRecursiveCall_IsSolvingToolsIsTrueThenResetToFalseAfter()
+        {
+            // Arrange
+            var toolsService = new TestToolsService();
+            var mockServiceProvider = new Mock<IServiceProvider>();
+            mockServiceProvider.Setup(sp => sp.GetService(typeof(IToolsService<TestToolsService>))).Returns(toolsService);
+            var handler = new TestBaseHandler(mockServiceProvider.Object, new Mock<IConfiguration>().Object, "test", "recursive-response");
+
+            var toolMessage = BuildToolCallMessage("Echo", new Dictionary<string, object?> { ["input"] = JsonSerializer.SerializeToElement("hello") });
+            var request = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
+            var toolsLookup = new Dictionary<string, MethodInfo> { ["Echo"] = typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))! };
+
+            // Act
+            await handler.InvokeHandleFunctionCall(request, toolMessage, toolsLookup);
+
+            // Assert: true while the recursive GetLlmResponse call (post tool-execution) was running,
+            // reset to false once handleFunctionCall returns.
+            handler.IsSolvingToolsDuringGetLlmResponse.Should().BeTrue();
+            handler.IsSolvingTools.Should().BeFalse();
+        }
+
+        [Fact]
         public async Task GetToolResult_WithMissingRequiredArgument_ThrowsInvalidOperationException()
         {
             // Arrange: exercises the real (unmocked) OllamaTools.ParseToolCallArguments throw path.
@@ -523,6 +580,52 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
         #endregion
 
+        #region Thinking Notification Tests
+
+        [Fact]
+        public async Task GetLlmResponse_WithThinkingContent_NotifiesThinking()
+        {
+            // Arrange
+            var notifications = new List<(string Title, string Message)>();
+            var handler = new OllamaHandler(_mockServiceProvider.Object, _mockConfig.Object, (title, message) => notifications.Add((title, message)));
+            var parts = new List<ChatResponseStream>
+            {
+                new ChatResponseStream { Message = new Message(ChatRole.Assistant, "answer") { Thinking = "pondering..." } }
+            };
+            _mockClient.Setup(c => c.ChatAsync(It.IsAny<ChatRequest>())).Returns(GetAsyncEnumerable(parts));
+            var request = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
+
+            // Act
+            var result = await handler.GetLlmResponse(request);
+
+            // Assert
+            result.Should().Be("answer");
+            notifications.Should().Contain(n => n.Message == "pondering...");
+        }
+
+        [Fact]
+        public async Task GetLlmResponse_WithNoThinkingContent_DoesNotNotifyThinking()
+        {
+            // Arrange
+            var notifications = new List<(string Title, string Message)>();
+            var handler = new OllamaHandler(_mockServiceProvider.Object, _mockConfig.Object, (title, message) => notifications.Add((title, message)));
+            var parts = new List<ChatResponseStream>
+            {
+                new ChatResponseStream { Message = new Message(ChatRole.Assistant, "answer") }
+            };
+            _mockClient.Setup(c => c.ChatAsync(It.IsAny<ChatRequest>())).Returns(GetAsyncEnumerable(parts));
+            var request = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
+
+            // Act
+            var result = await handler.GetLlmResponse(request);
+
+            // Assert
+            result.Should().Be("answer");
+            notifications.Should().NotContain(n => n.Title.Contains("THINKING"));
+        }
+
+        #endregion
+
         #region GenerateLlmResponse Tests
 
         [Fact]
@@ -695,6 +798,122 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
         #endregion
 
+        #region Thinking Notification Tests
+
+        [Fact]
+        public async Task GetLlmResponse_WithThinkingContent_NotifiesThinking()
+        {
+            // Arrange
+            var notifications = new List<(string Title, string Message)>();
+            var handler = new GroqHandler(_mockServiceProvider.Object, _mockConfig.Object, (title, message) => notifications.Add((title, message)));
+            var completion = new GroqChatCompletion
+            {
+                Choices = new List<GroqCompletionChoice>
+                {
+                    new GroqCompletionChoice { Message = new Message(ChatRole.Assistant, "answer") { Thinking = "pondering..." } }
+                }
+            };
+            _mockClient.Setup(c => c.GetChatCompletion(It.IsAny<GroqChatRequest>())).ReturnsAsync(completion);
+            var request = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") }, Tools = new List<object>() };
+
+            // Act
+            var result = await handler.GetLlmResponse(request);
+
+            // Assert
+            result.Should().Be("answer");
+            notifications.Should().Contain(n => n.Message == "pondering...");
+        }
+
+        [Fact]
+        public async Task GetLlmResponse_WithNoThinkingContent_DoesNotNotifyThinking()
+        {
+            // Arrange
+            var notifications = new List<(string Title, string Message)>();
+            var handler = new GroqHandler(_mockServiceProvider.Object, _mockConfig.Object, (title, message) => notifications.Add((title, message)));
+            var completion = new GroqChatCompletion
+            {
+                Choices = new List<GroqCompletionChoice> { new GroqCompletionChoice { Message = new Message(ChatRole.Assistant, "answer") } }
+            };
+            _mockClient.Setup(c => c.GetChatCompletion(It.IsAny<GroqChatRequest>())).ReturnsAsync(completion);
+            var request = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") }, Tools = new List<object>() };
+
+            // Act
+            var result = await handler.GetLlmResponse(request);
+
+            // Assert
+            result.Should().Be("answer");
+            notifications.Should().NotContain(n => n.Title.Contains("THINKING"));
+        }
+
+        #endregion
+
+        #region Structured Output Tests
+
+        [Fact]
+        public async Task GetLlmResponse_WithFormatSet_SwapsToJsonModelBeforeSendingRequest()
+        {
+            // Arrange: GroqHandler forces the model to the configured JsonModels entry whenever
+            // structured output is requested (request.Format != null), regardless of the model
+            // the caller originally asked for.
+            _mockServiceProvider.Setup(sp => sp.GetService(typeof(IOptions<GroqSettings>)))
+                .Returns(Options.Create(new GroqSettings { JsonModels = new List<string> { "json-capable-model" }, ToolModels = new List<string>(), ReasoningModels = new List<string>(), Endpoints = new Dictionary<string, string>() }));
+            var handler = new GroqHandler(_mockServiceProvider.Object, _mockConfig.Object);
+
+            GroqChatRequest? capturedRequest = null;
+            var completion = new GroqChatCompletion { Choices = new List<GroqCompletionChoice> { new GroqCompletionChoice { Message = new Message(ChatRole.Assistant, "{}") } } };
+            _mockClient.Setup(c => c.GetChatCompletion(It.IsAny<GroqChatRequest>()))
+                .Callback<GroqChatRequest>(r => capturedRequest = r)
+                .ReturnsAsync(completion);
+
+            var request = new ChatRequest
+            {
+                Model = "some-other-model",
+                Messages = new List<Message> { new Message(ChatRole.User, "hi") },
+                Tools = new List<object>(),
+                Format = new { type = "object" }
+            };
+
+            // Act
+            await handler.GetLlmResponse(request);
+
+            // Assert
+            capturedRequest.Should().NotBeNull();
+            capturedRequest!.Model.Should().Be("json-capable-model");
+        }
+
+        [Fact]
+        public async Task GetLlmResponse_WithFormatSetAndNoJsonModelsConfigured_SetsModelToNull()
+        {
+            // Arrange: characterizes existing behavior - if GroqSettings.JsonModels is empty,
+            // structured-output requests silently get Model=null (FirstOrDefault on an empty list)
+            // rather than falling back to the originally requested model.
+            _mockServiceProvider.Setup(sp => sp.GetService(typeof(IOptions<GroqSettings>)))
+                .Returns(Options.Create(new GroqSettings { JsonModels = new List<string>(), ToolModels = new List<string>(), ReasoningModels = new List<string>(), Endpoints = new Dictionary<string, string>() }));
+            var handler = new GroqHandler(_mockServiceProvider.Object, _mockConfig.Object);
+
+            GroqChatRequest? capturedRequest = null;
+            var completion = new GroqChatCompletion { Choices = new List<GroqCompletionChoice> { new GroqCompletionChoice { Message = new Message(ChatRole.Assistant, "{}") } } };
+            _mockClient.Setup(c => c.GetChatCompletion(It.IsAny<GroqChatRequest>()))
+                .Callback<GroqChatRequest>(r => capturedRequest = r)
+                .ReturnsAsync(completion);
+
+            var request = new ChatRequest
+            {
+                Model = "some-model",
+                Messages = new List<Message> { new Message(ChatRole.User, "hi") },
+                Tools = new List<object>(),
+                Format = new { type = "object" }
+            };
+
+            // Act
+            await handler.GetLlmResponse(request);
+
+            // Assert
+            capturedRequest!.Model.Should().BeNull();
+        }
+
+        #endregion
+
         #region getToolResponseMessages Override Tests (Groq-specific differentiation)
 
         [Fact]
@@ -750,6 +969,170 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
             // Act & Assert
             Assert.Throws<InvalidOperationException>(() => chatRequest.AsGroqRequest());
+        }
+
+        #endregion
+    }
+
+    // NOTE: scoped to ClaudeHandler's structured-output (json-fence stripping) and thinking-notification
+    // behavior, per the "anthropic providers have also changed regarding json output" ask. The recursive
+    // tool-call loop (ClaudeHandler.handleFunctionCall / mapRequestTools / OllamaTools.ToAIFunction) is
+    // intentionally NOT covered here - it requires much heavier Microsoft.Extensions.AI fixtures
+    // (FunctionCallContent round-tripping through ToOllamaMessage/ToChatMessages) than the other
+    // provider's tool-loop tests, and is a bigger, separate lift.
+    public class ClaudeHandlerTests
+    {
+        private readonly Mock<IClaudeClient> _mockClient;
+        private readonly Mock<IServiceProvider> _mockServiceProvider;
+        private readonly Mock<IConfiguration> _mockConfig;
+
+        public ClaudeHandlerTests()
+        {
+            _mockClient = new Mock<IClaudeClient>();
+            _mockServiceProvider = new Mock<IServiceProvider>();
+            _mockServiceProvider.Setup(sp => sp.GetService(typeof(IClaudeClient))).Returns(_mockClient.Object);
+            _mockServiceProvider.Setup(sp => sp.GetService(typeof(IOptions<ClaudeSettings>)))
+                .Returns(Options.Create(new ClaudeSettings { ApiKey = "test-key", DefaultModel = "claude-sonnet-4-6" }));
+            _mockConfig = new Mock<IConfiguration>();
+        }
+
+        #region Constructor Tests
+
+        [Fact]
+        public void Constructor_WithValidServiceProvider_ResolvesClaudeClient()
+        {
+            // Act
+            var handler = new ClaudeHandler(_mockServiceProvider.Object, _mockConfig.Object);
+
+            // Assert
+            handler.Should().NotBeNull();
+            handler.IsProvider("anthropic").Should().BeTrue();
+        }
+
+        [Fact]
+        public void Constructor_WithMissingClaudeClientRegistration_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            var emptyProvider = new Mock<IServiceProvider>();
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => new ClaudeHandler(emptyProvider.Object, _mockConfig.Object));
+        }
+
+        #endregion
+
+        #region GetLlmResponse Tests
+
+        [Fact]
+        public async Task GetLlmResponse_WithPlainTextResponse_ReturnsText()
+        {
+            // Arrange
+            var handler = new ClaudeHandler(_mockServiceProvider.Object, _mockConfig.Object);
+            var responseMessage = new AIChatMessage(AIChatRole.Assistant, "Hello answer");
+            var response = new AIChatResponse(responseMessage) { FinishReason = AIChatFinishReason.Stop };
+            _mockClient.Setup(c => c.GetResponseAsync(It.IsAny<IEnumerable<AIChatMessage>>(), It.IsAny<AIChatOptions>())).ReturnsAsync(response);
+            var request = new ChatRequest { Model = "claude-sonnet-4-6", Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
+
+            // Act
+            var result = await handler.GetLlmResponse(request);
+
+            // Assert
+            result.Should().Be("Hello answer");
+        }
+
+        [Fact]
+        public async Task GetLlmResponse_WithEmptyMessages_ThrowsInvalidDataException()
+        {
+            // Arrange
+            var handler = new ClaudeHandler(_mockServiceProvider.Object, _mockConfig.Object);
+            var request = new ChatRequest { Model = "claude-sonnet-4-6", Messages = new List<Message>() };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidDataException>(() => handler.GetLlmResponse(request));
+        }
+
+        [Fact]
+        public async Task GetLlmResponse_WithModelNotInSettingsModels_FallsBackToDefaultModel()
+        {
+            // Arrange: characterizes existing behavior - a request model that isn't one of the
+            // hardcoded Anthropic model ids gets silently swapped to ClaudeSettings.DefaultModel.
+            var handler = new ClaudeHandler(_mockServiceProvider.Object, _mockConfig.Object);
+            AIChatOptions? capturedOptions = null;
+            var responseMessage = new AIChatMessage(AIChatRole.Assistant, "answer");
+            var response = new AIChatResponse(responseMessage) { FinishReason = AIChatFinishReason.Stop };
+            _mockClient.Setup(c => c.GetResponseAsync(It.IsAny<IEnumerable<AIChatMessage>>(), It.IsAny<AIChatOptions>()))
+                .Callback<IEnumerable<AIChatMessage>, AIChatOptions>((_, options) => capturedOptions = options)
+                .ReturnsAsync(response);
+            var request = new ChatRequest { Model = "not-a-real-model", Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
+
+            // Act
+            await handler.GetLlmResponse(request);
+
+            // Assert
+            capturedOptions!.ModelId.Should().Be("claude-sonnet-4-6");
+        }
+
+        #endregion
+
+        #region Thinking Notification Tests
+
+        [Fact]
+        public async Task GetLlmResponse_WithReasoningContent_NotifiesThinking()
+        {
+            // Arrange
+            var notifications = new List<(string Title, string Message)>();
+            var handler = new ClaudeHandler(_mockServiceProvider.Object, _mockConfig.Object, (title, message) => notifications.Add((title, message)));
+            var responseMessage = new AIChatMessage(AIChatRole.Assistant, new List<AIContent> { new AITextReasoningContent("pondering..."), new AITextContent("final answer") });
+            var response = new AIChatResponse(responseMessage) { FinishReason = AIChatFinishReason.Stop };
+            _mockClient.Setup(c => c.GetResponseAsync(It.IsAny<IEnumerable<AIChatMessage>>(), It.IsAny<AIChatOptions>())).ReturnsAsync(response);
+            var request = new ChatRequest { Model = "claude-sonnet-4-6", Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
+
+            // Act
+            var result = await handler.GetLlmResponse(request);
+
+            // Assert
+            result.Should().Be("final answer");
+            notifications.Should().Contain(n => n.Message == "pondering...");
+        }
+
+        #endregion
+
+        #region Structured Output Tests
+
+        [Fact]
+        public async Task GetLlmResponse_WithFormatSetAndFencedJsonResponse_StripsCodeFences()
+        {
+            // Arrange
+            var handler = new ClaudeHandler(_mockServiceProvider.Object, _mockConfig.Object);
+            var responseMessage = new AIChatMessage(AIChatRole.Assistant, "```json\n{\"foo\":1}\n```");
+            var response = new AIChatResponse(responseMessage) { FinishReason = AIChatFinishReason.Stop };
+            _mockClient.Setup(c => c.GetResponseAsync(It.IsAny<IEnumerable<AIChatMessage>>(), It.IsAny<AIChatOptions>())).ReturnsAsync(response);
+            var request = new ChatRequest { Model = "claude-sonnet-4-6", Messages = new List<Message> { new Message(ChatRole.User, "hi") }, Format = new { type = "object" } };
+
+            // Act
+            var result = await handler.GetLlmResponse(request);
+
+            // Assert
+            result.Should().Be("{\"foo\":1}");
+        }
+
+        [Fact]
+        public async Task GetLlmResponse_WithFormatSetButResponseNotFenced_ReturnsResponseUnchanged()
+        {
+            // Arrange: characterizes existing behavior - the code-fence stripping (and its Trim())
+            // only runs when the response actually starts with "```json"; a structured-output
+            // response that happens not to be fenced is returned completely raw, whitespace included.
+            var handler = new ClaudeHandler(_mockServiceProvider.Object, _mockConfig.Object);
+            var responseMessage = new AIChatMessage(AIChatRole.Assistant, "  {\"foo\":1}  ");
+            var response = new AIChatResponse(responseMessage) { FinishReason = AIChatFinishReason.Stop };
+            _mockClient.Setup(c => c.GetResponseAsync(It.IsAny<IEnumerable<AIChatMessage>>(), It.IsAny<AIChatOptions>())).ReturnsAsync(response);
+            var request = new ChatRequest { Model = "claude-sonnet-4-6", Messages = new List<Message> { new Message(ChatRole.User, "hi") }, Format = new { type = "object" } };
+
+            // Act
+            var result = await handler.GetLlmResponse(request);
+
+            // Assert
+            result.Should().Be("  {\"foo\":1}  ");
         }
 
         #endregion
