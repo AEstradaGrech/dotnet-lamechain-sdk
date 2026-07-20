@@ -39,7 +39,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             notifyRequest(_requestModel, request.Messages.Last().Content);
 
-            if (request.Format != null)
+            if (request.Format != null && !_settings.JsonModels.Contains(request.Model))
             {
                 request.Model = _settings.JsonModels.FirstOrDefault();
 
@@ -56,8 +56,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             if (responseMessage.ToolCalls != null && responseMessage.ToolCalls.Count() > 0)
                 return await handleFunctionCall<ChatRequest, Message>(request, responseMessage, requestTools);
 
-            if (!string.IsNullOrEmpty(responseMessage.Thinking))
+            if (!string.IsNullOrEmpty(responseMessage.Thinking)) 
+            {
                 notifyThinking(request.Model, responseMessage.Thinking);
+
+                if (request.Think == null)
+                {
+                    responseMessage.Thinking = string.Empty;
+
+                    notify("Original request thinking is not enabled, deleting response thinking");
+                }
+            }
 
             return response.Choices.FirstOrDefault().Message.Content.Trim();
         }

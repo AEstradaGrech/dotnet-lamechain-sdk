@@ -14,7 +14,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
 {
     public static class OllamaRequestExtensions
     {
-        public static ChatOptions ToClaudeChatClientRequest(this ChatRequest ollamaRequest, IList<AITool>? tools, bool allowParallelToolCall = false, Effort reasoningEffort = Effort.Medium)
+        public static ChatOptions ToClaudeChatClientRequest(this ChatRequest ollamaRequest, IList<AITool>? tools, bool allowParallelToolCall = false)
         {
             if (ollamaRequest.Messages.Count() == 0)
                 throw new InvalidOperationException($"{nameof(ChatRequest)}.{nameof(ToClaudeChatClientRequest)} >> No messages present in the request");
@@ -38,7 +38,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
                 Tools = tools
             };
 
-            if(ollamaRequest.Think == true)
+            Effort? reasoningEffort = ollamaRequest.Think.ToAnthropicEffort();
+            //var effort = ReasoningEffort.Low;
+            if (reasoningEffort != null)
             {
                 chatRequest.TopK = null;
                 chatRequest.TopP = null;
@@ -72,7 +74,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
             return chatRequest;
         }
 
-        public static GroqChatRequest AsGroqRequest(this ChatRequest req, string? reasoningEffort = null)
+        public static GroqChatRequest AsGroqRequest(this ChatRequest req)
         {
             if (req.Messages.Count() == 0)
                 throw new InvalidOperationException($"{nameof(ChatRequest)}.{nameof(AsGroqRequest)} >> No messages present in the request");
@@ -80,6 +82,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
             if (req.Options == null)
                 req.Options = new RequestOptions();
 
+            string? reasoning = null;
+            if(req.Think.HasValue)
+            {
+                if (req.Think.Value.IsBoolean() && req.Think.Value.ToBoolean() == true)
+                    reasoning = EReasoning.Medium.ToString().ToLower();
+
+                else reasoning = req.Think.Value.ToString();
+            }
             var request = new GroqChatRequest
             {
                 Messages = req.Messages.ToList(),
@@ -91,8 +101,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
                 TopP = req.Options.TopP ?? 1.0f,
                 Stream = req.Stream,
                 Stop = req.Options.Stop != null && req.Options.Stop.Length > 0 ? req.Options.Stop.ToList() : null,
-                IncludeReasoning = req.Think == true ? true : null,
-                ReasoningEffort = req.Think == true ? string.IsNullOrEmpty(reasoningEffort) ? "medium" : reasoningEffort : null,
+                IncludeReasoning = reasoning == null ? null : reasoning == "none" ? false : true, //models that don't support reasoning, reasoning models + thinking disabled | enabled (some models default to true when passing null)
+                ReasoningEffort = reasoning == "none" ? null : reasoning,
                 Tools = req.Tools != null && req.Tools.Count() > 0 ? req.Tools.ToList() : null,
                 ToolChoice = req.Tools != null && req.Tools.Count() > 0 ? "auto" : "none",
                 ParallelToolCalls = false,
@@ -274,7 +284,41 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model
                 yield return chatMessage;
             }
         }
+        public static Effort? ToAnthropicEffort(this EReasoning reasoning)
+            => reasoning switch
+            {
+                EReasoning.None => null,
+                EReasoning.Low => Effort.Low,
+                EReasoning.Medium => Effort.Medium,
+                EReasoning.High => Effort.High,
+            };
 
+        public static Effort? ToAnthropicEffort(this ThinkValue? ollamaThink)
+        {
+            string? reasoning = null;
+            if (ollamaThink.HasValue)
+            {
+                if (ollamaThink.Value.IsBoolean() && ollamaThink.Value.ToBoolean() == true)
+                    reasoning = EReasoning.Medium.ToString().ToLower();
+
+                else reasoning = ollamaThink.Value.ToString();
+            }
+
+            if (reasoning == null ||reasoning == "none") return null;
+
+            Effort? result = null;
+
+            return result.FromString(reasoning);
+        }
+
+        public static Effort? FromString(this Effort? effort, string value)
+            => value switch
+            {
+                "low" => Effort.Low,
+                "medium" => Effort.Medium,
+                "high" => Effort.High,
+                _ => null
+            };
         private static OllamaRole ToOllamaRole(this AIRole role)
             => role == AIRole.System ? OllamaRole.System
              : role == AIRole.Assistant ? OllamaRole.Assistant

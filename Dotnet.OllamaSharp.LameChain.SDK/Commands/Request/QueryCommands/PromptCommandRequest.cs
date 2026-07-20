@@ -1,4 +1,5 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
 using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
@@ -34,7 +35,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
         public string? Model { get { return _model; } set { _model = setModel(value); } }
         public string Provider { get; private set; }
         public bool HasTools => _tools.Count > 0;
-        public bool ThinkEnabled { get; set; }
+        public EReasoning? Reasoning { get; set; }
         public IEnumerable<object> GetToolDefinitions()
         {
             if (!HasTools) return [];
@@ -54,7 +55,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                 Model = getModelForRequest(settings),
                 Messages = [new Message(ChatRole.System, commandSysmsg), new Message(ChatRole.User, Prompt)],
                 Stream = false,
-                Think = ThinkEnabled,
+                Think = Reasoning.HasValue ? new ThinkValue(Reasoning.ToString().ToLower()) : new ThinkValue(Reasoning),
                 Tools = HasTools ? GetToolDefinitions() : null,
                 Options = settings == null ? new RequestOptions() : settings.ToOllamaRequest()
             };

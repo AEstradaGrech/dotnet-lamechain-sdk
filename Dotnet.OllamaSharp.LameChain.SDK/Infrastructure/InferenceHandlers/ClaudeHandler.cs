@@ -49,7 +49,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             notifyRequest(_requestModel, request.Messages.Last().Content);
 
-            var response = await _client.GetResponseAsync(request.Messages.ToChatMessages(), request.ToClaudeChatClientRequest(mapRequestTools(requestTools), allowParallelToolCall: false, Effort.High));
+            var response = await _client.GetResponseAsync(request.Messages.ToChatMessages(), request.ToClaudeChatClientRequest(mapRequestTools(requestTools), allowParallelToolCall: false));
 
             if (response.FinishReason.Value == ChatFinishReason.ToolCalls)
             {

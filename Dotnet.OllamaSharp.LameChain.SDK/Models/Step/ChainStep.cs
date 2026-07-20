@@ -355,6 +355,48 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             setupRequestContext(previous);
 
             notify($"{nameof(forgeLink)} >> FORGING CHAIN LINK");
+
+            // !!!!!!!!!!!!!! <- Aqui toda la movida para request provider vs _settings.providers vs DefaultSettings
+            // Todos los comandos pasan por aqui, si o si.
+            // simple:
+            //      if _settings == null -> _settings = DefaultSettings
+            //      if(_settings.Provider != request. provider -> reset request model & provider
+            /*
+                if(_commands[idx].CommandSettings != null)
+            {
+                if(_commands[idx].CommandSettings.Model.IsEmpty()) <- SI EL USUARIO NO HA CONFIGURADO MODELO Y PROVIDER ENTONCES QUIERE USAR EL DEFAULT PARA TODA LA CADENA
+                    CommandSettings.SetModel($"{Request.Provider}/{Request.Model}"
+
+                ESTO TIENE QUE FUNCIONAR ASI:
+                  - Si el usuario NO especifica modelo en request --> default & default = ollama
+                  - Si el usuario SI especifica provider/modelo en request --> default = requestModel
+                  - Si especifica modelo para command, se usa ese. Si no el default
+                  - Es decir, default app == request.empty (convierte ollam en el default de toda la cadena)
+                  - Si no, el Rquest.provider es default para la cadena (y si se deja un command vacio, usa siempre default de la cadena
+                  - Es decir, dejar modelo vacio == step se ejecuta localmente (gratis) YA NO APLICA (hay que configurar step especificamente para ollama)
+            }
+            else
+            {
+                CommandSettings override = _runner.DefaultSettings;
+            }
+             
+             */
+
+            
+
+            if(string.IsNullOrEmpty(Request.Model))
+            {
+                CommandSettings settings = _commands[idx].CommandSettings ?? _runner.DefaultSettings;
+
+                var split = settings.Model.Split("/");
+                if (split.Length > 1)
+                {
+                    if (split.First() != Request.Provider)
+                        Request.Model = settings.Model;
+                }
+                else Request.Model = settings.Model;
+            }
+            
             // JsonPrompt
             var jsonResult = await _commands[idx].JsonPrompt(Request, _commands[idx].CommandSettings == null ? _runner.DefaultSettings : null, returnFullInstruction: false, preInstruction: preInstructionTag); //Skip GuidanceMessage, return only instruction for this step
 

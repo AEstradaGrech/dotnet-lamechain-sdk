@@ -38,7 +38,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                 Model = getModelForRequest(settings),
                 Messages = messages,
                 Stream = false,
-                Think = ThinkEnabled,
+                Think = Reasoning.HasValue ? new ThinkValue(Reasoning.Value.ToString().ToLower()) : new ThinkValue(Reasoning),
                 Tools = HasTools ? GetToolDefinitions() : null,
                 Options = settings == null ? new RequestOptions() : settings.ToOllamaRequest()
             };

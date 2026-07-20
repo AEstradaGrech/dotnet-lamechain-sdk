@@ -52,14 +52,21 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             string llmResponse = string.Empty;
             request.Stream = false;
 
-            if (!_handler.IsOfType<OllamaHandler>())
+            if (provider != "ollama")
             {
-                _handler = _handler.UpdateHandler(provider);
+                if (!_handler.IsProvider(provider))
+                    _handler = _handler.UpdateHandler(provider);
 
                 llmResponse = await _handler.GetLlmResponse(request.GenerateRequestToChat());
             }
 
-            else llmResponse = await _handler.AsType<OllamaHandler>().GenerateLlmResponse(request);
+            else
+            {   
+                if (!_handler.IsOfType<OllamaHandler>())
+                    _handler.UpdateHandler(provider);
+
+                llmResponse = await _handler.AsType<OllamaHandler>().GenerateLlmResponse(request);
+            }
 
            return new Message { Role = ChatRole.Assistant, Content = llmResponse };
         }
