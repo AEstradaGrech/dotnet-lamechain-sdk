@@ -98,7 +98,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
             {
                 var originalProp = thisProps.SingleOrDefault(x => x.Name == p.Name);
 
-                p.SetValue(clone, originalProp.GetValue(this));
+                if(p.CanWrite)
+                    p.SetValue(clone, originalProp.GetValue(this));
             });
 
             return clone;
@@ -114,7 +115,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
             {
                 var originalProp = thisProps.SingleOrDefault(x => x.Name == p.Name);
 
-                p.SetValue(clone, originalProp.GetValue(this));
+                if(p.CanWrite)
+                    p.SetValue(clone, originalProp.GetValue(this));
             });
 
             return clone;

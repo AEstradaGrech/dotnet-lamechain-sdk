@@ -23,7 +23,7 @@ It provides a fluent experience for building command chains that can:
 - Configurable workflows using the FluentApi.
 - Chain steps system to configure different type of nodes in your workflows, with different features for different purposes.
 - Tools support.
-- Multi-provider.
+- Multi-provider (ollama | anthropic | groq).
 
 ### The core concepts
 
@@ -1037,7 +1037,8 @@ what values to pass as arguments. Here is an example:
 
 ## Multiple providers:
 
-The SDK allows you to use different cloud providers by simply preppending the provider name to the request models (for example, **groq/llama3.3:70b-versatile**) and
+The SDK allows you to use different cloud providers (currently **groq** and **anthropic**) by simply preppending the provider name to the 
+request models (for example, **groq/llama3.3:70b-versatile** or **anthropic/claude-opus-4.8**) and
 adding the required startup and appsettings configuration.  
 
 (Note: if you dont' pass a provider, the SDK will default to 'ollama' as llm provider)
@@ -1054,6 +1055,10 @@ Here is a configuration example to use Groq as provider:
         "Endpoints": {
             "chat": "/openai/v1/chat/completions"
         }
+    },
+    "ClaudeSettings": {
+        "apiKey": "<your-api-key-here>",
+        "defaultModel" : "claude-sonnet-4-6",
     }
 
 ```
@@ -1066,6 +1071,7 @@ Here is a configuration example to use Groq as provider:
         .AddConfigurations(builder.Configuration)
         .ConfigureGroqSettings(builder.Configuration)
         .AddGroqApiClient(builder.Configuration)
+        .ConfigureClaudeApiClient(builder.Configuration)
 
 ```
 

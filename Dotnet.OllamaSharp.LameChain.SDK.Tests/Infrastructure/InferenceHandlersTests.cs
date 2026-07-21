@@ -17,6 +17,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Response.GroqProvid
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
 using DotnetLlamaSharp.Infrastructure.Services.Inference;
 using Microsoft.Extensions.Logging;
 using AIChatMessage = Microsoft.Extensions.AI.ChatMessage;
@@ -27,6 +28,7 @@ using AIChatRole = Microsoft.Extensions.AI.ChatRole;
 using AIContent = Microsoft.Extensions.AI.AIContent;
 using AITextContent = Microsoft.Extensions.AI.TextContent;
 using AITextReasoningContent = Microsoft.Extensions.AI.TextReasoningContent;
+using AnthropicEffort = Anthropic.Models.Messages.Effort;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 {
@@ -972,6 +974,59 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         }
 
         #endregion
+
+        #region Reasoning Mapping Tests
+
+        // AsGroqRequest maps ChatRequest.Think (an EReasoning value, passed as a string like "low"/
+        // "medium"/"high"/"none") to Groq's IncludeReasoning/ReasoningEffort fields.
+
+        [Fact]
+        public void AsGroqRequest_WithThinkUnset_LeavesReasoningFieldsNull()
+        {
+            // Arrange
+            var chatRequest = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") }, Tools = new List<object>() };
+
+            // Act
+            var groqRequest = chatRequest.AsGroqRequest();
+
+            // Assert
+            groqRequest.IncludeReasoning.Should().BeNull();
+            groqRequest.ReasoningEffort.Should().BeNull();
+        }
+
+        [Fact]
+        public void AsGroqRequest_WithThinkNone_DisablesIncludeReasoningButSendsFalseExplicitly()
+        {
+            // Arrange: "none" explicitly disables reasoning - IncludeReasoning is sent as `false`
+            // (not omitted/null), while ReasoningEffort itself is nulled out.
+            var chatRequest = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") }, Tools = new List<object>(), Think = "none" };
+
+            // Act
+            var groqRequest = chatRequest.AsGroqRequest();
+
+            // Assert
+            groqRequest.IncludeReasoning.Should().BeFalse();
+            groqRequest.ReasoningEffort.Should().BeNull();
+        }
+
+        [Theory]
+        [InlineData("low")]
+        [InlineData("medium")]
+        [InlineData("high")]
+        public void AsGroqRequest_WithReasoningEffortLevel_EnablesIncludeReasoningAndPassesEffort(string think)
+        {
+            // Arrange
+            var chatRequest = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") }, Tools = new List<object>(), Think = think };
+
+            // Act
+            var groqRequest = chatRequest.AsGroqRequest();
+
+            // Assert
+            groqRequest.IncludeReasoning.Should().BeTrue();
+            groqRequest.ReasoningEffort.Should().Be(think);
+        }
+
+        #endregion
     }
 
     // NOTE: scoped to ClaudeHandler's structured-output (json-fence stripping) and thinking-notification
@@ -1136,6 +1191,93 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         }
 
         #endregion
+
+        #region Reasoning Mapping Tests
+
+        // These test OllamaRequestExtensions.ToClaudeChatClientRequest/ToAnthropicEffort directly -
+        // pure mapping functions ClaudeHandler.GetLlmResponse depends on to turn ChatRequest.Think
+        // (an EReasoning value passed as a string like "low"/"medium"/"high"/"none") into an
+        // Anthropic reasoning effort.
+
+        [Theory]
+        [InlineData("low", EReasoningMinTokens.Low)]
+        [InlineData("medium", EReasoningMinTokens.Medium)]
+        [InlineData("high", EReasoningMinTokens.High)]
+        public void ToClaudeChatClientRequest_WithReasoningEffortLevel_BumpsMaxOutputTokensAndNullsTopKTopP(string think, EReasoningMinTokens expectedMinTokens)
+        {
+            // Arrange
+            var request = new ChatRequest
+            {
+                Model = "claude-sonnet-4-6",
+                Messages = new List<Message> { new Message(ChatRole.User, "hi") },
+                Think = think,
+                Options = new RequestOptions { NumPredict = 100, TopK = 10, TopP = 0.9f }
+            };
+
+            // Act
+            var options = request.ToClaudeChatClientRequest(tools: null);
+
+            // Assert
+            options.TopK.Should().BeNull();
+            options.TopP.Should().BeNull();
+            options.MaxOutputTokens.Should().Be((int)expectedMinTokens + 100);
+        }
+
+        [Fact]
+        public void ToClaudeChatClientRequest_WithThinkNone_DoesNotAdjustTokensOrTopKTopP()
+        {
+            // Arrange
+            var request = new ChatRequest
+            {
+                Model = "claude-sonnet-4-6",
+                Messages = new List<Message> { new Message(ChatRole.User, "hi") },
+                Think = "none",
+                Options = new RequestOptions { NumPredict = 100, TopK = 10, TopP = 0.9f }
+            };
+
+            // Act
+            var options = request.ToClaudeChatClientRequest(tools: null);
+
+            // Assert
+            options.TopK.Should().Be(10);
+            options.TopP.Should().Be(0.9f);
+            options.MaxOutputTokens.Should().Be(100);
+        }
+
+        [Theory]
+        [InlineData("low", AnthropicEffort.Low)]
+        [InlineData("medium", AnthropicEffort.Medium)]
+        [InlineData("high", AnthropicEffort.High)]
+        public void ToAnthropicEffort_WithReasoningLevel_MapsToEffortEnum(string think, AnthropicEffort expected)
+        {
+            // Arrange
+            ThinkValue? value = think;
+
+            // Act & Assert
+            value.ToAnthropicEffort().Should().Be(expected);
+        }
+
+        [Fact]
+        public void ToAnthropicEffort_WithThinkNone_ReturnsNull()
+        {
+            // Arrange
+            ThinkValue? value = "none";
+
+            // Act & Assert
+            value.ToAnthropicEffort().Should().BeNull();
+        }
+
+        [Fact]
+        public void ToAnthropicEffort_WithThinkUnset_ReturnsNull()
+        {
+            // Arrange
+            ThinkValue? value = null;
+
+            // Act & Assert
+            value.ToAnthropicEffort().Should().BeNull();
+        }
+
+        #endregion
     }
 
     // NOTE: OllamaInferenceServiceTests.cs predates the handler-abstraction refactor and only ever
@@ -1198,24 +1340,24 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         }
 
         [Fact]
-        public async Task GeneratePrompt_ProviderAnthropicButHandlerStillOllamaHandler_IgnoresProviderAndUsesGenerateLlmResponsePath()
+        public async Task GeneratePrompt_WithNonOllamaProvider_SwapsHandlerAndRoutesThroughChatConversion()
         {
-            // Arrange: characterizes the asymmetry between the GenerateRequest overloads (which branch
-            // on "is the cached handler currently an OllamaHandler") and the ChatRequest overloads
-            // (which branch on "does the requested provider match the cached handler's provider name").
-            // A freshly constructed service's handler is already an OllamaHandler, so it stays on the
-            // native generate path regardless of the requested provider - IClaudeClient is never touched.
+            // Arrange: GeneratePrompt now branches on a literal `provider != "ollama"` check (fixed -
+            // it used to branch on "is the cached handler currently an OllamaHandler", which meant a
+            // freshly constructed service ignored the requested provider entirely). Now requesting a
+            // non-ollama provider correctly swaps the handler and routes through GenerateRequestToChat
+            // + GetLlmResponse instead of the native Ollama generate endpoint.
             var request = new GenerateRequest { Prompt = "test prompt" };
-            _mockOllamaClient.Setup(c => c.GenerateAsync(It.IsAny<GenerateRequest>()))
-                .Returns(GetAsyncEnumerable(new List<GenerateResponseStream> { new GenerateResponseStream { Response = "answer" } }));
+            var completion = new GroqChatCompletion { Choices = new List<GroqCompletionChoice> { new GroqCompletionChoice { Message = new Message(ChatRole.Assistant, "groq answer") } } };
+            _mockGroqClient.Setup(c => c.GetChatCompletion(It.IsAny<GroqChatRequest>())).ReturnsAsync(completion);
 
             // Act
-            var result = await _service.GeneratePrompt(request, "anthropic");
+            var result = await _service.GeneratePrompt(request, "groq");
 
             // Assert
-            result.Content.Should().Be("answer");
-            _mockOllamaClient.Verify(c => c.GenerateAsync(It.IsAny<GenerateRequest>()), Times.Once);
-            _mockServiceProvider.Verify(sp => sp.GetService(typeof(IClaudeClient)), Times.Never);
+            result.Content.Should().Be("groq answer");
+            _mockGroqClient.Verify(c => c.GetChatCompletion(It.IsAny<GroqChatRequest>()), Times.Once);
+            _mockOllamaClient.Verify(c => c.GenerateAsync(It.IsAny<GenerateRequest>()), Times.Never);
         }
 
         #endregion

@@ -83,6 +83,56 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Steps
             await Assert.ThrowsAsync<InvalidOperationException>(() => step.ExecuteChainAsync());
         }
 
+        [Fact]
+        public async Task SingleThrowStep_Forge_WithEmptyRequestModel_AppliesProviderAndModelFromRunnerDefaultSettings()
+        {
+            // forgeLink now defaults an empty PromptCommandRequest.Model from the command's own
+            // CommandSettings (null here, via MockCommand) or the ChainRunner's DefaultSettings,
+            // before calling JsonPrompt - it no longer implicitly stays on "ollama".
+            var mock = MockCommand(new BooleanResponse { Answer = true });
+            var runner = new ChainRunner("test user input", new CommandSettings("groq/some-model"), null, "test-intent");
+            var request = new PromptCommandRequest("step 1 prompt"); // Model left null -> Provider="ollama", Model=""
+            var step = new SingleThrowStep(new StepSettings(mock.Object, request), runner);
+
+            await step.Forge(null!);
+
+            step.Request.Provider.Should().Be("groq");
+            step.Request.Model.Should().Be("some-model");
+        }
+
+        [Fact]
+        public async Task SingleThrowStep_Forge_WithEmptyRequestModelAndCommandLevelSettings_PrefersCommandSettingsOverRunnerDefault()
+        {
+            // Arrange: the command's own CommandSettings takes precedence over the ChainRunner's
+            // DefaultSettings when both are present.
+            var mock = MockCommand(new BooleanResponse { Answer = true });
+            mock.Setup(x => x.CommandSettings).Returns(new CommandSettings("anthropic/claude-model"));
+            var runner = new ChainRunner("test user input", new CommandSettings("groq/other-model"), null, "test-intent");
+            var request = new PromptCommandRequest("step 1 prompt");
+            var step = new SingleThrowStep(new StepSettings(mock.Object, request), runner);
+
+            await step.Forge(null!);
+
+            step.Request.Provider.Should().Be("anthropic");
+            step.Request.Model.Should().Be("claude-model");
+        }
+
+        [Fact]
+        public async Task SingleThrowStep_Forge_WithModelAlreadySet_DoesNotOverrideExistingModelOrProvider()
+        {
+            // Arrange: the default-model block is only entered when Request.Model is empty - a
+            // caller-provided model/provider must survive untouched.
+            var mock = MockCommand(new BooleanResponse { Answer = true });
+            var runner = new ChainRunner("test user input", new CommandSettings("groq/other-model"), null, "test-intent");
+            var request = new PromptCommandRequest("step 1 prompt", model: "preset-model");
+            var step = new SingleThrowStep(new StepSettings(mock.Object, request), runner);
+
+            await step.Forge(null!);
+
+            step.Request.Provider.Should().Be("ollama");
+            step.Request.Model.Should().Be("preset-model");
+        }
+
         #endregion
 
         #region ConditionalStep Tests
