@@ -1,10 +1,13 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.DocumentLoader;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoader;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
 using DotnetLlamaSharp.Domain.Services.Inference;
+using Microsoft.Extensions.DependencyInjection;
 using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
 using System.Reflection;
@@ -34,10 +37,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
         // Memory?
 
+        private readonly IServiceProvider _serviceProvider;
         private readonly IOllamaInferenceService _inferenceService;
-        public LameAgent(IOllamaInferenceService inferenceService, string model, PromptSettings? settings = null, string? name = null, string? description = null)
+        public LameAgent(IServiceProvider serviceProvider, string model, PromptSettings? settings = null, string? name = null, string? description = null)
         {
-            _inferenceService = inferenceService;
+            _serviceProvider = serviceProvider ?? throw new ArgumentNullException($"{nameof(LameAgent)} >> {nameof(IServiceProvider)}");
+            _inferenceService = _serviceProvider.GetRequiredService<IOllamaInferenceService>() ?? throw new ArgumentNullException($"{nameof(LameAgent)} >> {nameof(IOllamaInferenceService)}");
             _settings = settings; 
 
             //if model is empty --> ServiceProvider.GetConfig --> use default ollama model
@@ -146,24 +151,30 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             return await _inferenceService.CommandPrompt<T>(request.ToOllamaChat(settings: _settings));
         }
 
-        public void AddTool(string toolName, MethodInfo method)
+        public LameAgent AddTool(string toolName, MethodInfo method)
         {
             if (!Tools.ContainsKey(toolName))
                 Tools.Add(toolName, method);
+
+            return this;
         }
-        public void AddTools(Dictionary<string, MethodInfo> tools)
+        public LameAgent AddTools(Dictionary<string, MethodInfo> tools)
         {
             foreach (var tool in tools)
                 AddTool(tool.Key, tool.Value);
+
+            return this;
         }
 
-        public void WithSkills(List<string> skills)
+        public LameAgent WithSkills(List<string> skills)
         {
             foreach(var skill in skills)
                 if (!Skills.Contains(skill))
                     Skills.Add(skill);
+
+            return this;
         }
-        public void AddDataSources(string sourceName, List<string> data, bool isOverride = false)
+        public LameAgent AddDataSources(string sourceName, List<string> data, bool isOverride = false)
         {
             if (isOverride)
             {
@@ -179,6 +190,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
                 else DataSources.Add(sourceName, data);
             }
+
+            return this;
         }
 
         private string buildSystemMessage()
@@ -191,11 +204,27 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             if (!string.IsNullOrEmpty(Description))
                 sb.AppendLine($"# Agent Description: {Description}\n");
 
-            // LoadSkills --> IDocumentReader<MarkdownService> -> LoadDocument -> doc.Pages.Last()
+            using var scope = _serviceProvider.CreateScope();
 
+            var loader = scope.ServiceProvider.GetRequiredService<IDocumentLoader<MarkdownLoaderService>>();
+            
+            if(Skills.Count > 0)
+            {
+                sb.AppendLine("# SKILLS");
+
+                foreach (var skill in Skills)
+                {
+                    var doc = loader.LoadDocument($"skills\\{skill}").Result;
+
+                    if (doc != null && doc.Pages.Count() > 0)
+                        sb.AppendLine(doc.Pages.Last().Text.Trim());
+                }
+            }
+            
             if (DataSources.Count > 0)
             {
                 sb.AppendLine($"# Data Sources:\n");
+
                 foreach (var source in DataSources)
                     sb.AppendLine($"- {source.Key}: {string.Join("\n\n", source.Value)}");
             }

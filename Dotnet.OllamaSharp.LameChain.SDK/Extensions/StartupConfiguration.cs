@@ -1,9 +1,11 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.DocumentLoader;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Clients;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoader;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
 using DotnetLlamaSharp.Domain.Services.Embeddings;
 using DotnetLlamaSharp.Domain.Services.Inference;
@@ -150,8 +152,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                 })
             };
 
-        // WithSkills(["skillName1", "skillName2"]])
-        //
         public static IServiceCollection WithToolsFrom<TService>(this IServiceCollection services, ServiceLifetime lifetime = ServiceLifetime.Scoped) where TService : ToolsService<TService>, new()
             => lifetime switch
             {
@@ -170,8 +170,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 
         public static IServiceCollection AddLameChainServices(this IServiceCollection services, IConfiguration appConfig, ServiceLifetime lifetime)
         {
-            //Register Infra services
-            //Register services
             switch (lifetime)
             {
                 case (ServiceLifetime.Transient):
@@ -179,6 +177,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                     services.AddTransient<IPromptCommandsService, PromptCommandsService>();
                     services.AddTransient<IOllamaInferenceService, OllamaInferenceService>();
                     services.AddTransient<IOllamaStreamService, OllamaStreamService>();
+                    services.AddTransient<IAgentsFactory, AgentsFactory>();
                     services.AddTransient<IEmbeddingsService, EmbeddingsService>();
                     break;
 
@@ -188,12 +187,26 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                     services.AddScoped<IPromptCommandsService, PromptCommandsService>();
                     services.AddScoped<IOllamaInferenceService, OllamaInferenceService>();
                     services.AddScoped<IOllamaStreamService, OllamaStreamService>();
+                    services.AddScoped<IAgentsFactory, AgentsFactory>();
                     services.AddScoped<IEmbeddingsService, EmbeddingsService>();
                     break;
 
             }
             return services;
         }
+
+        public static IServiceCollection AddPdfDocumentLoader(this IServiceCollection services, ServiceLifetime lifetime = ServiceLifetime.Scoped)
+            => lifetime switch {
+                ServiceLifetime.Scoped => services.AddScoped<IDocumentLoader<PdfLoaderService>, PdfLoaderService>(),
+                ServiceLifetime.Transient => services.AddTransient<IDocumentLoader<PdfLoaderService>, PdfLoaderService>(),
+                _ => services
+            };
+        public static IServiceCollection AddMarkdownDocumentLoader(this IServiceCollection services, ServiceLifetime lifetime = ServiceLifetime.Scoped)
+            => lifetime switch {
+                ServiceLifetime.Scoped => services.AddScoped<IDocumentLoader<MarkdownLoaderService>, MarkdownLoaderService>(),
+                ServiceLifetime.Transient => services.AddTransient<IDocumentLoader<MarkdownLoaderService>, MarkdownLoaderService>(),
+                _ => services
+            };
 
         public static IServiceCollection ConfigureLameChain(this IServiceCollection services, IConfiguration appConfig, ServiceLifetime lifetime = ServiceLifetime.Scoped)
             => services.ConfigureOllamaSettings(appConfig)

@@ -12,6 +12,8 @@
 	  <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.8" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.8" />
     <PackageReference Include="OllamaSharp" Version="5.4.25" />
+	<PackageReference Include="Markdig" Version="1.4.0" />
+	<PackageReference Include="PdfPig" Version="0.1.14" />
   </ItemGroup>
 	<PropertyGroup>
 		<AssemblyName>Estrada.OllamaSharp.LameChain.SDK</AssemblyName>
