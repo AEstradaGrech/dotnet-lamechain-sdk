@@ -12,6 +12,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities
 {
     public static class OllamaTools
     {
+        public static IEnumerable<object> GetDefinitions(Dictionary<string, MethodInfo> tools)
+        {
+            if (tools.Count <= 0) return [];
+
+            var definitions = new List<object>();
+
+            foreach (var key in tools.Keys)
+                definitions.Add(FromMethod(tools[key]));
+
+            return definitions;
+        }
         public static object FromMethod(MethodInfo methodInfo)
         {
             return new JsonObject

@@ -22,12 +22,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
         /// <param name="systemUpdate"></param>
         /// <param name="settings"></param>
         /// <returns></returns>
-        public override ChatRequest ToOllamaChat(string systemUpdate, CommandSettings settings = null)
+        public override ChatRequest ToOllamaChat(string systemUpdate = "", PromptSettings settings = null)
         {
             if (IncludeSystemMessage && !string.IsNullOrEmpty(systemUpdate))
                 ChatHistory.Add(new ChatMessage(ChatRole.System.ToString(), systemUpdate));
 
-            ChatHistory.Add(new ChatMessage(ChatRole.User.ToString(), Prompt));
+            if(!string.IsNullOrEmpty(Prompt.Trim()))
+                ChatHistory.Add(new ChatMessage(ChatRole.User.ToString(), Prompt));
 
             var messages = new List<Message>();
 

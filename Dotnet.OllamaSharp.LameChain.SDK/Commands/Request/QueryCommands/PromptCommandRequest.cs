@@ -50,7 +50,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
 
         public Dictionary<string, string> NestedGuidances = new Dictionary<string, string>();// FOR CHAIN SUPPORT --> Step reads its NestedFeeds list -> if feed is tagged as CMD then it creates a request.GuidanceMessage from the feed and adds it here with the subCommandName&Tag to use it
         public Dictionary<string, MethodInfo> Tools => _tools;
-        public virtual ChatRequest ToOllamaChat(string commandSysmsg, CommandSettings settings = null)
+        public virtual ChatRequest ToOllamaChat(string commandSysmsg = "", PromptSettings settings = null)
             => new ChatRequest {
                 Model = getModelForRequest(settings),
                 Messages = [new Message(ChatRole.System, commandSysmsg), new Message(ChatRole.User, Prompt)],
@@ -60,7 +60,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                 Options = settings == null ? new RequestOptions() : settings.ToOllamaRequest()
             };
 
-        public virtual GenerateRequest ToOllamaGenerate(string commandSysmsg, CommandSettings settings = null)
+        public virtual GenerateRequest ToOllamaGenerate(string commandSysmsg, PromptSettings settings = null)
             => new GenerateRequest {
                 Model = getModelForRequest(settings),
                 Prompt = Prompt,
@@ -122,7 +122,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
             return clone;
         }
 
-        protected string getModelForRequest(CommandSettings? settings) => string.IsNullOrEmpty(Model) ? settings != null && !string.IsNullOrEmpty(settings.Model) ? settings.Model : string.Empty : Model;
+        protected string getModelForRequest(PromptSettings? settings) => string.IsNullOrEmpty(Model) ? settings != null && !string.IsNullOrEmpty(settings.Model) ? settings.Model : string.Empty : Model;
         private string? setModel(string? model)
         {
             //model = null -> use defaults (ollama + _settings.apiModels[0]
