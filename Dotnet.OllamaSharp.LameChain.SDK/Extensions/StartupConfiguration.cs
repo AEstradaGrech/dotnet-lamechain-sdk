@@ -150,6 +150,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                 })
             };
 
+        // WithSkills(["skillName1", "skillName2"]])
+        //
         public static IServiceCollection WithToolsFrom<TService>(this IServiceCollection services, ServiceLifetime lifetime = ServiceLifetime.Scoped) where TService : ToolsService<TService>, new()
             => lifetime switch
             {
