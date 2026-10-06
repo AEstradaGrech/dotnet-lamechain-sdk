@@ -45,9 +45,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             _inferenceService = _serviceProvider.GetRequiredService<IOllamaInferenceService>() ?? throw new ArgumentNullException($"{nameof(LameAgent)} >> {nameof(IOllamaInferenceService)}");
             _settings = settings; 
 
-            //if model is empty --> ServiceProvider.GetConfig --> use default ollama model
-
-            var split = model.Split('/');
+            var split = model.Split('_');
 
             Model = split.Count() == 1 ? model : split[1];
             Provider = split.Count() == 1 ? "ollama" : split[0];

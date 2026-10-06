@@ -9,18 +9,16 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services
     public class AgentsFactory : IAgentsFactory
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly IOllamaInferenceService _inferenceService;
 
         public AgentsFactory(IServiceProvider serviceProvider, IOllamaInferenceService inferenceService)
         {
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException($"{nameof(IServiceProvider)}");
-            _inferenceService = inferenceService ?? throw new ArgumentNullException($"{nameof(IOllamaInferenceService)}");
         }
 
         public LameAgent CreateAgent(string model, PromptSettings? settings = null)
             => Activator.CreateInstance(typeof(LameAgent), _serviceProvider, model, settings, null, null) as LameAgent;
 
-        public LameAgent CreateAgent(string model, string name, string description, PromptSettings? settings = null)
+        public LameAgent CreateAgent(string model, string? name, string? description, PromptSettings? settings = null)
             => Activator.CreateInstance(typeof(LameAgent), _serviceProvider, model, settings, name, description) as LameAgent;
     }
 }

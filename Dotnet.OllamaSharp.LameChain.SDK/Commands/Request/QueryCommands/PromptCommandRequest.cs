@@ -126,11 +126,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
         private string? setModel(string? model)
         {
             //model = null -> use defaults (ollama + _settings.apiModels[0]
-            //model != null & split -> is 'provider/model' format
+            //model != null & split -> is 'provider_model' format
             //model != null & !split -> default provider (ollama) + selected ollama model
             if (!string.IsNullOrEmpty(model))
             {
-                var split = model.Split("/");
+                var split = model.Split("_");
 
                 if (split.Length > 1)
                 {
