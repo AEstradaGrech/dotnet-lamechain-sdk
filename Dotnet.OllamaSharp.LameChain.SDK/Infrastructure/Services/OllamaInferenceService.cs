@@ -24,6 +24,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
         private readonly OllamaSettings _settings;
         private readonly ILogger<OllamaInferenceService> _logger;
         private BaseHandler _handler;
+        public Action<string> NotifyBroadcaster;
 
         public OllamaInferenceService(IOllamaApiClient client, IConfiguration config, IServiceProvider provider, IOptions<OllamaSettings> settings, ILogger<OllamaInferenceService> logger)
         {
@@ -34,9 +35,15 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             
         }
        
+        
         private void onHandlerNotify(string title, string message)
         {
-            _logger.Log(LogLevel.Information, $"{title} >> {message}");
+            string notification = $"{title} >> {message}";
+
+            _logger.Log(LogLevel.Information, notification);
+            
+            if(NotifyBroadcaster != null)
+                NotifyBroadcaster(notification);
         }
         public async Task<Message> GeneratePrompt(GenerateRequest request, string provider)
         {
@@ -47,7 +54,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
 
 
             if (string.IsNullOrEmpty(request.Model))
-                request.Model = _settings.DefaultModel; //TODO: getDefaultModelForProvider(provider)
+                request.Model = _settings.DefaultModel;
 
             string llmResponse = string.Empty;
             request.Stream = false;
@@ -254,5 +261,10 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             return string.IsNullOrEmpty(llmResponse) ? default(T) : JsonSerializer.Deserialize<T>(llmResponse);
         }
 
+        // Use this to broadcast the Handler notifications to other consumers (Specifically for LameAgents WithBroadcaster).
+        public void SubscribeNotifier(Action<string> notifier)
+        {
+            NotifyBroadcaster += notifier;
+        }
     }
 }

@@ -143,7 +143,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
         protected void notifyToolCall(string model, string toolName)
         {
             if (_onHandlerNotify != null)
-                _onHandlerNotify.Invoke($"- LLM THINKING: {_provider}/{model}", toolName);
+                _onHandlerNotify.Invoke($"- LLM TOOL CALL: {_provider}/{model}", toolName);
         }
 
         protected virtual List<Message> getToolResponseMessages(string toolName, Message toolRequestMessage, object? toolResult)

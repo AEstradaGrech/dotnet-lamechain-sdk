@@ -16,5 +16,7 @@ namespace DotnetLlamaSharp.Domain.Services.Inference
         Task<T> CommandPrompt<T>(GenerateRequest request, CommandPromptValidation<T>? validation = null, string provider = "ollama", bool withJsonInfo = true) where T : class;
         Task<T> CommandPrompt<T>(ChatRequest chatRequest, CommandPromptValidation<T>? validation = null, string provider = "ollama", Dictionary<string, MethodInfo>? requestTools = null, bool withJsonInfo = true) where T : class;
 
+        void SubscribeNotifier(Action<string> notifier);
+
     }
 }
