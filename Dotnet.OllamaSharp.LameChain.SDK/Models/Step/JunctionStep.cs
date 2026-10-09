@@ -1,5 +1,6 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
+using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs;
 using System.Text;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
@@ -35,35 +36,28 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
                     outputs[key].ForEach(output =>
                     {
-                        // BUILD MESSAGE
-                        sb.AppendLine()
-                          .AppendLine(!_stepSettings.WithFullContext ?
-                            output.SerializedResult :
-                            guidanceMessageFrom(
-                                output.Instruction.Replace(preInstructionTag, "").Trim(),
-                                output.SerializedResult,
-                                _stepSettings.WithPrevSchema ? output.SchemaForMessage() : null,
-                                output.ForwardGuidance)
-                          );
+                        appendOutputMessage(ref sb, output);
 
                         _instructionsLog.AddRange(previous.InstructionsLog);
                     });
                 }
-                else // build a single output result (Join after SPST | Pipe)
-                {
-                    var output = outputs[key].FirstOrDefault();
-
-                    sb.AppendLine()
-                      .AppendLine(!_stepSettings.WithFullContext ?
-                        output.SerializedResult :
-                        guidanceMessageFrom(
-                            output.Instruction.Replace(preInstructionTag, "").Trim(),
-                            output.SerializedResult,
-                            _stepSettings.WithPrevSchema ? output.SchemaForMessage() : null,
-                            output.ForwardGuidance)
-                      );
-                }
+                else appendOutputMessage(ref sb, outputs[key].FirstOrDefault()); // build a single output result (Join after SPST | Pipe)
             }
+        }
+
+        private void appendOutputMessage(ref StringBuilder sb, ChainLink output)
+        {
+            if (output == null) return;
+
+            sb.AppendLine()
+              .AppendLine(!_stepSettings.WithFullContext ?
+                output.SerializedResult :
+                guidanceMessageFrom(
+                    output.Instruction.Replace(preInstructionTag, "").Trim(),
+                    output.SerializedResult,
+                    output.ForwardGuidance
+                )
+              );
         }
     }
 }

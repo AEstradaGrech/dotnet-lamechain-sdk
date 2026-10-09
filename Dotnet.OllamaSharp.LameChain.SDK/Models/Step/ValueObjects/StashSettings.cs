@@ -14,15 +14,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
             IsIsolated = isIsolated;
         }
 
-        public StashSettings(IJsoneable command, string? requestPrompt, string? feedFwd = null, bool isGreedy = false, bool isIsolated = true, bool withFullContext = true, bool withPrevSchema = false)
-            : base(command, new PromptCommandRequest(requestPrompt ?? string.Empty), feedFwd, withFullContext, withPrevSchema)
+        public StashSettings(IJsoneable command, string? requestPrompt, string? feedFwd = null, bool isGreedy = false, bool isIsolated = true, bool withFullContext = true)
+            : base(command, new PromptCommandRequest(requestPrompt ?? string.Empty), feedFwd, withFullContext)
         {
             IsGreedy = isGreedy;
             IsIsolated = isIsolated;
         }
 
-        public StashSettings(IJsoneable command, PromptCommandRequest request, string? feedFwd = null, bool isGreedy = false, bool isIsolated = true, bool withFullContext = true, bool withPrevSchema = false) 
-            : base(command, request, feedFwd, withFullContext, withPrevSchema) 
+        public StashSettings(IJsoneable command, PromptCommandRequest request, string? feedFwd = null, bool isGreedy = false, bool isIsolated = true, bool withFullContext = true) 
+            : base(command, request, feedFwd, withFullContext) 
         {
             IsGreedy = isGreedy;
             IsIsolated = isIsolated;

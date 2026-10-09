@@ -10,7 +10,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
         private const string _boostersSectionTag = "## ADDITIONAL INFORMATION: ";
         public IJsoneable Command { get; }
         public bool WithFullContext { get; private set; }
-        public bool WithPrevSchema { get; private set; }
+        //public bool WithPrevSchema { get; private set; }
         public string? ForwardMessage { get; private set; }
         public StepSettings() 
         {
@@ -20,39 +20,39 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
             CommandRequest = new PromptCommandRequest();
             ForwardMessage = null;
             WithFullContext = true;
-            WithPrevSchema = false;
+            //WithPrevSchema = false;
         }
 
-        public StepSettings(PromptCommandRequest request, string? feedFwd = null, bool withFullContext = true, bool withPrevSchema = false) : this()
+        public StepSettings(PromptCommandRequest request, string? feedFwd = null, bool withFullContext = true) : this()
         {
             CommandRequest = request;
             ForwardMessage = feedFwd;
             WithFullContext = withFullContext;
-            WithPrevSchema = withPrevSchema;
+            //WithPrevSchema = withPrevSchema;
         }
 
-        public StepSettings(IJsoneable command, string? feedFwd = null, string? requestPrompt = null, bool isGuidanceAppend = true, bool withFullContext = true, bool withPrevSchema = false) : this()
+        public StepSettings(IJsoneable command, string? feedFwd = null, string? requestPrompt = null, bool isGuidanceAppend = true, bool withFullContext = true) : this()
         {
             CommandRequest = new PromptCommandRequest(requestPrompt ?? string.Empty, isGuidanceAppend);
             Command = command;
             ForwardMessage = feedFwd;
             WithFullContext = withFullContext;
-            WithPrevSchema = withPrevSchema;
+            //WithPrevSchema = withPrevSchema;
         }
 
-        public StepSettings(IJsoneable command, PromptCommandRequest request, string? feedFwd = null, bool withFullContext = true, bool withPrevSchema = false) : this()
+        public StepSettings(IJsoneable command, PromptCommandRequest request, string? feedFwd = null, bool withFullContext = true) : this()
         {
             CommandRequest = request;
             Command = command;
             ForwardMessage = feedFwd;
             WithFullContext = withFullContext;
-            WithPrevSchema = withPrevSchema;
+            //WithPrevSchema = withPrevSchema;
         }
 
         public StepSettings(StepSettings cloned, bool cloneFeeds = true, bool cloneBoosters = true)
         {
             WithFullContext = cloned.WithFullContext;
-            WithPrevSchema = cloned.WithPrevSchema;
+            //WithPrevSchema = cloned.WithPrevSchema;
             ForwardMessage = cloned.ForwardMessage;
             CommandRequest = cloned.CommandRequest.Clone();
             Command = cloned.Command;

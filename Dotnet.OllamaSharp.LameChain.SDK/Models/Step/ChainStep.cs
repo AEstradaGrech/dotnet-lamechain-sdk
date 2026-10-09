@@ -102,7 +102,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             submitForgeLog();
         }
-        //protected abstract Task forgeLink(IChaineable previous); // this makes the request and add the resulting link to the outputs list (allows multi-socket)
+
         public ChainStep() 
         { 
             _id = Guid.NewGuid();
@@ -335,7 +335,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                     guidanceMessageFrom(
                         previous.Outputs.First().Instruction.Replace(preInstructionTag, "").Trim(),
                         previous.Outputs.First().SerializedResult,
-                        _stepSettings.WithPrevSchema ? previous.Outputs.First().SchemaForMessage() : null,
                         previous.Outputs.First().ForwardGuidance)
                   );
             }
@@ -355,34 +354,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             setupRequestContext(previous);
 
             notify($"{nameof(forgeLink)} >> FORGING CHAIN LINK");
-
-            // !!!!!!!!!!!!!! <- Aqui toda la movida para request provider vs _settings.providers vs DefaultSettings
-            // Todos los comandos pasan por aqui, si o si.
-            // simple:
-            //      if _settings == null -> _settings = DefaultSettings
-            //      if(_settings.Provider != request. provider -> reset request model & provider
-            /*
-                if(_commands[idx].CommandSettings != null)
-            {
-                if(_commands[idx].CommandSettings.Model.IsEmpty()) <- SI EL USUARIO NO HA CONFIGURADO MODELO Y PROVIDER ENTONCES QUIERE USAR EL DEFAULT PARA TODA LA CADENA
-                    CommandSettings.SetModel($"{Request.Provider}/{Request.Model}"
-
-                ESTO TIENE QUE FUNCIONAR ASI:
-                  - Si el usuario NO especifica modelo en request --> default & default = ollama
-                  - Si el usuario SI especifica provider/modelo en request --> default = requestModel
-                  - Si especifica modelo para command, se usa ese. Si no el default
-                  - Es decir, default app == request.empty (convierte ollam en el default de toda la cadena)
-                  - Si no, el Rquest.provider es default para la cadena (y si se deja un command vacio, usa siempre default de la cadena
-                  - Es decir, dejar modelo vacio == step se ejecuta localmente (gratis) YA NO APLICA (hay que configurar step especificamente para ollama)
-            }
-            else
-            {
-                CommandSettings override = _runner.DefaultSettings;
-            }
-             
-             */
-
-            
 
             if(string.IsNullOrEmpty(Request.Model))
             {
@@ -458,7 +429,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         /// <param name="sb"></param>
         protected virtual void appendFeeds(StringBuilder sb)
         {
-            _stepSettings.ChainFeeds.ForEach(runnerId => sb.Append(getPreviousContextFromLog(runnerId(), _stepSettings.WithFullContext, _stepSettings.WithPrevSchema)));
+            _stepSettings.ChainFeeds.ForEach(runnerId => sb.Append(getPreviousContextFromLog(runnerId(), _stepSettings.WithFullContext)));
         }
 
         /// <summary>
@@ -480,13 +451,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                     {
                         var feedId = new Guid(split[0]);
 
-                        _stepSettings.NestFeeds[key].ForEach(id => sb.AppendLine(getPreviousContextFromLog(feedId, _stepSettings.WithFullContext, _stepSettings.WithPrevSchema)));
+                        _stepSettings.NestFeeds[key].ForEach(id => sb.AppendLine(getPreviousContextFromLog(feedId, _stepSettings.WithFullContext)));
                     }
                     else
                     {
                         var reqSb = new StringBuilder();
 
-                        _stepSettings.NestFeeds[key].ForEach(id => reqSb.AppendLine(getPreviousContextFromLog(id(), _stepSettings.WithFullContext, _stepSettings.WithPrevSchema)));
+                        _stepSettings.NestFeeds[key].ForEach(id => reqSb.AppendLine(getPreviousContextFromLog(id(), _stepSettings.WithFullContext)));
 
                         Request.NestedGuidances.Add(key, reqSb.ToString());
                     }
@@ -508,7 +479,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                   .AppendLine(_stepSettings.BoostersFeedText());
         }
 
-        private string getPreviousContextFromLog(Guid runnerId, bool withFullContext = true, bool withPrevSchema = true)
+        private string getPreviousContextFromLog(Guid runnerId, bool withFullContext = true)
         {
             if (!IsRunning) return string.Empty;
 
@@ -520,8 +491,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                     forged.JsonResult :
                     guidanceMessageFrom(
                         forged.CommandInstruction.Replace(preInstructionTag, "").Trim(),
-                        forged.JsonResult,
-                        withPrevSchema ? forged.JsonSchema : null,
                         forged.FeedForwardMessage)
                     );
 
@@ -541,14 +510,12 @@ description (wrapped in parenthesis) to understand what does it represent and ho
 {(!string.IsNullOrEmpty(_runner.Intent) ? $"> CHAIN INTENT (this is the overall goal of the whole chain in a categoric manner. Use it to have a very general idea about the task that the chain is trying to complete): {_runner.Intent}\n" : string.Empty)}
 > USER INPUT (this is the actual user request. Use it to understand what the user is trying to do in general terms): {_runner.UserPrompt}";
 
-        protected string guidanceMessageFrom(string instruction, string serialized, string jsonSchema, string? feededInstruction = null)
+        protected string guidanceMessageFrom(string instruction, string serialized, string? feededInstruction = null)
          => @$"{(string.IsNullOrEmpty(instruction.Trim()) ? string.Empty : $"> PREVIOUS INSTRUCTION (use this to have a clear idea of what was exactly the previous worker task and understand its output):\n{instruction.Trim()}")}
 
 > PREVIOUS OUTPUT (this is the raw json output of the previous instruction):
 
 {serialized}
-
-{(string.IsNullOrEmpty(jsonSchema) ? string.Empty : $"> PREVIOUS OUTPUT SCHEMA (use this to understand the previous output json model):\n\n{jsonSchema}")}
 
 {(string.IsNullOrEmpty(feededInstruction) ? string.Empty : $"> GUIDANCE MESSAGE FROM PREVIOUS WORKER (this states what the previous worker expects you to do with his output data): {feededInstruction}")}".Trim();
 
@@ -562,11 +529,6 @@ description (wrapped in parenthesis) to understand what does it represent and ho
             onFinishNotify += _runner.OnRunnerFinished;
             
             checkCanForge(previous);
-
-            //'what is the play about!'
-
-            //By default splitted steps do not execute commands in their chain
-            // (they trigger subchains of SingleThrowSteps)
 
             _passCatchTimestamp = DateTime.Now;
 

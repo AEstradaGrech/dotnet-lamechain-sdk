@@ -176,7 +176,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             _feedForwardInstruction += $"\n{feedFwdSb.ToString().Trim()}";
 
             if (_runner.TryFindForged(previousId, out var log))
-                Request.GuidanceMessage += guidanceMessageFrom(log.CommandInstruction.Replace(preInstructionTag, "").Trim(), log.JsonResult, log.JsonSchema, log.FeedForwardMessage);
+                Request.GuidanceMessage += guidanceMessageFrom(log.CommandInstruction.Replace(preInstructionTag, "").Trim(), log.JsonResult, log.FeedForwardMessage);
         }
 
         protected override ReplayLog replayFromLog()
