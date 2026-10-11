@@ -33,6 +33,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
         public string? Name { get; private set; }
         // Add to sysmessage (if not null) to provide context to the model about the agent's purpose and behavior.
         public string? Description { get; private set; }
+        public string UserInput { get; private set; }
 
         public bool HasTools => Tools.Count > 0;
         private PromptSettings? _settings = null;
@@ -44,8 +45,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
         // Memory?
 
-        private readonly IServiceProvider _serviceProvider;
-        private readonly IOllamaInferenceService _inferenceService;
+        protected readonly IServiceProvider _serviceProvider;
+        protected readonly IOllamaInferenceService _inferenceService;
 
         private Action<Guid, string, LogLevel>? _onBroadcast;
         public LameAgent(IServiceProvider serviceProvider, string model, PromptSettings? settings = null, string? name = null, string? description = null)
@@ -86,6 +87,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
         {
             if (string.IsNullOrEmpty(prompt.Trim()))
                 throw new InvalidOperationException($"{nameof(LameAgent)} >> {nameof(RunPrompt)} >> No User Prompt to run");
+
+            UserInput = prompt;
 
             var systemMessage = buildSystemMessage();
 
@@ -159,8 +162,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                 $"{systemMessage}" : request.IsGuidanceAppend ? 
                 $"{systemMessage}.\n\n{request.GuidanceMessage}" :
                 $"{request.IsGuidanceAppend}\n\n{systemMessage}";
-
-            
 
             if (request.ChatHistory.Count > 0)
             {
@@ -250,24 +251,46 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             if (!string.IsNullOrEmpty(Description))
                 sb.AppendLine($"# Agent Description: {Description}\n");
 
-            using var scope = _serviceProvider.CreateScope();
+            var skillsMessage = HandleSystemMessageSkills(Skills).Result;
 
-            var loader = scope.ServiceProvider.GetRequiredService<IDocumentLoader<MarkdownLoaderService>>();
-            
-            if(Skills.Count > 0)
+            if (!string.IsNullOrEmpty(skillsMessage))
+                sb.AppendLine(skillsMessage);
+
+            if (DataSources.Count > 0)
             {
+                sb.AppendLine("# Data Sources:\n");
+
+                foreach (var source in DataSources)
+                    sb.AppendLine($"- {source.Key}: {string.Join("\n\n", source.Value)}");
+            }
+
+            return sb.ToString();
+        }
+
+        public virtual async Task<string> HandleSystemMessageSkills(List<string> skills)
+        {
+            var sb = new StringBuilder();
+
+            if (skills.Count > 0)
+            {
+                using var scope = _serviceProvider.CreateScope();
+
+                var loader = scope.ServiceProvider.GetRequiredService<IDocumentLoader<MarkdownLoaderService>>();
+
+                if (loader == null) return sb.ToString();
+
                 sb.AppendLine("# SKILLS");
 
                 foreach (var skill in Skills)
                 {
-                    var doc = loader.LoadDocument($"skills\\{skill}").Result;
+                    var doc = await loader.LoadDocument($"skills\\{skill}");
 
                     if (doc != null && doc.Pages.Count() > 0)
                         sb.AppendLine(doc.Pages.Last().Text.Trim());
 
                     var heading = doc.Pages.FirstOrDefault();
 
-                    if(heading.Text.Contains("allowed-tools:"))
+                    if (heading.Text.Contains("allowed-tools:"))
                     {
                         var split = heading.Text.Split("allowed-tools:");
 
@@ -283,18 +306,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                     }
                 }
             }
-            
-            if (DataSources.Count > 0)
-            {
-                sb.AppendLine("# Data Sources:\n");
-
-                foreach (var source in DataSources)
-                    sb.AppendLine($"- {source.Key}: {string.Join("\n\n", source.Value)}");
-            }
 
             return sb.ToString();
         }
-
         private string broadcastAgentSetup(string systemMessage)
         {
             var sb = new StringBuilder();

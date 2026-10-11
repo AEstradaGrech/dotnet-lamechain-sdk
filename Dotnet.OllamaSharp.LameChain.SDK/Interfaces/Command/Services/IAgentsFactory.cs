@@ -8,5 +8,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services
     {
         LameAgent CreateAgent(string model, PromptSettings? settings = null);
         LameAgent CreateAgent(string model, string? name, string? description, PromptSettings? settings = null);
+        SelectedSkillsAgent CreateSelectedSkillsAgent(string model, string? name, string? description, PromptSettings? settings = null);
     }
 }

@@ -2,7 +2,7 @@
 using System.ComponentModel;
 using System.Reflection;
 
-namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services
+namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
 {
     public sealed record ToolsServiceDescriptor(Type ServiceType);
 
