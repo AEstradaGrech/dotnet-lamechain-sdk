@@ -1,5 +1,6 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.DocumentLoader;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
@@ -71,9 +72,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             Name = name;
             Description = description;
         }
-
-        //SETTINGS
-
 
         /// <summary>
         /// Runs a prompt through the agent's model and returns the generated response as a string.
@@ -266,6 +264,23 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
                     if (doc != null && doc.Pages.Count() > 0)
                         sb.AppendLine(doc.Pages.Last().Text.Trim());
+
+                    var heading = doc.Pages.FirstOrDefault();
+
+                    if(heading.Text.Contains("allowed-tools:"))
+                    {
+                        var split = heading.Text.Split("allowed-tools:");
+
+                        var allowedTools = split[1].Replace("[", "").Replace("]", "").Split(",").Select(t => t.Trim()).ToList();
+
+                        using var toolboxScope = _serviceProvider.CreateScope();
+
+                        var toolbox = toolboxScope.ServiceProvider.GetRequiredService<IToolbox>();
+
+                        foreach (var tool in allowedTools)
+                            if (toolbox.TryGetMethodInfo(tool, out MethodInfo toolMethod))
+                                AddTool(tool, toolMethod);
+                    }
                 }
             }
             

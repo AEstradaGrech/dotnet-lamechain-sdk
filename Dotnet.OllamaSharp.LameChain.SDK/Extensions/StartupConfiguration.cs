@@ -15,6 +15,7 @@ using DotnetLlamaSharp.Services.Prompting;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
 using System.Net.Http.Headers;
@@ -153,14 +154,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             };
 
         public static IServiceCollection WithToolsFrom<TService>(this IServiceCollection services, ServiceLifetime lifetime = ServiceLifetime.Scoped) where TService : ToolsService<TService>, new()
-            => lifetime switch
-            {
-                ServiceLifetime.Scoped => services.AddScoped<IToolsService<TService>, TService>(),
-                ServiceLifetime.Transient => services.AddScoped<IToolsService<TService>, TService>(),
-                ServiceLifetime.Singleton => services.AddScoped<IToolsService<TService>, TService>(),
+        {
+            services.TryAddSingleton<IToolbox, Toolbox>();
+
+            return lifetime switch
+            { 
+                ServiceLifetime.Scoped => services.AddScoped<IToolsService<TService>, TService>().AddSingleton(new ToolsServiceDescriptor(typeof(TService))),
+                ServiceLifetime.Transient => services.AddTransient<IToolsService<TService>, TService>().AddSingleton(new ToolsServiceDescriptor(typeof(TService))),
+                ServiceLifetime.Singleton => services.AddSingleton<IToolsService<TService>, TService>().AddSingleton(new ToolsServiceDescriptor(typeof(TService))),
                 _ => services.AddScoped<IToolsService<TService>, TService>(),
             };
-
+        }
         public static IServiceCollection ConfigureClaudeApiClient(this IServiceCollection services, IConfiguration appConfig, ServiceLifetime lifetime = ServiceLifetime.Scoped)
            => lifetime switch {
                ServiceLifetime.Scoped => services.ConfigureClaudeSettings(appConfig).AddScoped<IClaudeClient, ClaudeClient>(),
