@@ -33,6 +33,7 @@ LameChain is built around three main components:
 2. **Chain Steps**: configure and execute command chains, while managing feeds and context.
 3. **Fluent Extensions**: expose a readable API for composing valid chains without manual wiring.
 4. **Ollama Tools**: add functions as tools and let the LLM decide which tools to use to generate a more accurate response.
+5. **Lame Agents**: easy way to create agents with tools and skills, with optional name / descriptions to perform llm inferences
 
 This structure makes it easy to use commands standalone, while also enabling richer workflows when you need multiple LLM requests or mixed result types.
 
@@ -43,6 +44,7 @@ This structure makes it easy to use commands standalone, while also enabling ric
 - Fluent chain extensions for building readable sequence/parallel flows
 - Chain rule classes that enforce valid SDK usage
 - Inference and Embeddings services with startup configuration helpers
+- Agents with tools and skills to easily setup LLM requests
 
 ## How it works
 
@@ -982,7 +984,7 @@ Here is an example (available in the sample project). It registers a **LlamaTool
     builder.Services
         .AddConfigurations(builder.Configuration)
         .ConfigureLameChain(builder.Configuration, ServiceLifetime.Scoped)
-        .WithToolsFrom<LlamaSharpTools>(ServiceLifetime.Scoped)
+        .WithToolsFrom<ChromaTools>(ServiceLifetime.Scoped)
         .ConfigureLangSearch(builder.Configuration)
         .AddChromaConfiguration(builder.Configuration)
 
@@ -1033,6 +1035,219 @@ what values to pass as arguments. Here is an example:
         return choice;
     }
 
+```
+
+## Lame Agents:
+
+Command Chains are fine for predefined / deterministic workflows, but you can also use Lame Agents to perform LLM inferences. An agent can be equipped with tools and skills. They also accept a system instruction and they
+can be given a name and a description that will be added to the final system message to enforce a personality or summarize its purpose / task.
+
+Agents can also be equipped with tools to perform more complex actions with more autonomy about how to accomplish the prompted task and get better results with the returned tool data. You can also
+add them skills to configure them using markdown files containing clear, well structured and reusable instructions about how to orchestrate the available tools for a given task or modulate the mood
+and tone of the final answer.
+
+(Note: you can create LameCommand chains inside tools to mix-up the deterministic nature of command worklows with the autonomy and intelligence of a LameAgent to achieve high quality responses from the LLM)
+
+### Skills:
+
+Skills are markdown files containing instructions about how to output the final response. At the end of the day, it is just a piece of the final system message, allowing also to specify the tools that
+can be used to complete the prompted task or query (the SDK will load and equip the agent with those tools during the system message construction).
+
+The SDK skills system follows the Anthropic standard in terms of structure and naming. They are composed of a heading section with a summarization and metadata about the skill (used for skill discovery and 
+progressive skill loading) and the body of the skill containing the instructions for the agent.
+The skills should be stored inside a `skills` folder, each one inside a folder named like the skill and containing a `SKILL.md` file. The skills folder should be placed inside a `markdowns` folder for the
+SDK's `IDocumentLoader<MarkdownLoaderService>`to work, like this:
+
+**path-to-your-resources-folder/markdowns/skills/some-skill/SKILL.md**
+
+#### Skill types:
+
+The SDK makes use of two types of skill:
+
+    - Behavioral: this skills are used to add a personality bias to the LLM to regulate the tone and mood of the final response. They are simply reusable parts of the system message and they don't enforce the usage of any tool.
+    - Tool: this skills are used to load one or many tools and instruct the agent about how and when to use them. They are useful to orchestrate the usage of a tools set.
+
+The `type` heading field is not part of the Anthropic standard and it is optional, they are used to categorize your skills collection and they are useful to provide information to the agent in skills-discovery operations.
+
+##### Skill Examples:
+
+Here is a simple behavioral skill example:
+
+```markdown
+---
+name: senior-code-reviewer
+description: Makes the assistant answer as a strict senior .NET code reviewer. Use when the user shares C# code, asks for a review, or asks "what is wrong with this code".
+version: 1.0.0
+type: behavioral
+tags: [dotnet, csharp, code-review]
+---
+
+# Senior Code Reviewer
+
+You are a senior .NET engineer doing a code review. Stay in this role for the rest of the conversation.
+
+## When to apply
+
+- The user pastes C# / .NET code.
+- The user asks for a review, feedback, refactor or "what is wrong" with some code.
+
+If the request has nothing to do with code, ignore this skill and answer normally.
+
+## Behavior
+
+1. Read the whole snippet before commenting. Do not guess about code you were not shown.
+2. Rank findings by severity: **Bug** > **Security** > **Performance** > **Readability**.
+3. For every finding give: the line or member affected, why it is a problem, and a minimal fix.
+4. Prefer idiomatic modern C# (nullable reference types, `async`/`await` end to end, `using` declarations, records for immutable data).
+5. If the code is fine, say so in one sentence. Do not invent problems.
+
+## Tone
+
+- Direct and concise. No greetings, no filler.
+- Never rewrite the full file unless explicitly asked; show only the changed lines.
+
+## Output format
+
+
+### Findings
+- [Bug] `OrderService.Save` (line 42): <problem>. Fix: <fix>
+- [Readability] ...
+
+### Verdict
+Approve | Request changes
+
+
+## Example
+
+**User:** `public async void Load() { var data = await _repo.GetAll(); }`
+
+**Assistant:**
+### Findings
+- [Bug] `Load`: `async void` swallows exceptions and cannot be awaited. Fix: `public async Task Load()`.
+
+### Verdict
+Request changes
+```
+
+An this an example of a `tool` skill:
+
+````markdown
+---
+name: chroma-query
+description: Answers questions using the documents stored in the knowledge base (ChromaDB). Use when the user asks an explicit question about a topic that may be covered by the ingested documents.
+version: 1.0.0
+type: tools
+tags: [knowledge-base, rag]
+allowed-tools: [ChromaCollectionSelector, ChromaSearchTool]
+---
+
+# Chroma Query
+
+This skill lets you answer questions with information retrieved from the knowledge base.
+Retrieval is a two-step process: first select the collection, then search it.
+
+## When to use
+
+- The user asks an explicit question about a topic, book, document or domain that may be in the knowledge base.
+
+## When NOT to use
+
+- Greetings, small talk, statements or follow-ups that can be answered from the conversation itself.
+
+## Tools
+
+### ChromaCollectionSelector(userQuery)
+
+Returns the **name of the collection** (plain text) that best matches the question, or an empty value if no collection is relevant.
+
+Example result: `reasoning-agents`
+
+### ChromaSearchTool(collectionName, userQuery)
+
+Searches the given collection and returns a **list of text chunks** relevant to the question.
+
+Example result:
+```json
+[
+  "Reasoning agents are systems that make decisions based on logical reasoning and available information...",
+  "They are often used in AI applications to simulate human-like decision-making..."
+]```
+
+
+## Instructions
+
+1. Call `ChromaCollectionSelector` with the user's question as `userQuery`.
+2. If the result is empty, do NOT call `ChromaSearchTool`. Try to answer the question from your own knowledge.
+3. Otherwise call `ChromaSearchTool` with:
+   - `collectionName`: the selector result, **exactly as returned** (do not translate or change it).
+   - `userQuery`: the user's question.
+4. Call each tool **once** per question. Do not repeat the search.
+5. If the `ChromaCollectionSelector`returns a valid name, answer use the information found in the returned chunks to support your response. If they do not answer the question, use your own knowledge. Never invent facts.
+6. Do not show raw tool results unless the user asks for them.
+7. This skill only governs how information is retrieved. Tone, language and personality come from your other instructions.
+
+## Example
+
+**User:** What can you tell me about reasoning agents?
+
+**Assistant (tool call):** `ChromaCollectionSelector({ "userQuery": "What can you tell me about reasoning agents?" })`
+
+**Tool result:** `reasoning-agents`
+
+**Assistant (tool call):** `ChromaSearchTool({ "collectionName": "reasoning-agents", "userQuery": "What can you tell me about reasoning agents?" })`
+
+**Tool result:** `["Reasoning agents are systems that make decisions based on logical reasoning...", "They are often used in AI applications to simulate human-like decision-making..."]`
+
+**Assistant:** Reasoning agents are systems that make decisions through logical reasoning over the information available to them. They are commonly used in AI applications to simulate human-like decision-making.
+
+````
+
+### ToolServices, Toolbox and built-in Agent Tools:
+
+To enable the tool usage, the SDK makes use of a base class (ToolService) and a typed interface to inject your tool repositories inside your app and then create a service scope to access them
+and resolve the LLM function call. With the agents release the SDK adds a `Toolbox` singleton that will store a reference to all the registered ToolServices so the agent can equip any registered tool 
+in the app without the need of injecting every ToolService inside the agent, allowing to equip any skill tool despite the ToolService in which the function is implemented.
+
+Also, to make the AutoSkilledAgent work, I added the `agent built-in tools` feature that allows you to code tools inside an Agent class instead of having to implement them inside a ToolService.
+To do that, the framework uses a `ToolBinding` record that stores the function MethodInfo and an optional `target`. At the time of tool execution, the SDK will try to retrieve the tool from a service if 
+no specific `target` is setted in the `ToolBinding` target field (right now the rule is 'no target = ToolService function, else it is an Agent built-in tool). 
+
+### Agent Types / usage examples:
+
+```csharp 
+
+    // Basic agent with tools, a behavioral skill and optional name / description
+    public async Task<string> AgentPromptSample_ToolsAndSkill(string model, string prompt, string? name, string? description, PromptSettings? settings, string? instruction = null)
+        => await (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(description) ?
+            _agentsFactory.CreateAgent(model, settings) :
+            _agentsFactory.CreateAgent(model, name, description, settings))
+            .AddTool(nameof(ChromaTools.ChromaCollectionSelector), new ToolBinding(_toolsService.GetType().GetMethod(nameof(ChromaTools.ChromaCollectionSelector))))
+            .AddTool(nameof(ChromaTools.ChromaSearchTool), new ToolBinding(_toolsService.GetType().GetMethod(nameof(ChromaTools.ChromaSearchTool))))
+            .WithSkills(["pirate-assistant"])
+            .RunPrompt(prompt, instruction);
+
+    // An agent that loads its tools from the 'chroma-query' skill and adds a behavioral skill to modify the tone / language of the final response 
+    public async Task<string> AgentPromptSample_ToolsFromSkills(string model, string prompt, string? name, string? description, PromptSettings? settings, string? instruction = null)
+        => await (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(description) ?
+            _agentsFactory.CreateAgent(model, settings) :
+            _agentsFactory.CreateAgent(model, name, description, settings))
+                .WithBroadcast(agentBroadcaster)
+                .WithSkills(["jamaican-assistant", "chroma-query"])
+                .RunPrompt(prompt, instruction);
+
+    // This agent selects the most relevant skills from the assigned skills for the given user input using a MultichoiceCommand along with the specified skill tools to run the user prompt
+    public async Task<string> AgentPromptSample_SelectedSkillsAgent(string model, string prompt, string? name, string? description, PromptSettings? settings, string? instruction = null)
+        => await _agentsFactory.CreateSelectedSkillsAgent(model, name, description, settings)
+            .WithBroadcast(agentBroadcaster)
+            .WithSkills(["chroma-dba", "mongo-dba", "jamaican-assistant", "pirate-assistant", "web-search", "senior-code-reviewer"])
+            .RunPrompt(prompt, instruction);
+
+    // The autoskilled agent has built-in tools to discover, select and load the most relevant assigned skills and the specified skill tools (if any) to complete the prompted task 
+    public async Task<string> AgentPromptSample_AutoSkilledAgent(string model, string prompt, string? name, string? description, PromptSettings? settings, string? instruction = null)
+         => await _agentsFactory.CreateAutoSkilledAgent(model, name, description, settings)
+             .WithBroadcast(agentBroadcaster)
+             .WithSkills(["chroma-dba", "jamaican-assistant", "pirate-assistant", "web-search", "senior-code-reviewer"])
+             .RunPrompt(prompt, instruction);
 ```
 
 ## Multiple providers:
