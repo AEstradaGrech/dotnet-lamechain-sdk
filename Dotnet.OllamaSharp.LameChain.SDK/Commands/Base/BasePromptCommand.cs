@@ -4,6 +4,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
 using DotnetLlamaSharp.Domain.Services.Inference;
@@ -63,11 +64,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
         /// <summary>
         /// Gets the tools dictionary from the request if it has tools, otherwise returns null
         /// </summary>
-        protected Dictionary<string, MethodInfo>? GetRequestTools(PromptCommandRequest request)
-        {
-            return request.HasTools ? request.Tools : null;
-        }
-
+        protected Dictionary<string, ToolBinding>? GetRequestTools(PromptCommandRequest request)
+            => request.HasTools ? request.Tools : null;
+        
         public async Task<JsonPromptResult> JsonPrompt(PromptCommandRequest request, CommandSettings? settingsOverride = null, bool returnFullInstruction= false, string? preInstruction = null)
         {
             if (settingsOverride != null)

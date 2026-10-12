@@ -7,6 +7,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoader;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,7 +40,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
         public bool HasTools => Tools.Count > 0;
         private PromptSettings? _settings = null;
 
-        public Dictionary<string, MethodInfo> Tools { get; private set; } = new Dictionary<string, MethodInfo>();
+        public Dictionary<string, ToolBinding> Tools { get; private set; } = new Dictionary<string, ToolBinding>();
         public List<string> Skills { get; private set; } = new List<string>();
         
         public Dictionary<string, List<string>> DataSources { get; private set; } = new Dictionary<string, List<string>>();
@@ -193,14 +194,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             return await _inferenceService.CommandPrompt<T>(request.ToOllamaChat(settings: _settings));
         }
 
-        public LameAgent AddTool(string toolName, MethodInfo method)
+        public LameAgent AddTool(string toolName, ToolBinding binding)
         {
             if (!Tools.ContainsKey(toolName))
-                Tools.Add(toolName, method);
+                Tools.Add(toolName, binding);
 
             return this;
         }
-        public LameAgent AddTools(Dictionary<string, MethodInfo> tools)
+        public LameAgent AddTools(Dictionary<string, ToolBinding> tools)
         {
             foreach (var tool in tools)
                 AddTool(tool.Key, tool.Value);
@@ -313,7 +314,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
             foreach (var tool in allowedTools)
                 if (toolbox.TryGetMethodInfo(tool, out MethodInfo toolMethod))
-                    AddTool(tool, toolMethod);
+                    AddTool(tool, new ToolBinding(toolMethod)); // tools from toolbox come always  from ToolService (binding target is null)
         }
 
         private string broadcastAgentSetup(string systemMessage)

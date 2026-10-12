@@ -5,6 +5,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Exceptions;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -78,7 +79,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
            return new Message { Role = ChatRole.Assistant, Content = llmResponse };
         }
 
-        public async Task<Message> ChatPrompt(ChatRequest request, string provider, Dictionary<string, MethodInfo>? requestTools = null)
+        public async Task<Message> ChatPrompt(ChatRequest request, string provider, Dictionary<string, ToolBinding>? requestTools = null)
         {
             provider = provider.Trim();
 
@@ -210,7 +211,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             return string.IsNullOrEmpty(llmResponse) ? default(T) : JsonSerializer.Deserialize<T>(llmResponse);
         }
 
-        public async Task<T> CommandPrompt<T>(ChatRequest chatRequest, CommandPromptValidation<T>? validation = null, string provider = "ollama", Dictionary<string, MethodInfo>? requestTools = null, bool withJsonInfo = true) where T : class
+        public async Task<T> CommandPrompt<T>(ChatRequest chatRequest, CommandPromptValidation<T>? validation = null, string provider = "ollama", Dictionary<string, ToolBinding>? requestTools = null, bool withJsonInfo = true) where T : class
         {
             string llmResponse = string.Empty;
             int validations = validation != null ? validation.Validations : 0;

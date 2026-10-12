@@ -1,7 +1,7 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.DocumentLoader;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.DocumentLoader;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoader;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Microsoft.Extensions.DependencyInjection;
 using System.ComponentModel;
 using System.Text;
@@ -11,11 +11,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
     public class AutoSkilledAgent : LameAgent
     {
         private const string SKILL_LOADING_MESSAGE = @"You have access to a set of skills. You must select the skills that might be useful to complete your task. 
-Use the SkillsDiscoveryTool to get a list of the available skills to select, then use the SkillLoaderTool passing the selected skill names to
+Use the SkillsDiscoveryTool to get a list of the available skills to select along with some other information about the skill, then use the SkillsLoaderTool passing the selected skill names to
 load the skill information and its associated tools (if any).
 
-You don't need to load them all at once (you can load each skill progressively as you need. For example, you can load the 'chroma-dba' to gather information about the queried topic and then load a behavioral skill to
-produce your final response according to the requested tone and mood ";
+You don't need to load them all at once, you can load each skill progressively as you need. For example, you can load the 'chroma-dba' to gather information about the queried topic and then load a behavioral skill to
+produce your final response according to the requested tone and mood 
+
+# IMPORTANT: Select ONLY the SKILL NAMES to pass them as parameter in the SkillsLoadTool.
+";
 
         public AutoSkilledAgent() : base() { }
         public AutoSkilledAgent(IServiceProvider serviceProvider, string model, PromptSettings? settings = null, string? name = null, string? description = null) : base(serviceProvider, model, settings, name, description)
@@ -26,8 +29,8 @@ produce your final response according to the requested tone and mood ";
         {
             if(skills.Count > 0)
             {
-                AddTool(nameof(SkillsDiscoveryTool), GetType().GetMethod(nameof(SkillsDiscoveryTool)));
-                AddTool(nameof(SkillsLoaderTool), GetType().GetMethod(nameof(SkillsLoaderTool)));
+                AddTool(nameof(SkillsDiscoveryTool), new ToolBinding(GetType().GetMethod(nameof(SkillsDiscoveryTool)), target: this));
+                AddTool(nameof(SkillsLoaderTool), new ToolBinding(GetType().GetMethod(nameof(SkillsLoaderTool)), target: this));
                 return SKILL_LOADING_MESSAGE; // return the base instruction specifying how to use the tools / discover & load the assigned skills
             }
 
@@ -50,7 +53,7 @@ produce your final response according to the requested tone and mood ";
             foreach (var skill in Skills)
             {
                 // Note: the expected folder structure is <PathToResourcesFromAppSettings>\markdowns\skills\<skillname>\SKILL.md
-                var skillDoc = await docLoader.LoadDocument($"skills\\{skill}.md");
+                var skillDoc = await docLoader.LoadDocument($"skills\\{skill}");
 
                 if (skillDoc != null && skillDoc.Pages.Count > 0 && !string.IsNullOrEmpty(skillDoc.Pages.FirstOrDefault().Text))
                     sb.AppendLine()
@@ -60,8 +63,8 @@ produce your final response according to the requested tone and mood ";
             return sb.ToString().Trim();
         }
 
-        [Description("Load a list of skills into the LLM context")]
-        public async Task<string> SkillsLoaderTool([Description("List of skills to load")] List<string> skills)
+        [Description("Loads a list of skill names into the LLM context")]
+        public async Task<string> SkillsLoaderTool([Description("List of skill names to load")] List<string> skills)
         {
             using var scope = _serviceProvider.CreateScope();
 
@@ -74,14 +77,14 @@ produce your final response according to the requested tone and mood ";
             foreach (var skill in skills)
             {
                 // Note: the expected folder structure is <PathToResourcesFromAppSettings>\markdowns\skills\<skillname>\SKILL.md
-                var skillDoc = await docLoader.LoadDocument($"skills\\{skill}.md");
+                var skillDoc = await docLoader.LoadDocument($"skills\\{skill}");
 
-                if (skillDoc != null && skillDoc.Pages.Count > 0 && !string.IsNullOrEmpty(skillDoc.Pages.FirstOrDefault().Text))
+                if (skillDoc != null && skillDoc.Pages.Count > 1 && !string.IsNullOrEmpty(skillDoc.Pages.Last().Text)) //contains at least the heading (first page) and the full skill (last page)
                 {
                     sb.AppendLine()
-                      .AppendLine(skillDoc.Pages.FirstOrDefault().Text);
+                      .AppendLine(skillDoc.Pages.Last().Text); // pass the full skill
 
-                    loadSkillTools(skillDoc.Pages.FirstOrDefault());
+                    loadSkillTools(skillDoc.Pages.FirstOrDefault()); // pass only the heading to parse the 'available-tools'
                 }
             }
 

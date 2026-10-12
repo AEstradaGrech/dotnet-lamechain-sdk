@@ -2,12 +2,12 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Extensions.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OllamaSharp.Models.Chat;
-using System.Reflection;
 using AIMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
@@ -30,7 +30,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 throw new ArgumentNullException($"{GetType().Name} >> {nameof(_settings)} not configured");
         }
 
-        public override async Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null)
+        public override async Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, ToolBinding>? requestTools = null)
         {
             if (!isValid())
                 throw new InvalidOperationException($"{GetLlmResponse} >> {nameof(isValid)}");
@@ -78,7 +78,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
         protected override bool isValid()
             => base.isValid() && _client != null;
         
-        protected async Task<string> handleFunctionCall<TReq, TMessage>(TReq request, TMessage message, Dictionary<string, MethodInfo>? toolsLookup)
+        protected async Task<string> handleFunctionCall<TReq, TMessage>(TReq request, TMessage message, Dictionary<string, ToolBinding>? toolsLookup)
             where TReq : class
             where TMessage : class
         {
@@ -94,9 +94,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             notifyToolCall(claudeRequest.Model, toolCallMessage.Name);
 
-            var method = toolsLookup[toolCallMessage.Name];
-
-            var toolResult = await getToolResult(method, toolCallMessage.Arguments);
+            var toolResult = await getToolResult(toolsLookup[toolCallMessage.Name], toolCallMessage.Arguments);
 
             var messages = claudeRequest.Messages.ToList();
 
@@ -116,7 +114,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
         }
 
 
-        protected override void validateFunctionCallMessage<T>(T message, Dictionary<string, MethodInfo>? toolsLookup) where T : class
+        protected override void validateFunctionCallMessage<T>(T message, Dictionary<string, ToolBinding>? toolsLookup) where T : class
         {
             var llmMessage = message as AIMessage;
 
@@ -132,13 +130,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 throw new InvalidOperationException($"{nameof(handleFunctionCall)} >> {toolCallMessage.Name} is not present in the toolsLookup dictionary");
         }
 
-        private List<AITool> mapRequestTools(Dictionary<string, MethodInfo>? toolsLookup)
+        private List<AITool> mapRequestTools(Dictionary<string, ToolBinding>? toolsLookup)
         {
             if (toolsLookup == null) return [];
 
             var tools = new List<AITool>();
 
-            toolsLookup.Keys.ToList().ForEach(key => tools.Add(OllamaTools.ToAIFunction(toolsLookup[key], _serviceProvider)));
+            toolsLookup.Keys.ToList().ForEach(key => tools.Add(OllamaTools.ToAIFunction(toolsLookup[key].methodInfo, _serviceProvider)));
 
             return tools;
         }

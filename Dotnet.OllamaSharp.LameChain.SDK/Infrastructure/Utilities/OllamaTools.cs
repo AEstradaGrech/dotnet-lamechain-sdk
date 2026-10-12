@@ -1,4 +1,5 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using System.ComponentModel;
@@ -12,17 +13,18 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities
 {
     public static class OllamaTools
     {
-        public static IEnumerable<object> GetDefinitions(Dictionary<string, MethodInfo> tools)
+        public static IEnumerable<object> GetDefinitions(Dictionary<string, ToolBinding> toolBindings)
         {
-            if (tools.Count <= 0) return [];
+            if (toolBindings.Count <= 0) return [];
 
             var definitions = new List<object>();
 
-            foreach (var key in tools.Keys)
-                definitions.Add(FromMethod(tools[key]));
+            foreach (var key in toolBindings.Keys)
+                definitions.Add(FromMethod(toolBindings[key].methodInfo));
 
             return definitions;
         }
+
         public static object FromMethod(MethodInfo methodInfo)
         {
             return new JsonObject

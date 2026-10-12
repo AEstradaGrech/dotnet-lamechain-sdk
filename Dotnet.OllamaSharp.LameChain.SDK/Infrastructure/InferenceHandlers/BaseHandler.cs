@@ -1,4 +1,5 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -66,12 +67,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             return configuration.GetSection(nameof(T)).Get<T>();
         }
-        public abstract Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null);
+        public abstract Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, ToolBinding>? requestTools = null);
 
         protected virtual bool isValid()
             => _serviceProvider != null && _config != null && !string.IsNullOrEmpty(_provider);
 
-        protected virtual void validateFunctionCallMessage<T>(T message, Dictionary<string, MethodInfo>? toolsLookup) where T : class
+        protected virtual void validateFunctionCallMessage<T>(T message, Dictionary<string, ToolBinding>? toolsLookup) where T : class
         {
             var ollamaMessage = message as Message;
 
@@ -89,7 +90,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 throw new InvalidOperationException($"{nameof(GetLlmResponse)} >> No function MethodInfo found for function name: {toolName}");
         }
 
-        protected async Task<string> handleFunctionCall<TReq, TMessage>(TReq request, TMessage message, Dictionary<string, MethodInfo>? toolsLookup)
+        protected async Task<string> handleFunctionCall<TReq, TMessage>(TReq request, TMessage message, Dictionary<string, ToolBinding>? toolsLookup)
             where TReq : class
             where TMessage : class
         {
@@ -161,14 +162,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             return messages;
         }
 
-        protected async Task<object?> getToolResult(MethodInfo methodInfo, IDictionary<string, object> arguments)
+        protected async Task<object?> getToolResult(ToolBinding binding, IDictionary<string, object> arguments)
         {
-            var toolInterface = typeof(IToolsService<>).MakeGenericType(methodInfo.DeclaringType);
-
-            var toolSource = _serviceProvider.GetRequiredService(toolInterface);
+            // if target is null, then the tool is comming from a ToolService, else it is an Agent built-in tool
+            var toolSource = binding.target == null ? _serviceProvider.GetRequiredService(typeof(IToolsService<>).MakeGenericType(binding.methodInfo.DeclaringType)) : binding.target;
 
             //This might be a Task in progress and its result must be awaited
-            var invokeResult = methodInfo.Invoke(toolSource, OllamaTools.ParseToolCallArguments(methodInfo, arguments));
+            var invokeResult = binding.methodInfo.Invoke(toolSource, OllamaTools.ParseToolCallArguments(binding.methodInfo, arguments));
 
             // Reflection's Invoke doesn't know the method is `async`
             // - for a Task/Task<T> returning method it just hands back the (possibly still-running) Task object itself.

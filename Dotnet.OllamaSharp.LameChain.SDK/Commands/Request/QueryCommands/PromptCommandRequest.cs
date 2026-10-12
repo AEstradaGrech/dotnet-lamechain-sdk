@@ -1,5 +1,6 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
 using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
@@ -10,7 +11,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
     public class PromptCommandRequest
     {
         private string? _model = null;
-        private Dictionary<string, MethodInfo> _tools = new Dictionary<string, MethodInfo>();
+        private Dictionary<string, ToolBinding> _tools = new Dictionary<string, ToolBinding>();
         public PromptCommandRequest() { }
 
         // By default it is expected a command with _systemMessage + req.Guidance + core message (db || hardcoded)
@@ -43,13 +44,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
             var definitions = new List<object>();
 
             foreach (var key in _tools.Keys)
-                definitions.Add(OllamaTools.FromMethod(_tools[key]));
+                definitions.Add(OllamaTools.FromMethod(_tools[key].methodInfo));
 
             return definitions;
         }
 
         public Dictionary<string, string> NestedGuidances = new Dictionary<string, string>();// FOR CHAIN SUPPORT --> Step reads its NestedFeeds list -> if feed is tagged as CMD then it creates a request.GuidanceMessage from the feed and adds it here with the subCommandName&Tag to use it
-        public Dictionary<string, MethodInfo> Tools => _tools;
+        public Dictionary<string, ToolBinding> Tools => _tools;
         public virtual ChatRequest ToOllamaChat(string commandSysmsg = "", PromptSettings settings = null)
             => new ChatRequest {
                 Model = getModelForRequest(settings),
@@ -69,15 +70,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                 Options = settings == null ? new RequestOptions() : settings.ToOllamaRequest() 
             };
 
-        public PromptCommandRequest AddTool(string name, MethodInfo methodInfo)
+        public PromptCommandRequest AddTool(string name, ToolBinding binding)
         {
             if (!_tools.ContainsKey(name))
-                _tools.Add(name, methodInfo);
+                _tools.Add(name, binding);
 
             return this;
         }
 
-        public void WithTools(Dictionary<string, MethodInfo> tools, bool isOverride = false)
+        public void WithTools(Dictionary<string, ToolBinding> tools, bool isOverride = false)
         {
             if (!isOverride)
             {
