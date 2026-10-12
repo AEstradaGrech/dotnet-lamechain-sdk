@@ -5,7 +5,7 @@ using System.Reflection;
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
 {
     public sealed record ToolsServiceDescriptor(Type ServiceType);
-
+    public sealed record ToolBinding(MethodInfo method, object? target);
     public class Toolbox : IToolbox
     {
         private readonly Dictionary<string, MethodInfo> _tools = new Dictionary<string, MethodInfo>();

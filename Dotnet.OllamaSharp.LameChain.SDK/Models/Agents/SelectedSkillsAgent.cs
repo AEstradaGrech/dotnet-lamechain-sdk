@@ -70,9 +70,5 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
    
             return selectedSkills == null ? string.Empty : await base.HandleSystemMessageSkills(selectedSkills);
         }
-
-        // En SkilledAgent : LameAgent
-        // SkillLoader (singular) + <- devuelve skill.MD w/available tools (si las hay)
-        //ToolLoader([toolNames]) <- con el resultado anterior llama a esta tool para cargarlas en this.Tools
     }
 }

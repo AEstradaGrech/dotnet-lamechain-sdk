@@ -2,6 +2,7 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.DocumentLoader;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.DocumentLoader;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
@@ -19,7 +20,7 @@ using System.Text.Json;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 {
-    public class LameAgent //ChromaAgent (guarda SysMessageNames para buscar en chroma. Incluye persistencia en chroma (y Chroma sourceables) #CHECK: MongoAgent? | StreamingAgent
+    public class LameAgent
     {
         private readonly Guid _id;
 
@@ -49,6 +50,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
         protected readonly IOllamaInferenceService _inferenceService;
 
         private Action<Guid, string, LogLevel>? _onBroadcast;
+        public LameAgent() { }
         public LameAgent(IServiceProvider serviceProvider, string model, PromptSettings? settings = null, string? name = null, string? description = null)
         {
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException($"{nameof(LameAgent)} >> {nameof(IServiceProvider)}");
@@ -241,6 +243,36 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             return this;
         }
 
+        public virtual async Task<string> HandleSystemMessageSkills(List<string> skills)
+        {
+            var sb = new StringBuilder();
+
+            if (skills.Count > 0)
+            {
+                using var scope = _serviceProvider.CreateScope();
+
+                var loader = scope.ServiceProvider.GetRequiredService<IDocumentLoader<MarkdownLoaderService>>();
+
+                if (loader == null) return sb.ToString();
+
+                sb.AppendLine("# SKILLS");
+
+                foreach (var skill in Skills)
+                {
+                    var doc = await loader.LoadDocument($"skills\\{skill}");
+
+                    if (doc != null && doc.Pages.Count() > 0)
+                        sb.AppendLine(doc.Pages.Last().Text.Trim());
+
+                    var heading = doc.Pages.FirstOrDefault();
+
+                    loadSkillTools(heading);
+                }
+            }
+
+            return sb.ToString();
+        }
+
         private string buildSystemMessage()
         {
             StringBuilder sb = new StringBuilder();
@@ -267,48 +299,23 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             return sb.ToString();
         }
 
-        public virtual async Task<string> HandleSystemMessageSkills(List<string> skills)
+        protected void loadSkillTools(DocumentPage skillHeading)
         {
-            var sb = new StringBuilder();
+            if (!skillHeading.Text.Contains("allowed-tools:")) return;
 
-            if (skills.Count > 0)
-            {
-                using var scope = _serviceProvider.CreateScope();
+            var split = skillHeading.Text.Split("allowed-tools:");
 
-                var loader = scope.ServiceProvider.GetRequiredService<IDocumentLoader<MarkdownLoaderService>>();
+            var allowedTools = split[1].Replace("[", "").Replace("]", "").Split(",").Select(t => t.Trim()).ToList();
 
-                if (loader == null) return sb.ToString();
+            using var toolboxScope = _serviceProvider.CreateScope();
 
-                sb.AppendLine("# SKILLS");
+            var toolbox = toolboxScope.ServiceProvider.GetRequiredService<IToolbox>();
 
-                foreach (var skill in Skills)
-                {
-                    var doc = await loader.LoadDocument($"skills\\{skill}");
-
-                    if (doc != null && doc.Pages.Count() > 0)
-                        sb.AppendLine(doc.Pages.Last().Text.Trim());
-
-                    var heading = doc.Pages.FirstOrDefault();
-
-                    if (heading.Text.Contains("allowed-tools:"))
-                    {
-                        var split = heading.Text.Split("allowed-tools:");
-
-                        var allowedTools = split[1].Replace("[", "").Replace("]", "").Split(",").Select(t => t.Trim()).ToList();
-
-                        using var toolboxScope = _serviceProvider.CreateScope();
-
-                        var toolbox = toolboxScope.ServiceProvider.GetRequiredService<IToolbox>();
-
-                        foreach (var tool in allowedTools)
-                            if (toolbox.TryGetMethodInfo(tool, out MethodInfo toolMethod))
-                                AddTool(tool, toolMethod);
-                    }
-                }
-            }
-
-            return sb.ToString();
+            foreach (var tool in allowedTools)
+                if (toolbox.TryGetMethodInfo(tool, out MethodInfo toolMethod))
+                    AddTool(tool, toolMethod);
         }
+
         private string broadcastAgentSetup(string systemMessage)
         {
             var sb = new StringBuilder();

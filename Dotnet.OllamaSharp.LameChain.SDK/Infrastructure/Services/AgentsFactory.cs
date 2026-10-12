@@ -1,5 +1,4 @@
-﻿
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Agents;
 
@@ -23,6 +22,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services
 
         public SelectedSkillsAgent CreateSelectedSkillsAgent(string model, string? name = null, string? description = null, PromptSettings? settings = null)
             => Activator.CreateInstance(typeof(SelectedSkillsAgent), _serviceProvider, _commandsFactory, model, settings, name, description) as SelectedSkillsAgent;
-        
+
+        public AutoSkilledAgent CreateAutoSkilledAgent(string model, string? name, string? description, PromptSettings? settings = null)
+            => Activator.CreateInstance(typeof(AutoSkilledAgent), _serviceProvider, model, settings, name, description) as AutoSkilledAgent;
     }
 }
