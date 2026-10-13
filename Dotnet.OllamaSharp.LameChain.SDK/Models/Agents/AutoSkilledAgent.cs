@@ -53,6 +53,7 @@ produce your final response according to the requested tone and mood
             foreach (var skill in Skills)
             {
                 // Note: the expected folder structure is <PathToResourcesFromAppSettings>\markdowns\skills\<skillname>\SKILL.md
+                // TODO / WIP --> SkillsLoader
                 var skillDoc = await docLoader.LoadDocument($"skills\\{skill}");
 
                 if (skillDoc != null && skillDoc.Pages.Count > 0 && !string.IsNullOrEmpty(skillDoc.Pages.FirstOrDefault().Text))
@@ -77,6 +78,7 @@ produce your final response according to the requested tone and mood
             foreach (var skill in skills)
             {
                 // Note: the expected folder structure is <PathToResourcesFromAppSettings>\markdowns\skills\<skillname>\SKILL.md
+                // TODO / WIP --> SkillsLoader
                 var skillDoc = await docLoader.LoadDocument($"skills\\{skill}");
 
                 if (skillDoc != null && skillDoc.Pages.Count > 1 && !string.IsNullOrEmpty(skillDoc.Pages.Last().Text)) //contains at least the heading (first page) and the full skill (last page)

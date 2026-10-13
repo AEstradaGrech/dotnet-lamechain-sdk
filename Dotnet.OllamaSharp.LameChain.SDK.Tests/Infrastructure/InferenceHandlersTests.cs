@@ -407,6 +407,22 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         }
 
         [Fact]
+        public async Task GetToolResult_WithBindingTarget_InvokesTargetWithoutResolvingToolsService()
+        {
+            // Arrange: a strict provider with no setups throws if the handler tries to resolve IToolsService<>.
+            var target = new TestToolsService();
+            var handler = new TestBaseHandler(new Mock<IServiceProvider>(MockBehavior.Strict).Object, new Mock<IConfiguration>().Object, "test");
+            var binding = new ToolBinding(typeof(TestToolsService).GetMethod(nameof(TestToolsService.EchoAsync))!, target);
+            var arguments = new Dictionary<string, object> { ["input"] = JsonSerializer.SerializeToElement("hello") };
+
+            // Act
+            var result = await handler.InvokeGetToolResult(binding, arguments);
+
+            // Assert
+            result.Should().Be("hello");
+        }
+
+        [Fact]
         public void GetToolResponseMessages_Default_ReturnsRequestThenResponseMessageWithToolName()
         {
             // Arrange
@@ -1469,7 +1485,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
     public class PromptCommandRequestProviderParsingTests
     {
         [Theory]
-        [InlineData("claude_claude-3-opus", "claude", "claude-3-opus")]
+        [InlineData("anthropic_claude-3-opus", "anthropic", "claude-3-opus")]
         [InlineData("groq_meta-llama/llama-4-scout", "groq", "meta-llama/llama-4-scout")]
         [InlineData("claude/claude-3-opus", "ollama", "claude/claude-3-opus")]
         [InlineData("llama3", "ollama", "llama3")]
@@ -1483,6 +1499,27 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             // Assert
             request.Provider.Should().Be(expectedProvider);
             request.Model.Should().Be(expectedModel);
+        }
+
+        [Theory]
+        [InlineData("groq_llama-3.3-70b-versatile", "groq", "llama-3.3-70b-versatile")]
+        [InlineData("ollama_HammerAI/gemma4-heretic", "ollama", "HammerAI/gemma4-heretic")]
+        [InlineData("llama3", "ollama", "llama3")]
+        public void Clone_KeepsAlreadyParsedProviderAndModel(string input, string expectedProvider, string expectedModel)
+        {
+            // Arrange: steps clone their requests (e.g. PipedStep branches), so the clone must keep the
+            // parsed provider/model instead of re-parsing the already stripped model name.
+            var request = new PromptCommandRequest("prompt", model: input);
+
+            // Act
+            var clone = request.Clone();
+            var typedClone = request.Clone<PromptCommandRequest>();
+
+            // Assert
+            clone.Provider.Should().Be(expectedProvider);
+            clone.Model.Should().Be(expectedModel);
+            typedClone.Provider.Should().Be(expectedProvider);
+            typedClone.Model.Should().Be(expectedModel);
         }
     }
 }

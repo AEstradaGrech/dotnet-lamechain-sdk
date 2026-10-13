@@ -103,6 +103,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                     p.SetValue(clone, originalProp.GetValue(this));
             });
 
+            // cloning the public members would parse again the already parsed
+            // provider_model value and would pass the wrong provider to the LLM
+            // this is a copy of the already parsed values
+            clone.Provider = Provider;
+            clone._model = _model;
+
             return clone;
         }
 
@@ -120,12 +126,19 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                     p.SetValue(clone, originalProp.GetValue(this));
             });
 
+            // cloning the public members would parse again the already parsed
+            // provider_model value and would pass the wrong provider to the LLM
+            // this is a copy of the already parsed values
+            clone.Provider = Provider;
+            clone._model = _model;
+
             return clone;
         }
 
         protected string getModelForRequest(PromptSettings? settings) => string.IsNullOrEmpty(Model) ? settings != null && !string.IsNullOrEmpty(settings.Model) ? settings.Model : string.Empty : Model;
         private string? setModel(string? model)
         {
+            //format: provider_model || provider_model/with/slashes
             //model = null -> use defaults (ollama + _settings.apiModels[0]
             //model != null & split -> is 'provider_model' format
             //model != null & !split -> default provider (ollama) + selected ollama model
@@ -136,7 +149,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                 if (split.Length > 1)
                 {
                     Provider = split[0];
-                    return string.Join("/", split.Skip(1));
+                    return string.Join("_", split.Skip(1));
                 }
 
                 Provider = "ollama";

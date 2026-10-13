@@ -1,5 +1,4 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
-using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs;
@@ -7,7 +6,6 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Exceptions;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
@@ -18,7 +16,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
         public JsonOutputRefinerCommand(IOllamaInferenceService ollama) : base(ollama) { }
         public JsonOutputRefinerCommand(IOllamaInferenceService ollama, string? guidanceMessage = null, CommandSettings? settings = null) : base(ollama, guidanceMessage, settings) { }
 
-        //The refiner itself makes no use of the passed messageName, but the messaageSourceName is used for the subValidators (for now. There might be a refiner constructor acceptin source-name KvP's in future releases)
+        //The refiner itself makes no use of the passed messageName, but the messaageSourceName is used for the subValidators (for now. There might be a refiner constructor accepting source-name KvP's in future releases)
         public JsonOutputRefinerCommand(IOllamaInferenceService ollama, string messageSourceName, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, CommandSettings? settings = null) 
             : base(ollama, messageSourceName, messageName, retrieverLambda, guidanceMessage, settings) { }
 
@@ -98,11 +96,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             reviewRequest.GuidanceMessage = guidanceMessage;
             reviewRequest.ValidatedPrompt = request.ValidatedPrompt;
-            //reviewRequest.Prompt = $"Review the provided 'output' and return a corrected version. This is the original 'input' : {request.ValidatedPrompt}.";
-
-            //if (!string.IsNullOrEmpty(guidanceMessage))
-            //    reviewRequest.Prompt += $"This is the detected problem: {guidanceMessage}";
-            //reviewRequest.Prompt += "Correct the JSON RESPONSE content. The JSON RESPONSE output is incorrect, return a correct version. Review the provied 'instruction' and the 'input' and correct the JSON OUTPUT response. Review the INVALID REASON and return a corrected version of the JSON output. Fix the JSON OUTPUT content. Rewrite the content to match the 'input' intent accordingly to its 'instruction";
+            
             return command.PromptSync(reviewRequest);
         }
 
@@ -116,7 +110,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             validationRequest.GuidanceMessage = guidanceMessage;
             validationRequest.ValidatedPrompt = request.ValidatedPrompt;
-            //validationRequest.Prompt = "Is the provided output content VALID? (anwer true or false).";
 
             return command.PromptSync(validationRequest);
         }
@@ -146,7 +139,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
         JsonValidationRequest<TValResult> toValidationRequest<TValResult>(JsonRefineRequest<TRefined> request)
             => new JsonValidationRequest<TValResult> {
-                Model = string.IsNullOrEmpty(request.Model) ? _settings.ValidatorModel : request.Model,
+                Model = !string.IsNullOrEmpty(request.Provider) && !string.IsNullOrEmpty(request.Model) ? $"{request.Provider}_{request.Model}" : _settings != null && !string.IsNullOrEmpty(_settings.ValidatorModel) ? _settings.ValidatorModel : string.Empty,
                 Prompt = request.Prompt,
                 SystemMessage = request.SystemMessage,
                 RawOutput = request.RawOutput,

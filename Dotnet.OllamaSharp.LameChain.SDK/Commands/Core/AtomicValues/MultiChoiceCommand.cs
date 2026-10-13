@@ -26,7 +26,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues
             if (!multiChoiceReq.Choices.Any())
                 throw new InvalidDataException($"{nameof(MultiChoiceCommand)} >> The requested number of selected choices is greater or equal to the available choices");
 
-            //var promptReq = await getGenerateRequest(multiChoiceReq);
             var systemMessage = await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend);
 
             var sb = new StringBuilder();

@@ -36,7 +36,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
         // Add to sysmessage (if not null) to provide context to the model about the agent's purpose and behavior.
         public string? Description { get; private set; }
         public string UserInput { get; private set; }
-
+        public string FullHandlerModel => $"{Provider}_{Model}";
         public bool HasTools => Tools.Count > 0;
         private PromptSettings? _settings = null;
 
@@ -68,7 +68,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             {
                 var split = model.Split('_');
 
-                Model = split.Count() == 1 ? model : split[1];
+                Model = split.Count() == 1 ? model : string.Join("_", split.Skip(1));
                 Provider = split.Count() == 1 ? "ollama" : split[0];
             }
 
@@ -149,7 +149,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             return response.Content ?? "";
         }
         /// <summary>
-        /// Runs a prompt using the LameChain Commands system to get structured responses.
+        /// Runs a prompt using the LameChain Commands system to get structured responses. #WIP
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="prompt"></param>
@@ -258,8 +258,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
                 sb.AppendLine("# SKILLS");
 
-                foreach (var skill in Skills)
+                foreach (var skill in skills)
                 {
+                    // TODO / WIP --> SkillsLoader
                     var doc = await loader.LoadDocument($"skills\\{skill}");
 
                     if (doc != null && doc.Pages.Count() > 0)

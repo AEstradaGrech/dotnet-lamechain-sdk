@@ -1253,7 +1253,7 @@ no specific `target` is setted in the `ToolBinding` target field (right now the 
 ## Multiple providers:
 
 The SDK allows you to use different cloud providers (currently **groq** and **anthropic**) by simply preppending the provider name to the 
-request models (for example, **groq/llama3.3:70b-versatile** or **anthropic/claude-opus-4.8**) and
+request models with an underscore character (for example, **groq_llama3.3:70b-versatile** or **anthropic_claude-opus-4.8**) and
 adding the required startup and appsettings configuration.  
 
 (Note: if you dont' pass a provider, the SDK will default to 'ollama' as llm provider)

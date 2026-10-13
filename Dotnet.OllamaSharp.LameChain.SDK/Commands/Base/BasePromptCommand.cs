@@ -1,5 +1,4 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators;
-using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Embedding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
@@ -8,8 +7,6 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
 using DotnetLlamaSharp.Domain.Services.Inference;
-using OllamaSharp.Models;
-using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Schema;
 using System.Text.Json.Serialization;

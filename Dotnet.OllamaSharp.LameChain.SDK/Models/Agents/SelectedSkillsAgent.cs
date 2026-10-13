@@ -34,6 +34,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
             foreach(var skill in Skills)
             {
+                // TODO / WIP --> SkillsLoader
                 var skillDoc = await docLoader.LoadDocument($"skills\\{skill}");
 
                 if(skillDoc != null && skillDoc.Pages.Count > 0 && !string.IsNullOrEmpty(skillDoc.Pages.FirstOrDefault().Text))
@@ -64,7 +65,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
             var command = _commandsFactory.GetMultiChoiceCommand();
 
-            var selectRequest = new MultiChoiceRequest(selections: null, choices, SELECTION_MESSAGE + UserInput, isGuidanceAppend: false);
+            var selectRequest = new MultiChoiceRequest(selections: null, choices, SELECTION_MESSAGE + UserInput, isGuidanceAppend: false, model: FullHandlerModel);
 
             var selectedSkills = await command.Prompt(selectRequest);
    

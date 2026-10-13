@@ -25,6 +25,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
             foreach(var skill in skills)
             {
                 // Note: the expected folder structure is <PathToResourcesFromAppSettings>\markdowns\skills\<skillname>\SKILL.md
+                // TODO / WIP --> SkillsLoader
                 var skillDoc = await docLoader.LoadDocument($"skills\\{skill}.md");
                 
                 if(skillDoc != null && skillDoc.Pages.Count > 0 && !string.IsNullOrEmpty(skillDoc.Pages.FirstOrDefault().Text))
