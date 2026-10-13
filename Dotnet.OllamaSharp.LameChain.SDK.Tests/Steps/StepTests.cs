@@ -90,7 +90,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Steps
             // CommandSettings (null here, via MockCommand) or the ChainRunner's DefaultSettings,
             // before calling JsonPrompt - it no longer implicitly stays on "ollama".
             var mock = MockCommand(new BooleanResponse { Answer = true });
-            var runner = new ChainRunner("test user input", new CommandSettings("groq/some-model"), null, "test-intent");
+            var runner = new ChainRunner("test user input", new CommandSettings("groq_some-model"), null, "test-intent");
             var request = new PromptCommandRequest("step 1 prompt"); // Model left null -> Provider="ollama", Model=""
             var step = new SingleThrowStep(new StepSettings(mock.Object, request), runner);
 
@@ -106,8 +106,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Steps
             // Arrange: the command's own CommandSettings takes precedence over the ChainRunner's
             // DefaultSettings when both are present.
             var mock = MockCommand(new BooleanResponse { Answer = true });
-            mock.Setup(x => x.CommandSettings).Returns(new CommandSettings("anthropic/claude-model"));
-            var runner = new ChainRunner("test user input", new CommandSettings("groq/other-model"), null, "test-intent");
+            mock.Setup(x => x.CommandSettings).Returns(new CommandSettings("anthropic_claude-model"));
+            var runner = new ChainRunner("test user input", new CommandSettings("groq_other-model"), null, "test-intent");
             var request = new PromptCommandRequest("step 1 prompt");
             var step = new SingleThrowStep(new StepSettings(mock.Object, request), runner);
 
@@ -123,7 +123,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Steps
             // Arrange: the default-model block is only entered when Request.Model is empty - a
             // caller-provided model/provider must survive untouched.
             var mock = MockCommand(new BooleanResponse { Answer = true });
-            var runner = new ChainRunner("test user input", new CommandSettings("groq/other-model"), null, "test-intent");
+            var runner = new ChainRunner("test user input", new CommandSettings("groq_other-model"), null, "test-intent");
             var request = new PromptCommandRequest("step 1 prompt", model: "preset-model");
             var step = new SingleThrowStep(new StepSettings(mock.Object, request), runner);
 

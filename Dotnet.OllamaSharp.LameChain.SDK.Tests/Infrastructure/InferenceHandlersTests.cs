@@ -11,7 +11,6 @@ using OllamaSharp.Models.Chat;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Request;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Response.GroqProvider;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
@@ -29,6 +28,7 @@ using AIContent = Microsoft.Extensions.AI.AIContent;
 using AITextContent = Microsoft.Extensions.AI.TextContent;
 using AITextReasoningContent = Microsoft.Extensions.AI.TextReasoningContent;
 using AnthropicEffort = Anthropic.Models.Messages.Effort;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 {
@@ -61,7 +61,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             _cannedResponse = cannedResponse;
         }
 
-        public override Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, MethodInfo>? requestTools = null)
+        public override Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, ToolBinding>? requestTools = null)
         {
             GetLlmResponseCallCount++;
             IsSolvingToolsDuringGetLlmResponse = IsSolvingTools;
@@ -70,14 +70,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
         public bool InvokeIsValid() => isValid();
 
-        public Task<string> InvokeHandleFunctionCall(ChatRequest request, Message message, Dictionary<string, MethodInfo>? toolsLookup)
+        public Task<string> InvokeHandleFunctionCall(ChatRequest request, Message message, Dictionary<string, ToolBinding>? toolsLookup)
             => handleFunctionCall(request, message, toolsLookup);
 
         public List<Message> InvokeGetToolResponseMessages(string toolName, Message toolRequestMessage, object? toolResult)
             => getToolResponseMessages(toolName, toolRequestMessage, toolResult);
 
-        public Task<object?> InvokeGetToolResult(MethodInfo methodInfo, IDictionary<string, object> arguments)
-            => getToolResult(methodInfo, arguments);
+        public Task<object?> InvokeGetToolResult(ToolBinding toolBinding, IDictionary<string, object> arguments)
+            => getToolResult(toolBinding, arguments);
     }
 
     // Exposes GroqHandler's protected getToolResponseMessages override for direct testing of its
@@ -291,7 +291,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             var handler = new TestBaseHandler(new Mock<IServiceProvider>().Object, new Mock<IConfiguration>().Object, "test");
             var message = BuildToolCallMessage("UnknownTool", new Dictionary<string, object?>());
             var request = new ChatRequest { Messages = new List<Message>() };
-            var toolsLookup = new Dictionary<string, MethodInfo>();
+            var toolsLookup = new Dictionary<string, ToolBinding>();
 
             // Act & Assert
             await Assert.ThrowsAsync<InvalidOperationException>(() => handler.InvokeHandleFunctionCall(request, message, toolsLookup));
@@ -308,7 +308,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
             var toolMessage = BuildToolCallMessage("Echo", new Dictionary<string, object?> { ["input"] = JsonSerializer.SerializeToElement("hello") });
             var request = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
-            var toolsLookup = new Dictionary<string, MethodInfo> { ["Echo"] = typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))! };
+            var toolsLookup = new Dictionary<string, ToolBinding> { ["Echo"] = new ToolBinding(typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))!) };
 
             // Act
             var result = await handler.InvokeHandleFunctionCall(request, toolMessage, toolsLookup);
@@ -335,7 +335,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
             var toolMessage = BuildToolCallMessage("EchoAsync", new Dictionary<string, object?> { ["input"] = JsonSerializer.SerializeToElement("hello") });
             var request = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
-            var toolsLookup = new Dictionary<string, MethodInfo> { ["EchoAsync"] = typeof(TestToolsService).GetMethod(nameof(TestToolsService.EchoAsync))! };
+            var toolsLookup = new Dictionary<string, ToolBinding> { ["EchoAsync"] = new ToolBinding(typeof(TestToolsService).GetMethod(nameof(TestToolsService.EchoAsync))!) };
 
             // Act
             var result = await handler.InvokeHandleFunctionCall(request, toolMessage, toolsLookup);
@@ -359,7 +359,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
             var toolMessage = BuildToolCallMessage("Echo", new Dictionary<string, object?> { ["input"] = JsonSerializer.SerializeToElement("hello") });
             var request = new ChatRequest { Model = "test-model", Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
-            var toolsLookup = new Dictionary<string, MethodInfo> { ["Echo"] = typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))! };
+            var toolsLookup = new Dictionary<string, ToolBinding> { ["Echo"] = new ToolBinding(typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))!) };
 
             // Act
             await handler.InvokeHandleFunctionCall(request, toolMessage, toolsLookup);
@@ -379,7 +379,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
             var toolMessage = BuildToolCallMessage("Echo", new Dictionary<string, object?> { ["input"] = JsonSerializer.SerializeToElement("hello") });
             var request = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
-            var toolsLookup = new Dictionary<string, MethodInfo> { ["Echo"] = typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))! };
+            var toolsLookup = new Dictionary<string, ToolBinding> { ["Echo"] = new ToolBinding(typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))!) };
 
             // Act
             await handler.InvokeHandleFunctionCall(request, toolMessage, toolsLookup);
@@ -398,11 +398,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             var mockServiceProvider = new Mock<IServiceProvider>();
             mockServiceProvider.Setup(sp => sp.GetService(typeof(IToolsService<TestToolsService>))).Returns(toolsService);
             var handler = new TestBaseHandler(mockServiceProvider.Object, new Mock<IConfiguration>().Object, "test");
-            var methodInfo = typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))!;
+            var binding = new ToolBinding(typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))!);
             var arguments = new Dictionary<string, object>(); // missing required "input"
 
             // Act & Assert
-            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.InvokeGetToolResult(methodInfo, arguments));
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.InvokeGetToolResult(binding, arguments));
             ex.Message.Should().Contain("Missing required argument");
         }
 
@@ -558,7 +558,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .Returns(GetAsyncEnumerable(new List<ChatResponseStream> { new ChatResponseStream { Message = new Message(ChatRole.Assistant, "final answer") } }));
 
             var request = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") } };
-            var toolsLookup = new Dictionary<string, MethodInfo> { ["Echo"] = typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))! };
+            var toolsLookup = new Dictionary<string, ToolBinding> { ["Echo"] = new ToolBinding(typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))!) };
 
             // Act
             var result = await handler.GetLlmResponse(request, toolsLookup);
@@ -788,7 +788,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .ReturnsAsync(completionFinal);
 
             var request = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") }, Tools = new List<object>() };
-            var toolsLookup = new Dictionary<string, MethodInfo> { ["Echo"] = typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))! };
+            var toolsLookup = new Dictionary<string, ToolBinding> { ["Echo"] = new ToolBinding(typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))!) };
 
             // Act
             var result = await handler.GetLlmResponse(request, toolsLookup);
@@ -1402,7 +1402,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 .ReturnsAsync(completionFinal);
 
             var chatRequest = new ChatRequest { Messages = new List<Message> { new Message(ChatRole.User, "hi") }, Tools = new List<object>() };
-            var requestTools = new Dictionary<string, MethodInfo> { ["Echo"] = typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))! };
+            var requestTools = new Dictionary<string, ToolBinding> { ["Echo"] = new ToolBinding(typeof(TestToolsService).GetMethod(nameof(TestToolsService.Echo))!) };
 
             // Act
             var result = await _service.ChatPrompt(chatRequest, "groq", requestTools);
@@ -1469,8 +1469,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
     public class PromptCommandRequestProviderParsingTests
     {
         [Theory]
-        [InlineData("claude/claude-3-opus", "claude", "claude-3-opus")]
-        [InlineData("claude/foo/bar", "claude", "foo/bar")]
+        [InlineData("claude_claude-3-opus", "claude", "claude-3-opus")]
+        [InlineData("groq_meta-llama/llama-4-scout", "groq", "meta-llama/llama-4-scout")]
+        [InlineData("claude/claude-3-opus", "ollama", "claude/claude-3-opus")]
         [InlineData("llama3", "ollama", "llama3")]
         [InlineData(null, "ollama", "")]
         [InlineData("", "ollama", "")]

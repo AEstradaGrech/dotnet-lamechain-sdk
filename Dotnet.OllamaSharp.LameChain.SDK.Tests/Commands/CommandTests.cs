@@ -15,7 +15,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
-using System.Reflection;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
 {
@@ -47,7 +47,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<BooleanResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ReturnsAsync(new BooleanResponse { Answer = true });
 
@@ -70,7 +70,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<BooleanResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ThrowsAsync(new InvalidOperationException("LLM service failure"));
 
@@ -97,7 +97,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<NumericResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ReturnsAsync(new NumericResponse { Result = 42.5f });
 
@@ -120,7 +120,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<NumericResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ThrowsAsync(new InvalidOperationException("LLM service failure"));
 
@@ -149,7 +149,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<StringChoiceResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ReturnsAsync(new StringChoiceResponse { Selected = "Banana" });
 
@@ -192,7 +192,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<MultiChoiceResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ReturnsAsync(new MultiChoiceResponse { Selected = ["Pizza", "Pasta"] });
 
@@ -234,7 +234,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<IntegerChoiceResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ReturnsAsync(new IntegerChoiceResponse { Result = 1 });
 
@@ -278,7 +278,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<ReasonedBoolResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ReturnsAsync(expected);
 
@@ -302,7 +302,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<ReasonedBoolResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ThrowsAsync(new InvalidOperationException("LLM service failure"));
 
@@ -331,7 +331,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<ScoredBoolResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ReturnsAsync(expected);
 
@@ -356,7 +356,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<ScoredBoolResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ThrowsAsync(new InvalidOperationException("LLM service failure"));
 
@@ -385,7 +385,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<ReasonedScoreResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ReturnsAsync(expected);
 
@@ -409,7 +409,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<ReasonedScoreResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ThrowsAsync(new InvalidOperationException("LLM service failure"));
 
@@ -438,7 +438,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<ScoredResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ReturnsAsync(expected);
 
@@ -461,7 +461,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<ScoredResponse>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ThrowsAsync(new InvalidOperationException("LLM service failure"));
 
@@ -491,7 +491,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                     It.IsAny<ChatRequest>(),
                     It.Is<CommandPromptValidation<ScoredStringChoice>>(v => v.Validations == _settings.CommandValidations && v.ValidationType == _settings.ValidationType),
                     "ollama",
-                    It.IsAny<Dictionary<string, MethodInfo>>(),
+                    It.IsAny<Dictionary<string, ToolBinding>>(),
                     It.IsAny<bool>()))
                 .ReturnsAsync(expected);
 
@@ -529,7 +529,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
         {
             // Arrange
             _mockOllama
-                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, MethodInfo>>()))
+                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, ToolBinding>>()))
                 .ReturnsAsync(new Message { Role = ChatRole.Assistant, Content = "Hello, how can I help you?" });
 
             var command = new MessagePromptCommand(_mockOllama.Object, null, _settings);
@@ -548,7 +548,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
         {
             // Arrange
             _mockOllama
-                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, MethodInfo>>()))
+                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, ToolBinding>>()))
                 .ThrowsAsync(new InvalidOperationException("Chat service unavailable"));
 
             var command = new MessagePromptCommand(_mockOllama.Object, null, _settings);
@@ -570,7 +570,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
         {
             // Arrange
             _mockOllama
-                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, MethodInfo>>()))
+                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, ToolBinding>>()))
                 .ReturnsAsync(new Message { Role = ChatRole.Assistant, Content = "Based on the provided data, the answer is X." });
 
             var command = new RagQueryCommand(_mockOllama.Object, null, _settings);
@@ -589,7 +589,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
         {
             // Arrange
             _mockOllama
-                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, MethodInfo>>()))
+                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, ToolBinding>>()))
                 .ThrowsAsync(new InvalidOperationException("RAG service unavailable"));
 
             var command = new RagQueryCommand(_mockOllama.Object, null, _settings);
@@ -611,7 +611,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
         {
             // Arrange
             _mockOllama
-                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, MethodInfo>>()))
+                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, ToolBinding>>()))
                 .ReturnsAsync(new Message { Role = ChatRole.Assistant, Content = "User wants to know the weather." });
 
             var command = new UserIntentCommand(_mockOllama.Object, null, _settings);
@@ -630,7 +630,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
         {
             // Arrange
             _mockOllama
-                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, MethodInfo>>()))
+                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, ToolBinding>>()))
                 .ThrowsAsync(new InvalidOperationException("Intent service unavailable"));
 
             var command = new UserIntentCommand(_mockOllama.Object, null, _settings);
@@ -652,7 +652,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
         {
             // Arrange
             _mockOllama
-                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, MethodInfo>>()))
+                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, ToolBinding>>()))
                 .ReturnsAsync(new Message { Role = ChatRole.Assistant, Content = "Expanded version of the query." });
 
             var command = new RagExpansionCommand(_mockOllama.Object, null, _settings);
@@ -689,7 +689,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
         {
             // Arrange
             _mockOllama
-                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, MethodInfo>>()))
+                .Setup(o => o.ChatPrompt(It.IsAny<ChatRequest>(), "ollama", It.IsAny<Dictionary<string, ToolBinding>>()))
                 .ReturnsAsync(new Message { Role = ChatRole.Assistant, Content = "How does machine learning work under the hood?" });
 
             var command = new QueryAugmentationCommand(_mockOllama.Object, null, _settings);
