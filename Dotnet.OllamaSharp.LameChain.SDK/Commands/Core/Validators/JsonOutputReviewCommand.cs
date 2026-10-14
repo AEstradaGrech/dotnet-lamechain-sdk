@@ -25,8 +25,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             var systemMessage = await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend);
 
-            systemMessage = systemMessage.Replace("<<PROMPT>>", $"- input: {promptRequest.ValidatedPrompt}\n- output: {promptRequest.RawOutput}\n- instruction: {promptRequest.SystemMessage}").Replace("<<SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TReviewed)).ToJsonString());
-
+            request.Prompt = $"- input: {promptRequest.ValidatedPrompt}\n- output: {promptRequest.RawOutput}\n- instruction: {promptRequest.SystemMessage}\n- json schema: {JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TReviewed)).ToJsonString()}";
+            
             return promptRequest.UseChatEndpoint ?
                  await _ollama.CommandPrompt<TReviewed>(request.ToOllamaChat(systemMessage, _settings), validation: null, withJsonInfo: true) :
                  await _ollama.CommandPrompt<TReviewed>(request.ToOllamaGenerate(systemMessage, _settings), validation: null, withJsonInfo: true);
@@ -40,30 +40,19 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             var systemMessage = getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend).Result;
 
-            systemMessage = systemMessage.Replace("<<PROMPT>>", $"- input: {promptRequest.ValidatedPrompt}\n- output: {promptRequest.RawOutput}\n- instruction: {promptRequest.SystemMessage}").Replace("<<SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TReviewed)).ToJsonString());
+            request.Prompt = $"- input: {promptRequest.ValidatedPrompt}\n- output: {promptRequest.RawOutput}\n- instruction: {promptRequest.SystemMessage}\n- json schema: {JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TReviewed)).ToJsonString()}";
 
             return promptRequest.UseChatEndpoint ?
                 _ollama.CommandPrompt<TReviewed>(request.ToOllamaChat(systemMessage, _settings), validation: null, withJsonInfo: true) :
                 _ollama.CommandPrompt<TReviewed>(request.ToOllamaGenerate(systemMessage, _settings), validation: null, withJsonInfo: true);
         }
 
-        protected override string getDefaultInstruction() => @"You are a JSON output reviewer. Your task is to review the provided content inside the '<validable-content>' section and correct the content and the format whenever necessary.
-Review the provided 'input' and 'instruction' then analyize what is wrong in the 'output' to return corrected version of it.
+        protected override string getDefaultInstruction() => @"You are a JSON output reviewer. Your task is to review the provided content and correct the content and the format whenever necessary (otherwise return the same 'output' content).
+Review the provided 'input' and 'instruction' then analyize what is wrong in the 'output' to return corrected version of it or the same 'output' content if it is correct.
 
 - Ensure your output is compliant with the VALID OUTPUT SCHEMA. 
 - Ensure that the 'output' is strictly compliant with the intruction that generated it in terms of content (analyze if the content is correct and reliable, returns the right number of items, etc).
 - Ensure that the format of the 'output' is valid to be serialized to a C# class.
-
-<validable-content>
-
-# PROMPT: 
-
-<<PROMPT>>
-
-# VALID OUTPUT SCHEMA:
-
-<<SCHEMA>>
-
-</validable-content>";
+";
     }
 }

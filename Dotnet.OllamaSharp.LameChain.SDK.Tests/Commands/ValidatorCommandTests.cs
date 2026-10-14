@@ -84,7 +84,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
                 .ReturnsAsync(() => queue.Dequeue());
         }
 
-        private void setupReview(List<ChatRequest> captured, ValidatedTestModel reviewed)
+        private void setupReview(List<ChatRequest> captured, ValidatedTestModel? reviewed)
         {
             _mockOllama
                 .Setup(o => o.CommandPrompt<ValidatedTestModel>(
@@ -260,7 +260,29 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
         #region JsonOutputReviewCommand Tests
 
         [Fact]
-        public async Task JsonOutputReviewCommand_Prompt_ChatEndpoint_SystemMessageContainsInputOutputInstructionAndSchema()
+        public async Task JsonOutputReviewCommand_Prompt_ChatEndpoint_UserMessageContainsInputOutputInstructionAndSchema()
+        {
+            // Arrange
+            var captured = new List<ChatRequest>();
+            setupReview(captured, new ValidatedTestModel { Name = "fruits", Count = 3 });
+
+            var command = new JsonOutputReviewCommand<ValidatedTestModel>(_mockOllama.Object, null, null);
+
+            // Act
+            await command.Prompt(validationRequest());
+
+            // Assert
+            var sentPrompt = userMessage(captured.Single());
+
+            sentPrompt.Should().Contain($"- input: {UserInput}");
+            sentPrompt.Should().Contain($"- output: {RawOutput}");
+            sentPrompt.Should().Contain($"- instruction: {Instruction}");
+            sentPrompt.Should().Contain(ExpectedSchema);
+            sentPrompt.Should().NotContain(StaleValidatorPrompt);
+        }
+
+        [Fact]
+        public async Task JsonOutputReviewCommand_Prompt_ChatEndpoint_SystemMessageIsReviewerInstructionWithoutReviewedContent()
         {
             // Arrange
             var captured = new List<ChatRequest>();
@@ -274,11 +296,47 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
             // Assert
             var sentSystem = systemMessage(captured.Single());
 
-            sentSystem.Should().Contain($"- input: {UserInput}");
-            sentSystem.Should().Contain($"- output: {RawOutput}");
-            sentSystem.Should().Contain($"- instruction: {Instruction}");
-            sentSystem.Should().Contain(ExpectedSchema);
-            sentSystem.Should().NotContain("<<PROMPT>>").And.NotContain("<<SCHEMA>>");
+            sentSystem.Should().Contain("You are a JSON output reviewer");
+            sentSystem.Should().NotContain(UserInput).And.NotContain(RawOutput).And.NotContain("<<");
+        }
+
+        [Fact]
+        public async Task JsonOutputReviewCommand_Prompt_WithGuidanceMessage_SystemMessageContainsGuidance()
+        {
+            // Arrange
+            const string guidance = "A previous validator marked the output as INVALID";
+            var captured = new List<ChatRequest>();
+            setupReview(captured, new ValidatedTestModel { Name = "fruits", Count = 3 });
+
+            var command = new JsonOutputReviewCommand<ValidatedTestModel>(_mockOllama.Object, null, null);
+            var request = validationRequest();
+            request.GuidanceMessage = guidance;
+
+            // Act
+            await command.Prompt(request);
+
+            // Assert
+            systemMessage(captured.Single()).Should().Contain(guidance);
+            userMessage(captured.Single()).Should().NotContain(guidance);
+        }
+
+        [Fact]
+        public async Task JsonOutputReviewCommand_PromptSync_ChatEndpoint_UserMessageContainsValidatedPromptAsInput()
+        {
+            // Arrange
+            var captured = new List<ChatRequest>();
+            setupReview(captured, new ValidatedTestModel { Name = "fruits", Count = 3 });
+
+            var command = new JsonOutputReviewCommand<ValidatedTestModel>(_mockOllama.Object, null, null);
+
+            // Act
+            await command.PromptSync(validationRequest());
+
+            // Assert
+            var sentPrompt = userMessage(captured.Single());
+
+            sentPrompt.Should().Contain($"- input: {UserInput}").And.Contain($"- output: {RawOutput}");
+            sentPrompt.Should().NotContain(StaleValidatorPrompt);
         }
 
         [Fact]
@@ -306,7 +364,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
         }
 
         [Fact]
-        public async Task JsonOutputReviewCommand_Prompt_GenerateEndpoint_SystemContainsValidatedPromptAsInput()
+        public async Task JsonOutputReviewCommand_Prompt_GenerateEndpoint_PromptContainsValidatedPromptAsInput()
         {
             // Arrange
             GenerateRequest? captured = null;
@@ -327,7 +385,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
 
             // Assert
             captured.Should().NotBeNull();
-            captured!.System.Should().Contain($"- input: {UserInput}").And.Contain($"- output: {RawOutput}");
+            captured!.Prompt.Should().Contain($"- input: {UserInput}").And.Contain($"- output: {RawOutput}").And.Contain(ExpectedSchema);
+            captured.System.Should().Contain("You are a JSON output reviewer").And.NotContain(RawOutput);
         }
 
         [Fact]
@@ -412,7 +471,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
 
             // Assert
             result.Should().BeSameAs(reviewed);
-            systemMessage(captured.Single()).Should().Contain($"- input: {UserInput}");
+            userMessage(captured.Single()).Should().Contain($"- input: {UserInput}");
             _mockOllama.Verify(o => o.CommandPrompt<ReasonedBoolResponse>(
                 It.IsAny<ChatRequest>(),
                 It.IsAny<CommandPromptValidation<ReasonedBoolResponse>>(),
@@ -455,7 +514,45 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Commands
 
             // Assert
             result.Should().BeSameAs(reviewed);
-            systemMessage(reviewCaptured.Single()).Should().Contain(justification).And.Contain($"- input: {UserInput}");
+            systemMessage(reviewCaptured.Single()).Should().Contain(justification);
+            userMessage(reviewCaptured.Single()).Should().Contain($"- input: {UserInput}");
+        }
+
+        [Theory]
+        [InlineData(EPromptValidation.REVIEW_ONLY)]
+        [InlineData(EPromptValidation.BOOL_AND_REVIEW)]
+        [InlineData(EPromptValidation.DOUBLE_BOOL)]
+        public async Task JsonOutputRefinerCommand_Prompt_ReviewReturnsNull_ThrowsJsonOutputValidationException(EPromptValidation validationType)
+        {
+            // Arrange
+            setupBoolValidation(new List<ChatRequest>(), new ReasonedBoolResponse { Answer = false, Justification = "Returned 2 fruits instead of 3" });
+            setupReview(new List<ChatRequest>(), null);
+
+            var command = new JsonOutputRefinerCommand<ValidatedTestModel>(_mockOllama.Object);
+
+            // Act
+            var act = async () => await command.Prompt(refineRequest(validationType));
+
+            // Assert
+            await act.Should().ThrowAsync<JsonOutputValidationException>().WithMessage("*reviewed response is null*");
+        }
+
+        [Fact]
+        public async Task JsonOutputRefinerCommand_Prompt_DoubleBoolReviewReturnsNull_DoesNotRunSecondValidation()
+        {
+            // Arrange
+            var boolCaptured = new List<ChatRequest>();
+            setupBoolValidation(boolCaptured, new ReasonedBoolResponse { Answer = false, Justification = "Returned 2 fruits instead of 3" });
+            setupReview(new List<ChatRequest>(), null);
+
+            var command = new JsonOutputRefinerCommand<ValidatedTestModel>(_mockOllama.Object);
+
+            // Act
+            var act = async () => await command.Prompt(refineRequest(EPromptValidation.DOUBLE_BOOL));
+
+            // Assert
+            await act.Should().ThrowAsync<JsonOutputValidationException>();
+            boolCaptured.Should().ContainSingle();
         }
 
         [Fact]

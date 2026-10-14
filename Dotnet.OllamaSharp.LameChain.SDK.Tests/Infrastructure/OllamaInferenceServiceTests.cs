@@ -1296,6 +1296,183 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 
         #endregion
 
+        #region CommandPrompt Validation Retry Loop Tests
+
+        // Retry loop contract:
+        //  - every iteration regenerates the ORIGINAL request and validates the fresh LLM response
+        //  - only JsonOutputValidationException triggers a new iteration
+        //  - after validations + 1 failed attempts a PromptRetryException is thrown
+
+        private static ChatRequest retryChatRequest(string userPrompt = "user prompt", string system = "system")
+            => new ChatRequest
+            {
+                Messages = new[]
+                {
+                    new Message { Role = ChatRole.System, Content = system },
+                    new Message { Role = ChatRole.User, Content = userPrompt }
+                }
+            };
+
+        // Each LLM call returns a different response ("attempt-N") so the test can tell which attempt reached the validator
+        private Func<int> setupSequentialChatResponses()
+        {
+            var calls = 0;
+
+            _mockClient
+                .Setup(c => c.ChatAsync(It.IsAny<ChatRequest>()))
+                .Returns(() =>
+                {
+                    calls++;
+                    return GetAsyncEnumerable(new List<ChatResponseStream> { new ChatResponseStream { Message = new Message { Content = $"attempt-{calls}" } } });
+                });
+
+            return () => calls;
+        }
+
+        private Func<int> setupSequentialGenerateResponses()
+        {
+            var calls = 0;
+
+            _mockClient
+                .Setup(c => c.GenerateAsync(It.IsAny<GenerateRequest>()))
+                .Returns(() =>
+                {
+                    calls++;
+                    return GetAsyncEnumerable(new List<GenerateResponseStream> { new GenerateResponseStream { Response = $"attempt-{calls}" } });
+                });
+
+            return () => calls;
+        }
+
+        private static Mock<JsonOutputRefinerCommand<TestStructuredOutput>> validatorFailing(int failures, List<JsonRefineRequest<TestStructuredOutput>> captured, TestStructuredOutput? finalResult = null)
+        {
+            var mockValidator = new Mock<JsonOutputRefinerCommand<TestStructuredOutput>>();
+            var calls = 0;
+
+            mockValidator
+                .Setup(v => v.Prompt(It.IsAny<JsonRefineRequest<TestStructuredOutput>>()))
+                .Returns<JsonRefineRequest<TestStructuredOutput>>(req =>
+                {
+                    captured.Add(req);
+                    calls++;
+
+                    if (calls <= failures)
+                        throw new JsonOutputValidationException("validator", $"invalid attempt {calls}");
+
+                    return Task.FromResult(finalResult ?? new TestStructuredOutput());
+                });
+
+            return mockValidator;
+        }
+
+        [Fact]
+        public async Task CommandPrompt_WithChatRequest_ValidatorFailsOnceThenPasses_RegeneratesAndReturnsValidatorResult()
+        {
+            // Arrange
+            var llmCalls = setupSequentialChatResponses();
+            var captured = new List<JsonRefineRequest<TestStructuredOutput>>();
+            var expected = new TestStructuredOutput();
+            var validator = validatorFailing(failures: 1, captured, expected);
+
+            // Act
+            var result = await _service.CommandPrompt<TestStructuredOutput>(retryChatRequest(), new CommandPromptValidation<TestStructuredOutput> { Validations = 2, Validator = validator.Object });
+
+            // Assert
+            result.Should().BeSameAs(expected);
+            llmCalls().Should().Be(2);
+            captured.Select(r => r.RawOutput).Should().Equal("attempt-1", "attempt-2");
+        }
+
+        [Fact]
+        public async Task CommandPrompt_WithChatRequest_ValidatorAlwaysFails_ThrowsPromptRetryExceptionAfterValidationsPlusOneAttempts()
+        {
+            // Arrange
+            var llmCalls = setupSequentialChatResponses();
+            var captured = new List<JsonRefineRequest<TestStructuredOutput>>();
+            var validator = validatorFailing(failures: int.MaxValue, captured);
+
+            // Act
+            var act = async () => await _service.CommandPrompt<TestStructuredOutput>(retryChatRequest(), new CommandPromptValidation<TestStructuredOutput> { Validations = 2, Validator = validator.Object });
+
+            // Assert
+            await act.Should().ThrowAsync<PromptRetryException>();
+            llmCalls().Should().Be(3);
+            captured.Select(r => r.RawOutput).Should().Equal("attempt-1", "attempt-2", "attempt-3");
+        }
+
+        [Fact]
+        public async Task CommandPrompt_WithChatRequest_RetryAttempts_ValidateOriginalUserPromptWithUnchangedSystemMessage()
+        {
+            // Arrange
+            setupSequentialChatResponses();
+            var captured = new List<JsonRefineRequest<TestStructuredOutput>>();
+            var validator = validatorFailing(failures: 2, captured);
+
+            // Act
+            await _service.CommandPrompt<TestStructuredOutput>(retryChatRequest(userPrompt: "List 3 fruits"), new CommandPromptValidation<TestStructuredOutput> { Validations = 2, Validator = validator.Object });
+
+            // Assert
+            captured.Should().HaveCount(3);
+            captured.Should().OnlyContain(r => r.ValidatedPrompt == "List 3 fruits");
+            // the JSON info is appended to the system message only on the first iteration
+            captured.Select(r => r.SystemMessage).Distinct().Should().ContainSingle();
+        }
+
+        [Fact]
+        public async Task CommandPrompt_WithChatRequest_ValidatorThrowsNonValidationException_PropagatesWithoutRetry()
+        {
+            // Arrange
+            var llmCalls = setupSequentialChatResponses();
+            var mockValidator = new Mock<JsonOutputRefinerCommand<TestStructuredOutput>>();
+            mockValidator
+                .Setup(v => v.Prompt(It.IsAny<JsonRefineRequest<TestStructuredOutput>>()))
+                .ThrowsAsync(new InvalidOperationException("validator LLM failure"));
+
+            // Act
+            var act = async () => await _service.CommandPrompt<TestStructuredOutput>(retryChatRequest(), new CommandPromptValidation<TestStructuredOutput> { Validations = 2, Validator = mockValidator.Object });
+
+            // Assert
+            await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("validator LLM failure");
+            llmCalls().Should().Be(1);
+        }
+
+        [Fact]
+        public async Task CommandPrompt_WithGenerateRequest_ValidatorFailsOnceThenPasses_RegeneratesAndReturnsValidatorResult()
+        {
+            // Arrange
+            var llmCalls = setupSequentialGenerateResponses();
+            var captured = new List<JsonRefineRequest<TestStructuredOutput>>();
+            var expected = new TestStructuredOutput();
+            var validator = validatorFailing(failures: 1, captured, expected);
+
+            // Act
+            var result = await _service.CommandPrompt<TestStructuredOutput>(new GenerateRequest { Prompt = "List 3 fruits" }, new CommandPromptValidation<TestStructuredOutput> { Validations = 1, Validator = validator.Object });
+
+            // Assert
+            result.Should().BeSameAs(expected);
+            llmCalls().Should().Be(2);
+            captured.Select(r => r.RawOutput).Should().Equal("attempt-1", "attempt-2");
+            captured.Should().OnlyContain(r => r.ValidatedPrompt == "List 3 fruits");
+        }
+
+        [Fact]
+        public async Task CommandPrompt_WithGenerateRequest_ValidatorAlwaysFails_ThrowsPromptRetryExceptionAfterValidationsPlusOneAttempts()
+        {
+            // Arrange
+            var llmCalls = setupSequentialGenerateResponses();
+            var captured = new List<JsonRefineRequest<TestStructuredOutput>>();
+            var validator = validatorFailing(failures: int.MaxValue, captured);
+
+            // Act
+            var act = async () => await _service.CommandPrompt<TestStructuredOutput>(new GenerateRequest { Prompt = "List 3 fruits" }, new CommandPromptValidation<TestStructuredOutput> { Validations = 1, Validator = validator.Object });
+
+            // Assert
+            await act.Should().ThrowAsync<PromptRetryException>();
+            llmCalls().Should().Be(2);
+        }
+
+        #endregion
+
         #region Helper Methods
 
         private IAsyncEnumerable<T> GetAsyncEnumerable<T>(List<T> items)

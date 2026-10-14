@@ -16,7 +16,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
         public JsonOutputRefinerCommand(IOllamaInferenceService ollama) : base(ollama) { }
         public JsonOutputRefinerCommand(IOllamaInferenceService ollama, string? guidanceMessage = null, CommandSettings? settings = null) : base(ollama, guidanceMessage, settings) { }
 
-        //The refiner itself makes no use of the passed messageName, but the messaageSourceName is used for the subValidators (for now. There might be a refiner constructor accepting source-name KvP's in future releases)
+        //The refiner itself makes no use of the passed messageName, but the messageSourceName is used for the subValidators (for now. There might be a refiner constructor accepting source-name KvP's in future releases)
         public JsonOutputRefinerCommand(IOllamaInferenceService ollama, string messageSourceName, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, CommandSettings? settings = null) 
             : base(ollama, messageSourceName, messageName, retrieverLambda, guidanceMessage, settings) { }
 
@@ -53,39 +53,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             }
         }
 
-        //public override Task<TRefined> PromptSync(PromptCommandRequest request)
-        //{
-        //    validateInputRequest<JsonRefineRequest<TRefined>>(request);
-
-        //    if (string.IsNullOrEmpty(request.Model) && _settings != null)
-        //        request.Model = string.IsNullOrEmpty(_settings.ValidatorModel) ? _settings.Model : _settings.ValidatorModel;
-
-        //    var validationReq = (JsonRefineRequest<TRefined>)request;
-
-        //    ReasonedBoolResponse boolValidation = null;
-        //    switch (validationReq.ValidationType)
-        //    {
-        //        case (EPromptValidation.REVIEW_ONLY):
-        //            return reviewResponse(_ollama, validationReq);
-
-        //        case (EPromptValidation.BOOL_AND_RETRY):
-        //            boolValidation = validateResponse(_ollama, validationReq).Result;
-
-        //            if (!boolValidation.Answer)
-        //                throw new JsonOutputValidationException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(PromptSync)}", boolValidation.Justification);
-
-        //            else return Task.FromResult(JsonSerializer.Deserialize<TRefined>(validationReq.RawOutput));
-
-        //        case (EPromptValidation.BOOL_AND_REVIEW):
-        //            return validateAndReview(_ollama, validationReq);
-
-        //        case (EPromptValidation.DOUBLE_BOOL):
-        //            return doubleBool(_ollama, validationReq);
-
-        //        default: return null;
-        //    }
-        //}
-
         private async Task<TRefined> reviewResponse(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
         {
             var command = _retrieverLambda == null ?
@@ -97,7 +64,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             reviewRequest.GuidanceMessage = guidanceMessage;
             reviewRequest.ValidatedPrompt = request.ValidatedPrompt;
             
-            return await command.Prompt(reviewRequest);
+            var review = await command.Prompt(reviewRequest);
+
+            if(review == null)
+                throw new JsonOutputValidationException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(reviewResponse)}", "reviewed response is null");
+
+            return review;
         }
 
         private async Task<ReasonedBoolResponse> validateResponse(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
