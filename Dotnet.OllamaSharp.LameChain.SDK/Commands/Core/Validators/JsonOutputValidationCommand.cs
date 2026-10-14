@@ -29,7 +29,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             var validatedText = getValidatedTaskDefinition()
                    .Replace("<<SYSMSG>>", promptRequest.SystemMessage)
-                   .Replace("<<INPUT>>", promptRequest.Prompt)
+                   .Replace("<<INPUT>>", promptRequest.ValidatedPrompt)
                    .Replace("<<OUTPUT>>", promptRequest.RawOutput)
                    .Replace("<<VALIDATED_SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TModel)).ToJsonString());
 
@@ -51,7 +51,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
 
             var validatedText = getValidatedTaskDefinition()
                    .Replace("<<SYSMSG>>", promptRequest.SystemMessage)
-                   .Replace("<<INPUT>>", promptRequest.Prompt)
+                   .Replace("<<INPUT>>", promptRequest.ValidatedPrompt)
                    .Replace("<<OUTPUT>>", promptRequest.RawOutput)
                    .Replace("<<VALIDATED_SCHEMA>>", JsonSerializerOptions.Default.GetJsonSchemaAsNode(typeof(TModel)).ToJsonString());
 

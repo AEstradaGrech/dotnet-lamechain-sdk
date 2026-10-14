@@ -53,40 +53,40 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             }
         }
 
-        public override Task<TRefined> PromptSync(PromptCommandRequest request)
-        {
-            validateInputRequest<JsonRefineRequest<TRefined>>(request);
+        //public override Task<TRefined> PromptSync(PromptCommandRequest request)
+        //{
+        //    validateInputRequest<JsonRefineRequest<TRefined>>(request);
 
-            if (string.IsNullOrEmpty(request.Model) && _settings != null)
-                request.Model = string.IsNullOrEmpty(_settings.ValidatorModel) ? _settings.Model : _settings.ValidatorModel;
+        //    if (string.IsNullOrEmpty(request.Model) && _settings != null)
+        //        request.Model = string.IsNullOrEmpty(_settings.ValidatorModel) ? _settings.Model : _settings.ValidatorModel;
 
-            var validationReq = (JsonRefineRequest<TRefined>)request;
+        //    var validationReq = (JsonRefineRequest<TRefined>)request;
 
-            ReasonedBoolResponse boolValidation = null;
-            switch (validationReq.ValidationType)
-            {
-                case (EPromptValidation.REVIEW_ONLY):
-                    return reviewResponse(_ollama, validationReq);
+        //    ReasonedBoolResponse boolValidation = null;
+        //    switch (validationReq.ValidationType)
+        //    {
+        //        case (EPromptValidation.REVIEW_ONLY):
+        //            return reviewResponse(_ollama, validationReq);
 
-                case (EPromptValidation.BOOL_AND_RETRY):
-                    boolValidation = validateResponse(_ollama, validationReq).Result;
+        //        case (EPromptValidation.BOOL_AND_RETRY):
+        //            boolValidation = validateResponse(_ollama, validationReq).Result;
 
-                    if (!boolValidation.Answer)
-                        throw new JsonOutputValidationException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(PromptSync)}", boolValidation.Justification);
+        //            if (!boolValidation.Answer)
+        //                throw new JsonOutputValidationException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(PromptSync)}", boolValidation.Justification);
 
-                    else return Task.FromResult(JsonSerializer.Deserialize<TRefined>(validationReq.RawOutput));
+        //            else return Task.FromResult(JsonSerializer.Deserialize<TRefined>(validationReq.RawOutput));
 
-                case (EPromptValidation.BOOL_AND_REVIEW):
-                    return validateAndReview(_ollama, validationReq);
+        //        case (EPromptValidation.BOOL_AND_REVIEW):
+        //            return validateAndReview(_ollama, validationReq);
 
-                case (EPromptValidation.DOUBLE_BOOL):
-                    return doubleBool(_ollama, validationReq);
+        //        case (EPromptValidation.DOUBLE_BOOL):
+        //            return doubleBool(_ollama, validationReq);
 
-                default: return null;
-            }
-        }
+        //        default: return null;
+        //    }
+        //}
 
-        private Task<TRefined> reviewResponse(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
+        private async Task<TRefined> reviewResponse(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
         {
             var command = _retrieverLambda == null ?
                 new JsonOutputReviewCommand<TRefined>(ollama, null, _settings):
@@ -97,10 +97,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             reviewRequest.GuidanceMessage = guidanceMessage;
             reviewRequest.ValidatedPrompt = request.ValidatedPrompt;
             
-            return command.PromptSync(reviewRequest);
+            return await command.Prompt(reviewRequest);
         }
 
-        private Task<ReasonedBoolResponse> validateResponse(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
+        private async Task<ReasonedBoolResponse> validateResponse(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
         {
             var command = _retrieverLambda == null ?
                 new JsonOutputValidationCommand<TRefined>(ollama, null, _settings) :
@@ -111,30 +111,30 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Validators
             validationRequest.GuidanceMessage = guidanceMessage;
             validationRequest.ValidatedPrompt = request.ValidatedPrompt;
 
-            return command.PromptSync(validationRequest);
+            return await command.Prompt(validationRequest);
         }
 
-        private Task<TRefined> validateAndReview(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
+        private async Task<TRefined> validateAndReview(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
         {
-            var validation = validateResponse(ollama, request).Result;
+            var validation = await validateResponse(ollama, request);
 
             if (validation.Answer) 
-                return Task.FromResult(JsonSerializer.Deserialize<TRefined>(request.RawOutput));
+                return JsonSerializer.Deserialize<TRefined>(request.RawOutput);
 
-            return reviewResponse(ollama, request, getJustificationGuidanceMessage(validation.Justification));
+            return await reviewResponse(ollama, request, getJustificationGuidanceMessage(validation.Justification));
         }
-        private Task<TRefined> doubleBool(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
+        private async Task<TRefined> doubleBool(IOllamaInferenceService ollama, JsonRefineRequest<TRefined> request, string? guidanceMessage = null)
         {
-            var review = validateAndReview(ollama, request, guidanceMessage).Result;
+            var review = await validateAndReview(ollama, request, guidanceMessage);
 
             request.RawOutput = JsonSerializer.Serialize<TRefined>(review);
 
-            var validation = validateResponse(ollama, request).Result;
+            var validation = await validateResponse(ollama, request);
 
             if(!validation.Answer)
                 throw new JsonOutputValidationException($"{nameof(JsonOutputRefinerCommand<TRefined>)} >> {nameof(doubleBool)}", validation.Justification);
 
-            return Task.FromResult(review);
+            return review;
         }
 
         JsonValidationRequest<TValResult> toValidationRequest<TValResult>(JsonRefineRequest<TRefined> request)
