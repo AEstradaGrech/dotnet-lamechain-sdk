@@ -93,13 +93,16 @@ version: 1.0.0
 ";
     }
 
-    // Builds a real DI container (Toolbox, markdown skill loader, agents factory) around a mocked
-    // IOllamaInferenceService, and a temporary resources folder for the skill files.
+    // Builds a real DI container (Toolbox, markdown & skills loaders, agents factory) around a mocked
+    // IOllamaInferenceService, and a temporary resources folder mirroring the app layout:
+    //     <ResourcesPath>/markdowns/<name>.md                -> MarkdownLoaderService (DocumentLoader:ResourcesPath)
+    //     <ResourcesPath>/markdowns/skills/<skill>/SKILL.md  -> SkillsLoaderService   (DocumentLoader:SkillResourcesPath = <ResourcesPath>/markdowns)
     public sealed class AgentTestHost : IDisposable
     {
         public const string DefaultModel = "default-model";
 
         public string ResourcesPath { get; }
+        public string SkillResourcesPath => Path.Combine(ResourcesPath, "markdowns");
         public Mock<IOllamaInferenceService> Inference { get; } = new();
         public Mock<IPromptCommandsFactory> CommandsFactory { get; } = new();
         public ServiceProvider Services { get; }
@@ -127,7 +130,10 @@ version: 1.0.0
                 .ReturnsAsync(new Message(ChatRole.Assistant, llmResponse));
 
             var config = new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?> { ["DocumentLoader:ResourcesPath"] = ResourcesPath })
+                .AddInMemoryCollection(new Dictionary<string, string?> {
+                    ["DocumentLoader:ResourcesPath"] = ResourcesPath,
+                    ["DocumentLoader:SkillResourcesPath"] = SkillResourcesPath
+                })
                 .Build();
 
             var services = new ServiceCollection();
@@ -137,6 +143,7 @@ version: 1.0.0
             services.AddSingleton(CommandsFactory.Object);
             services.AddScoped<IAgentsFactory, AgentsFactory>();
             services.AddMarkdownDocumentLoader();
+            services.AddSkillsLoader();
             services.WithToolsFrom<AgentTestTools>();
 
             Services = services.BuildServiceProvider();
@@ -144,9 +151,19 @@ version: 1.0.0
 
         public AgentTestHost WithSkill(string name, string content)
         {
-            var folder = Path.Combine(ResourcesPath, "markdowns", "skills", name);
+            var folder = Path.Combine(SkillResourcesPath, "skills", name);
             Directory.CreateDirectory(folder);
             File.WriteAllText(Path.Combine(folder, "SKILL.md"), content);
+
+            return this;
+        }
+
+        // Generic markdown resource: <ResourcesPath>/markdowns/<relativeName>.md (relativeName may include subfolders)
+        public AgentTestHost WithMarkdown(string relativeName, string content)
+        {
+            var fullPath = Path.Combine(ResourcesPath, "markdowns", $"{relativeName}.md");
+            Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+            File.WriteAllText(fullPath, content);
 
             return this;
         }
