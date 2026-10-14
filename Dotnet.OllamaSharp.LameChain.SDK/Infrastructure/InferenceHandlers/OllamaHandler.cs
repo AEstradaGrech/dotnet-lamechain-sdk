@@ -1,4 +1,5 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,6 +36,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             _requestModel = request.Model;
 
             notifyRequest(_requestModel, request.Messages.Last().Content);
+
+            if (request.Think.HasValue && request.Think.Value == EReasoning.None.ToString().ToLower())
+                request.Think = new ThinkValue(false);
 
             var sb = new StringBuilder();
 

@@ -45,6 +45,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
         
         public Dictionary<string, List<string>> DataSources { get; private set; } = new Dictionary<string, List<string>>();
 
+        public delegate void OnNewToolsLoaded(string toolName, ToolBinding binding);
+        public event OnNewToolsLoaded onNewToolsLoaded;
         // Memory?
 
         protected readonly IServiceProvider _serviceProvider;
@@ -75,6 +77,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             _id = Guid.NewGuid();
             Name = name;
             Description = description;
+
+            onNewToolsLoaded += _inferenceService.LoadNewRequestTools;
         }
 
         /// <summary>
@@ -301,7 +305,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             return sb.ToString();
         }
 
-        protected void loadSkillTools(DocumentPage skillHeading)
+        protected void loadSkillTools(DocumentPage skillHeading, bool notifyHandler = false)
         {
             if (!skillHeading.Text.Contains("allowed-tools:")) return;
 
@@ -314,8 +318,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             var toolbox = toolboxScope.ServiceProvider.GetRequiredService<IToolbox>();
 
             foreach (var tool in allowedTools)
+            {
                 if (toolbox.TryGetMethodInfo(tool, out MethodInfo toolMethod))
-                    AddTool(tool, new ToolBinding(toolMethod)); // tools from toolbox come always  from ToolService (binding target is null)
+                {
+                    var binding = new ToolBinding(toolMethod);
+
+                    AddTool(tool, binding); // tools from toolbox come always  from ToolService (binding target is null)
+
+                    if (notifyHandler)
+                        onNewToolsLoaded(tool, binding);
+                }
+            }
         }
 
         private string broadcastAgentSetup(string systemMessage)

@@ -2,6 +2,7 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OllamaSharp.Models.Chat;
@@ -44,6 +45,19 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 request.Model = _settings.JsonModels.FirstOrDefault();
 
                 notifyRequest(request.Model, "The selected model does not support Structured Output responses, using default model from settings");
+            }
+
+            if(_newRequestTools.Count > 0)
+            {
+                var tools = request.Tools.ToList();
+
+                _newRequestTools.Keys.ToList().ForEach(key => tools.Add(OllamaTools.FromMethod(_newRequestTools[key].methodInfo)));
+
+                notifyRequest(request.Model, "Updating request tools catalogue");
+
+                request.Tools = tools;
+
+                _newRequestTools.Clear();
             }
 
             var response = await _client.GetChatCompletion(request.AsGroqRequest());

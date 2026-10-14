@@ -19,7 +19,6 @@ produce your final response according to the requested tone and mood
 
 # IMPORTANT: Select ONLY the SKILL NAMES to pass them as parameter in the SkillsLoadTool.
 ";
-
         public AutoSkilledAgent() : base() { }
         public AutoSkilledAgent(IServiceProvider serviceProvider, string model, PromptSettings? settings = null, string? name = null, string? description = null) : base(serviceProvider, model, settings, name, description)
         {
@@ -86,7 +85,7 @@ produce your final response according to the requested tone and mood
                     sb.AppendLine()
                       .AppendLine(skillDoc.Pages.Last().Text); // pass the full skill
 
-                    loadSkillTools(skillDoc.Pages.FirstOrDefault()); // pass only the heading to parse the 'available-tools'
+                    loadSkillTools(skillDoc.Pages.FirstOrDefault(), notifyHandler: true); // pass only the heading to parse the 'available-tools'
                 }
             }
 

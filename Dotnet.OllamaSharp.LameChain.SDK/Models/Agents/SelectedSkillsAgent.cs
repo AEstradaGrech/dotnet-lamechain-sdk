@@ -22,7 +22,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
         public override async Task<string> HandleSystemMessageSkills(List<string> skills)
         {
-            if(Skills.Count == 0) return string.Empty;
+            if(skills.Count == 0) return string.Empty;
 
             using var scope = _serviceProvider.CreateScope();
 
@@ -32,7 +32,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
             var sb = new StringBuilder();
 
-            foreach(var skill in Skills)
+            foreach(var skill in skills)
             {
                 // TODO / WIP --> SkillsLoader
                 var skillDoc = await docLoader.LoadDocument($"skills\\{skill}");

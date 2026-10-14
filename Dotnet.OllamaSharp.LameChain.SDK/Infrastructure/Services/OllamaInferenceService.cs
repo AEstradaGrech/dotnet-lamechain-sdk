@@ -36,16 +36,6 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
             
         }
        
-        
-        private void onHandlerNotify(string title, string message)
-        {
-            string notification = $"{title} >> {message}";
-
-            _logger.Log(LogLevel.Information, notification);
-            
-            if(NotifyBroadcaster != null)
-                NotifyBroadcaster(notification);
-        }
         public async Task<Message> GeneratePrompt(GenerateRequest request, string provider)
         {
             provider = provider.Trim();
@@ -266,6 +256,22 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
         public void SubscribeNotifier(Action<string> notifier)
         {
             NotifyBroadcaster += notifier;
+        }
+
+        private void onHandlerNotify(string title, string message)
+        {
+            string notification = $"{title} >> {message}";
+
+            _logger.Log(LogLevel.Information, notification);
+
+            if (NotifyBroadcaster != null)
+                NotifyBroadcaster(notification);
+        }
+
+        public void LoadNewRequestTools(string toolName, ToolBinding binding)
+        {
+            if (_handler != null)
+                _handler.CacheNewRequestTool(toolName, binding);
         }
     }
 }

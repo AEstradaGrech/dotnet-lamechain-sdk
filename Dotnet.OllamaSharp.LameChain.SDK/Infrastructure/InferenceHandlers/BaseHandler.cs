@@ -5,7 +5,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using OllamaSharp.Models.Chat;
-using System.Reflection;
 using System.Text.Json;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
@@ -18,8 +17,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
         protected bool _isSolvingTools = false;
         protected string _requestModel = string.Empty;
         protected readonly Action<string, string> _onHandlerNotify;
-
-
+        // protected readonly Dictionary<string, ToolBinding> loadedTools <- herramientas cargadas usando otra herramienta< (SkillLoaderTool, p.ej)
+        // UpdateLoadedTools() <- LoadingTool.onNewToolsLoaded(string, MethodInfo) <- evento al que se suscribe IOllamaInferenceService <- service.LoadNewTools(string, ToolBinding) = _handler.AddNewRequestTools(string, ToolBinding)
+        // en cada GetLlmResponse se checkea _loadedTools.Count > 0 then -> _loadedTools.ForEach => request.Tools.Add(OllamaTools.FromMethod(ToolBinding.methodInfo); _loadedTools.Clear() [se añaden a la request y se limpia la cache. Cada vez que se cargan tools dinamicamente se da este proceso
+        protected readonly Dictionary<string, ToolBinding> _newRequestTools;
         public string Name => _provider;
         public string ScopedModel => _requestModel;
         public bool IsSolvingTools => _isSolvingTools;
@@ -37,6 +38,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             if(notifyAction != null)
                 _onHandlerNotify += notifyAction;
+
+            _newRequestTools = new Dictionary<string, ToolBinding>();
         }
 
         public bool IsOfType<T>() where T : BaseHandler => this is T;
@@ -48,6 +51,19 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 "groq" => new GroqHandler(_serviceProvider, _config, _onHandlerNotify),
                 _ => new OllamaHandler(_serviceProvider, _config, _onHandlerNotify)
             };
+
+        public abstract Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, ToolBinding>? requestTools = null);
+
+        public void CacheNewRequestTool(string toolName, ToolBinding binding)
+        {
+            notifyRequest($"{_provider}/{ScopedModel}", $"Loading new request tool: {toolName}");
+
+            if (!_newRequestTools.ContainsKey(toolName))
+                _newRequestTools.Add(toolName, binding);
+        }
+
+        protected virtual bool isValid()
+            => _serviceProvider != null && _config != null && !string.IsNullOrEmpty(_provider);
 
         protected T tryGetConfig<T>(IConfiguration configuration) where T : class
         {
@@ -67,10 +83,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             return configuration.GetSection(nameof(T)).Get<T>();
         }
-        public abstract Task<string> GetLlmResponse(ChatRequest request, Dictionary<string, ToolBinding>? requestTools = null);
-
-        protected virtual bool isValid()
-            => _serviceProvider != null && _config != null && !string.IsNullOrEmpty(_provider);
 
         protected virtual void validateFunctionCallMessage<T>(T message, Dictionary<string, ToolBinding>? toolsLookup) where T : class
         {
