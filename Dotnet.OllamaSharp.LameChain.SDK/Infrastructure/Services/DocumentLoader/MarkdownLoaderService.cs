@@ -2,7 +2,7 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.DocumentLoader;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.DocumentLoader;
 using Markdig;
-using Markdig.Extensions.Yaml;
+
 using Markdig.Renderers;
 using Markdig.Syntax;
 using Microsoft.Extensions.Configuration;
@@ -27,15 +27,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoade
         {
             var fullFile = await readFile(fileName);
 
-            var pipeline = new MarkdownPipelineBuilder()
-                    .UseYamlFrontMatter()
-                    .Build();
+            var pipeline = new MarkdownPipelineBuilder().Build();
 
             var markdown = Markdown.Parse(fullFile, pipeline);
 
-            var frontmatter = markdown.Descendants<YamlFrontMatterBlock>().FirstOrDefault();
-
-            var pages = frontmatter == null ? new List<DocumentPage>() : new List<DocumentPage> { new DocumentPage(1, string.Join(Environment.NewLine, frontmatter.Lines.Lines.Select(x => x.ToString().Trim()))) };
+            var pages = new List<DocumentPage>();
 
             var sections = extractSections(markdown, pipeline, pages.Count);
 
@@ -59,7 +55,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoade
             var document = await LoadDocument(fileName);
 
             if(document.Pages.Count <= 0)
-                throw new FileNotFoundException($"No content found for skill: {fileName}");
+                throw new FileNotFoundException($"No content found for markdown file: {fileName}");
 
             if (page <= 0)
                 page = 1;
@@ -83,10 +79,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoade
             var document = await LoadDocument(fileName);
 
             if (document.Pages.Count <= 0)
-                throw new FileNotFoundException($"No content found for skill: {fileName}");
+                throw new FileNotFoundException($"No content found for markdown file: {fileName}");
 
             if(startIndex > document.Pages.Count)
-                throw new ArgumentOutOfRangeException($"Start index {startIndex} is out of range for skill: {fileName}");
+                throw new ArgumentOutOfRangeException($"Start index {startIndex} is out of range for markdown: {fileName}");
 
             if(startIndex <= 0)
                 startIndex = 1;
@@ -96,10 +92,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoade
 
         private async Task<string> readFile(string fileName)
         {
-            var fullPath = Path.Combine(_basePath, fileName, $"SKILL.md");
+            var fullPath = Path.Combine(_basePath, $"{fileName}.md");
 
             if (!File.Exists(fullPath))
-                throw new FileNotFoundException($"SKILL MD file not found in folder: {fileName}");
+                throw new FileNotFoundException($"Markdown file not found with name: {fileName}");
 
             return await File.ReadAllTextAsync(fullPath);
         }

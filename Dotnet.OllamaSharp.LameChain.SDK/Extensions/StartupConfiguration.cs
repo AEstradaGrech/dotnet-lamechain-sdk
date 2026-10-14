@@ -214,6 +214,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                 _ => services
             };
 
+        public static IServiceCollection AddSkillsLoader(this IServiceCollection services, ServiceLifetime lifetime = ServiceLifetime.Scoped)
+            => lifetime switch
+            {
+                ServiceLifetime.Scoped => services.AddScoped<IDocumentLoader<SkillsLoaderService>, SkillsLoaderService>(),
+                ServiceLifetime.Transient => services.AddTransient<IDocumentLoader<SkillsLoaderService>, SkillsLoaderService>(),
+                _ => services
+            };
+
         public static IServiceCollection ConfigureLameChain(this IServiceCollection services, IConfiguration appConfig, ServiceLifetime lifetime = ServiceLifetime.Scoped)
             => services.ConfigureOllamaSettings(appConfig)
                        .AddOllamaSharpApiClient(appConfig, lifetime)

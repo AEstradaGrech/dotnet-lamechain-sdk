@@ -256,7 +256,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             {
                 using var scope = _serviceProvider.CreateScope();
 
-                var loader = scope.ServiceProvider.GetRequiredService<IDocumentLoader<MarkdownLoaderService>>();
+                var loader = scope.ServiceProvider.GetRequiredService<IDocumentLoader<SkillsLoaderService>>();
 
                 if (loader == null) return sb.ToString();
 
@@ -265,7 +265,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                 foreach (var skill in skills)
                 {
                     // TODO / WIP --> SkillsLoader
-                    var doc = await loader.LoadDocument($"skills\\{skill}");
+                    var doc = await loader.LoadDocument($"{skill}");
 
                     if (doc != null && doc.Pages.Count() > 0)
                         sb.AppendLine(doc.Pages.Last().Text.Trim());

@@ -43,7 +43,7 @@ produce your final response according to the requested tone and mood
 
             using var scope = _serviceProvider.CreateScope();
 
-            var docLoader = scope.ServiceProvider.GetService<IDocumentLoader<MarkdownLoaderService>>();
+            var docLoader = scope.ServiceProvider.GetService<IDocumentLoader<SkillsLoaderService>>();
 
             if (docLoader == null) return string.Empty;
 
@@ -53,7 +53,7 @@ produce your final response according to the requested tone and mood
             {
                 // Note: the expected folder structure is <PathToResourcesFromAppSettings>\markdowns\skills\<skillname>\SKILL.md
                 // TODO / WIP --> SkillsLoader
-                var skillDoc = await docLoader.LoadDocument($"skills\\{skill}");
+                var skillDoc = await docLoader.LoadDocument($"{skill}");
 
                 if (skillDoc != null && skillDoc.Pages.Count > 0 && !string.IsNullOrEmpty(skillDoc.Pages.FirstOrDefault().Text))
                     sb.AppendLine()
@@ -68,7 +68,7 @@ produce your final response according to the requested tone and mood
         {
             using var scope = _serviceProvider.CreateScope();
 
-            var docLoader = scope.ServiceProvider.GetService<IDocumentLoader<MarkdownLoaderService>>();
+            var docLoader = scope.ServiceProvider.GetService<IDocumentLoader<SkillsLoaderService>>();
 
             if (docLoader == null) return string.Empty;
 
@@ -78,7 +78,7 @@ produce your final response according to the requested tone and mood
             {
                 // Note: the expected folder structure is <PathToResourcesFromAppSettings>\markdowns\skills\<skillname>\SKILL.md
                 // TODO / WIP --> SkillsLoader
-                var skillDoc = await docLoader.LoadDocument($"skills\\{skill}");
+                var skillDoc = await docLoader.LoadDocument($"{skill}");
 
                 if (skillDoc != null && skillDoc.Pages.Count > 1 && !string.IsNullOrEmpty(skillDoc.Pages.Last().Text)) //contains at least the heading (first page) and the full skill (last page)
                 {
