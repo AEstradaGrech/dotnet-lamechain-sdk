@@ -84,6 +84,22 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             return configuration.GetSection(nameof(T)).Get<T>();
         }
 
+        protected void handleNewLoadedTools(ChatRequest request)
+        {
+            if (_newRequestTools.Count > 0)
+            {
+                var tools = request.Tools.ToList();
+
+                _newRequestTools.Keys.ToList().ForEach(key => tools.Add(OllamaTools.FromMethod(_newRequestTools[key].methodInfo)));
+
+                notifyRequest(request.Model, "Updating request tools catalogue");
+
+                request.Tools = tools;
+
+                _newRequestTools.Clear();
+            }
+        }
+
         protected virtual void validateFunctionCallMessage<T>(T message, Dictionary<string, ToolBinding>? toolsLookup) where T : class
         {
             var ollamaMessage = message as Message;

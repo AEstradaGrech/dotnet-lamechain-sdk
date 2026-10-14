@@ -40,6 +40,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             if (request.Think.HasValue && request.Think.Value == EReasoning.None.ToString().ToLower())
                 request.Think = new ThinkValue(false);
 
+            handleNewLoadedTools(request);
+
             var sb = new StringBuilder();
 
             await foreach (var part in _client.ChatAsync(request))

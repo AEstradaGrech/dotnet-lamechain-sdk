@@ -47,18 +47,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 notifyRequest(request.Model, "The selected model does not support Structured Output responses, using default model from settings");
             }
 
-            if(_newRequestTools.Count > 0)
-            {
-                var tools = request.Tools.ToList();
-
-                _newRequestTools.Keys.ToList().ForEach(key => tools.Add(OllamaTools.FromMethod(_newRequestTools[key].methodInfo)));
-
-                notifyRequest(request.Model, "Updating request tools catalogue");
-
-                request.Tools = tools;
-
-                _newRequestTools.Clear();
-            }
+            handleNewLoadedTools(request);
 
             var response = await _client.GetChatCompletion(request.AsGroqRequest());
 
