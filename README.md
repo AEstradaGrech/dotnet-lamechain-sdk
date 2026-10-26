@@ -3,6 +3,8 @@
 [![.NET](https://img.shields.io/badge/.NET-10.0%2B-blue.svg)](https://dotnet.microsoft.com/)
 
 # dotnet-lamechain-sdk
+Lame name, serious chains (by all means, use LangChain. Recommended)
+
 A fluent .NET framework for chaining structured OllamaSharp prompts with sequence and parallel workflows with tools support.
 
 ## What is LameChain?
