@@ -1,4 +1,6 @@
-﻿using System.Text.Json;
+﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
+using OllamaSharp.Models.Chat;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs
@@ -28,7 +30,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs
             JsonSerializer.Serialize(JsonSchema) : 
             "[CONTEXT ERROR: MISSING DATA]"; //Tell the LLM there is an error in this section so it does not hallucinate the response because it is instructed to review an empty section
         
-        public object ResultObject() => JsonSerializer.Deserialize(SerializedResult, SerializedType, DeserializerOptions) ?? throw new InvalidOperationException($"Failed to deserialize JSON to type {SerializedType.Name}");
+        public object ResultObject() => SerializedType.FullName == typeof(ChatMessage).FullName ? 
+            new ChatMessage(ChatRole.Assistant.ToString(),SerializedResult) :
+            JsonSerializer.Deserialize(SerializedResult, SerializedType, DeserializerOptions) ?? throw new InvalidOperationException($"Failed to deserialize JSON to type {SerializedType.Name}");
   
     }
 }

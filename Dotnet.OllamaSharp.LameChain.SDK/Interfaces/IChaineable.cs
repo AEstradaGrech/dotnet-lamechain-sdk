@@ -56,7 +56,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces
         ChainRunner Drop();
         void Catch(ChainRunner runner);
         // Read Output
-        TDeserialized GetOutputAs<TDeserialized>() where TDeserialized : class;
+        //string GetRawOutput(int idx = 0);
+        TDeserialized GetOutputAs<TDeserialized>(int idx = 0) where TDeserialized : class;
         public Dictionary<Guid, List<ChainLink>> GrouppedOutputs();
 
         // ChainRunner Events

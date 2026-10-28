@@ -1,7 +1,9 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
@@ -9,6 +11,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Models.Step;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs;
 using Microsoft.Extensions.Logging;
+using OllamaSharp.Models.Chat;
 using System.Linq.Expressions;
 using System.Text;
 using System.Text.Json;
@@ -149,10 +152,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         
         public abstract Task<IChaineable> Forge(IChaineable previous);
 
-        public TDeserialized GetOutputAs<TDeserialized>() where TDeserialized : class
-    => IsForged ? JsonSerializer.Deserialize<TDeserialized>(Outputs.First().SerializedResult, getSerializerOptions()) ??
-        throw new InvalidOperationException($"Failed to deserialize JSON to type {typeof(TDeserialized).Name}") :
-        throw new InvalidOperationException("The chain step has not been forged and has no output value");
+        public TDeserialized GetOutputAs<TDeserialized>(int idx = 0) where TDeserialized : class
+            => IsForged ? Outputs.Skip(idx).FirstOrDefault().ResultObject() as TDeserialized ??
+            throw new InvalidOperationException($"Failed to deserialize JSON to type {typeof(TDeserialized).Name}") :
+            throw new InvalidOperationException("The chain step has not been forged and has no output value");
+        //=> IsForged ? (typeof(TDeserialized) is ChatMessage ?
+        //    Outputs.Skip(idx).FirstOrDefault().ResultObject()  as TDeserialized :
+        //    JsonSerializer.Deserialize<TDeserialized>(Outputs.Skip(idx).FirstOrDefault().SerializedResult, getSerializerOptions())) ??
+        //throw new InvalidOperationException($"Failed to deserialize JSON to type {typeof(TDeserialized).Name}") :
+        //throw new InvalidOperationException("The chain step has not been forged and has no output value");
 
         public void SendReplay()
         {
@@ -359,13 +367,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             {
                 CommandSettings settings = _commands[idx].CommandSettings ?? _runner.DefaultSettings;
 
-                var split = settings.Model.Split("/");
-                if (split.Length > 1)
+                var split = settings.Model.Split("_");
+                if (split.Length > 1) //command | default settings != request. provider
                 {
                     if (split.First() != Request.Provider)
-                        Request.Model = settings.Model;
+                        Request.Model = settings.Model; // whatever provider_model has been set for the command, it will be parsed in the inference service and will update the handler to change the provider
                 }
-                else Request.Model = settings.Model;
+                else Request.Model = settings.Model; // assumes ollama provider
             }
             
             // JsonPrompt
@@ -378,12 +386,23 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             notify($"{nameof(forgeLink)} >> LINK FORGED >> SYSTEM MESSAGE: \n{_promptedInstruction}", LogLevel.Warning);
 
-            var link = new ChainLink(_id, _promptedInstruction, jsonResult.RawJson, JsonSerializerOptions.Default.GetJsonSchemaAsNode(jsonResult.Type), jsonResult.Type, deserializerOptions: jsonResult.SerializerOptions, feedForwardMessage: _feedForwardInstruction);
+            var commandResult = jsonResult.RawJson;
+
+            // Exception case: message command removes the json format since it is not relevant and can mislead small models in other steps
+            if (_commands[idx] is MessagePromptCommand)
+            {
+                var message = JsonSerializer.Deserialize<ChatMessage>(jsonResult.RawJson, jsonResult.SerializerOptions);
+
+                if(message != null)
+                    commandResult = message.Content;
+            }
+
+            var link = new ChainLink(_id, _promptedInstruction, commandResult, JsonSerializerOptions.Default.GetJsonSchemaAsNode(jsonResult.Type), jsonResult.Type, deserializerOptions: jsonResult.SerializerOptions, feedForwardMessage: _feedForwardInstruction);
 
             _outputs.Add(link);
 
             _forgeLog.ForgeTimestamp = DateTime.Now;
-            _forgeLog.JsonResult = jsonResult.RawJson;
+            _forgeLog.JsonResult = commandResult;
             _forgeLog.JsonSchema = link.SchemaForMessage();
 
             notify($"{nameof(forgeLink)} >> LINK FORGED >> OUTPUT: \n{_forgeLog.JsonResult}", LogLevel.Warning);
