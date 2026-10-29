@@ -146,7 +146,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             else finalRunner = finalStep.Drop();
 
-            return new ChainResult(withReplay ? finalRunner.GetReplays() : [], result: finalStep.Outputs.First().ResultObject(), finalStep.Outputs.First().JsonSchema, chainInput: firstStep.Input, stepsLog: finalRunner.RunnedInstructions, processedResult: finalMessage);
+            return new ChainResult(withReplay ? finalRunner.GetReplays() : [], result: finalStep.Outputs.First().ResultObject(), finalStep.Outputs.First().JsonSchema, chainInput: firstStep.Input, stepsLog: finalRunner.RunnedInstructions, processedResult: withFinalMessage ? finalMessage : null);
         }
 
         private Instruction getDefaultFinalInstruction()

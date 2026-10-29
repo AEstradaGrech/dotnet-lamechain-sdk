@@ -8,7 +8,6 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Clients;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoader;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
-using Dotnet.OllamaSharp.LameChain.SDK.Models.Agents;
 using DotnetLlamaSharp.Domain.Services.Embeddings;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using DotnetLlamaSharp.Infrastructure.Services.Inference;

@@ -11,7 +11,6 @@ using Dotnet.OllamaSharp.LameChain.SDK.Models.Step;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects.Outputs;
 using Microsoft.Extensions.Logging;
-using OllamaSharp.Models.Chat;
 using System.Linq.Expressions;
 using System.Text;
 using System.Text.Json;

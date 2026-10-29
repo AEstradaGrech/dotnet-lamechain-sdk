@@ -47,7 +47,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
 
         public delegate void OnMainChainNotify(Guid id, string message, LogLevel level);
         public event OnMainChainNotify onMainChainNotify;
-        // onUpstreamNotify <- RELAY SUBCHAIN MESSAGES TO MAINCHAIN (WITH THE BROADCASTER, WHICH IS NOT CLONED)
 
         public delegate void OnReplay();
         public event OnReplay onReplayRequest;
