@@ -19,7 +19,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
-using OpenTelemetry;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Trace;
 using System.Net.Http.Headers;
@@ -206,13 +205,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 
         public static IServiceCollection AddLangfuseTracing(this IServiceCollection services, IConfiguration configuration)
         {
+            var langfuseSettings = configuration.GetSection("LangfuseSettings").Get<LangfuseSettings>();
+
             services.AddOpenTelemetry().WithTracing(builder =>
             {
-                builder.AddSource("LameChain")                       // TODO: Langfuse settings
+                builder.AddSource(langfuseSettings.SourceName)                       
                        .AddOtlpExporter(o => {
-                           o.Endpoint = new Uri("http://localhost:3000/api/public/otel/v1/traces"); // TODO: Langfuse settings
-                           o.Protocol = OtlpExportProtocol.HttpProtobuf;   // Langfuse no acepta gRPC
-                           o.Headers = $"Authorization=Basic {Convert.ToBase64String(Encoding.UTF8.GetBytes("pk-lf-xxx:sk-lf-xxx"))}"; //TODO: Langfuse settings
+                           o.Endpoint = new Uri(langfuseSettings.BaseUrl + "/api/public/otel/v1/traces");
+                           o.Protocol = OtlpExportProtocol.HttpProtobuf; 
+                           o.Headers = $"Authorization=Basic {Convert.ToBase64String(Encoding.UTF8.GetBytes(langfuseSettings.PublicKey + ":" + langfuseSettings.PrivateKey))},x-langfuse-ingestion-version=4";
                        });
             });
                 

@@ -143,7 +143,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                 _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> Sending request to LLM >> {JsonSerializer.Serialize<ChatRequest>(request)}", LogLevel.Information);
             }
 
-            using var activity = _traceConfig != null ? LameTelemetry.Source.StartActivity(_traceConfig.TraceName) : null;
+            using var activity = _traceConfig != null ? LameTelemetry.StartRootActivity(_traceConfig.TraceName) : null;
             if (_traceConfig != null)
             {
                 _traceConfig.Tags.Add(this.GetType().Name); //LameAgent | AutoSkilledAgent | SelectedSkillsAgent | X_Agent

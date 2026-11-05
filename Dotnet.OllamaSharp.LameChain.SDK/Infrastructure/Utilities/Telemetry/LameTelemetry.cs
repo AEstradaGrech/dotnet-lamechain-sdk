@@ -20,6 +20,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry
 
         public static ActivitySource Source { get { return _source ?? CreateSource(); } }
 
+        public static Activity? StartRootActivity(string activityName)
+        {
+            // Ensure that the current activity is not from a different source before starting a new root activity
+            if (Activity.Current?.Source != Source)
+                Activity.Current = null;
+
+            return Source.StartActivity(activityName, ActivityKind.Internal);
+        }
+
         public static Activity? StartActivity(string activityName = "generation", ActivityKind kind = ActivityKind.Client)
         {
             if (_source == null)
