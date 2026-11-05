@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using OllamaSharp.Models.Chat;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
@@ -192,6 +193,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
         protected async Task<object?> getToolResult(ToolBinding binding, IDictionary<string, object> arguments)
         {
+            using Activity? activity = LameTelemetry.IsEnabled ? LameTelemetry.StartActivity(binding.methodInfo.Name) : null;
+
+            if(activity != null)
+                LameTelemetry.TraceToolCall(activity, JsonSerializer.Serialize(arguments));
             // if target is null, then the tool is comming from a ToolService, else it is an Agent built-in tool
             var toolSource = binding.target == null ? _serviceProvider.GetRequiredService(typeof(IToolsService<>).MakeGenericType(binding.methodInfo.DeclaringType)) : binding.target;
 
@@ -210,8 +215,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 // When it executes, the DLR looks at the object's actual runtime type (Task<string>), finds its real GetAwaiter(), and
                 // the await expression evaluates to the unwrapped string.
                 dynamic awaitableTask = task;
-                return await awaitableTask;
+
+                invokeResult = await awaitableTask;
             }
+
+            if (activity != null)
+                LameTelemetry.TraceToolResponse(activity, JsonSerializer.Serialize(invokeResult));
 
             return invokeResult;
         }

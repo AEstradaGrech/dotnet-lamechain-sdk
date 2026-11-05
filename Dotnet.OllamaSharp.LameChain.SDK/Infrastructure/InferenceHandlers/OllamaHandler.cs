@@ -9,6 +9,7 @@ using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 {
@@ -50,15 +51,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             if(activity != null)
                 LameTelemetry.TraceGenerationRequest(activity, request.Model, request.Messages.ToList());
+            
             int inputTokens = 0;
             int outputTokens = 0;
+            Message? toolCallMessage = null;
             await foreach (var part in _client.ChatAsync(request))
             {
                 if(part?.Message.ToolCalls != null && part?.Message.ToolCalls.Count() > 0)
                 {
-                    var toolsLoopResponse = await handleFunctionCall<ChatRequest, Message>(request, part?.Message, requestTools);
-
-                    sb.Append(toolsLoopResponse);
+                    toolCallMessage ??= part?.Message;
                 }
                 else
                 {
@@ -68,18 +69,18 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                     if (!string.IsNullOrEmpty(part?.Message.Content))
                         sb.Append(part.Message.Content);
 
-                    if(part != null && part is ChatDoneResponseStream done)
+                    if(part is ChatDoneResponseStream done)
                     {
                         inputTokens = done.PromptEvalCount;
                         outputTokens = done.EvalCount;
                     }
                 }
             }
-            
-            if(activity != null)
-                LameTelemetry.TraceGenerationResponse(activity, sb.ToString(), inputTokens, outputTokens);
 
-            return sb.ToString().Trim();
+            if (activity != null)
+                LameTelemetry.TraceGenerationResponse(activity, toolCallMessage != null ? JsonSerializer.Serialize(toolCallMessage.ToolCalls) : sb.ToString(), inputTokens, outputTokens, shouldStop: true);
+
+            return toolCallMessage != null ? await handleFunctionCall<ChatRequest, Message>(request, toolCallMessage, requestTools) :sb.ToString().Trim();
         }
 
         public async Task<string> GenerateLlmResponse(GenerateRequest request)

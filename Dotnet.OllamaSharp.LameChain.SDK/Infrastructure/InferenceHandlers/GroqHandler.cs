@@ -61,9 +61,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 throw new InvalidDataException($"{nameof(GroqHandler)}.{nameof(GetLlmResponse)}.{nameof(_client.GetChatCompletion)} >> No message choices present in the response");
 
             var responseMessage = response.Choices.FirstOrDefault().Message;
-            
+
             if (responseMessage.ToolCalls != null && responseMessage.ToolCalls.Count() > 0)
+            {
+                if (activity != null)
+                    LameTelemetry.TraceGenerationResponse(activity, responseMessage.Content, response.Usage.PromptTokens, response.Usage.CompletionTokens, shouldStop: true);
+
                 return await handleFunctionCall<ChatRequest, Message>(request, responseMessage, requestTools);
+            }
 
             if (!string.IsNullOrEmpty(responseMessage.Thinking)) 
             {

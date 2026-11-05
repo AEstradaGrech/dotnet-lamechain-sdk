@@ -63,6 +63,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 if (response.Messages.FirstOrDefault().Contents.OfType<TextReasoningContent>().Any())
                     notifyThinking(request.Model, string.Concat(response.Messages.FirstOrDefault().Contents.OfType<TextReasoningContent>().Select(x => x.Text)));
 
+                if (activity != null)
+                    LameTelemetry.TraceGenerationResponse(activity, response.Messages.FirstOrDefault().Text, (int?)response.Usage?.InputTokenCount ?? 0, (int?)response.Usage?.OutputTokenCount ?? 0, shouldStop: true);
+
                 return await handleFunctionCall<ChatRequest, AIMessage>(request, response.Messages.FirstOrDefault(), requestTools);
             }
             else

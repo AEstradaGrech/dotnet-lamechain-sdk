@@ -20,12 +20,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry
 
         public static ActivitySource Source { get { return _source ?? CreateSource(); } }
 
-        public static Activity StartActivity(string activityName = "generation", ActivityKind kind = ActivityKind.Server)
+        public static Activity? StartActivity(string activityName = "generation", ActivityKind kind = ActivityKind.Client)
         {
             if (_source == null)
                 _source = CreateSource();
             
-            return _source.StartActivity(activityName, kind) ?? new Activity(activityName);
+            return _source.StartActivity(activityName, kind);
         }
 
         public static void TraceGenerationRequest(Activity activity, string model, List<Message> input )
@@ -35,11 +35,29 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry
             activity.SetTag("langfuse.observation.input", JsonSerializer.Serialize(input));
         }
 
-        public static void TraceGenerationResponse(Activity activity, string output, int? inputTokens, int? outputTokens)
+        public static void TraceGenerationResponse(Activity activity, string output, int? inputTokens, int? outputTokens, bool shouldStop = false)
         {
             activity.SetTag("langfuse.observation.output", output);
             activity.SetTag("gen_ai.usage.input_tokens", inputTokens);
             activity.SetTag("gen_ai.usage.output_tokens", outputTokens);
+
+            if (shouldStop)
+                activity.Stop();
+        }
+
+        public static void TraceToolCall(Activity activity, string toolArgs)
+        {
+            activity.SetTag("langfuse.observation.type", "tool");
+            activity.SetTag("langfuse.observation.input", toolArgs);
+        }
+
+        public static void TraceToolResponse(Activity activity, string toolResponse)
+            => activity.SetTag("langfuse.observation.output", toolResponse);
+
+        public static void TraceGenerationError(Activity activity, string errorMessage)
+        {
+            activity.SetTag("langfuse.observation.error", errorMessage);
+            activity.Stop();
         }
 
         public static void StopSource()

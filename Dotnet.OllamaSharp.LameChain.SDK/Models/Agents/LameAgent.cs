@@ -179,6 +179,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             if(_onBroadcast != null)
                 _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> LLM Response >> {response.Content ?? ""}", LogLevel.Information);
 
+            if(_traceConfig != null)
+                LameTelemetry.StopSource();
+
             return response.Content ?? "";
         }
         /// <summary>
@@ -220,9 +223,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                 _onBroadcast(Id, $"{nameof(RunCommand)} >> {broadcastId()} >> Running command of type {typeof(T).Name}", LogLevel.Information);
                 _onBroadcast(Id, $"{nameof(RunCommand)} >> {broadcastId()} >> Sending request to LLM >> {JsonSerializer.Serialize<ChatCommandRequest>(request)}", LogLevel.Information);
             }
-
-            if (_traceConfig != null)
-                _inferenceService.EnableLangfuse(_traceConfig);
 
             return await _inferenceService.CommandPrompt<T>(request.ToOllamaChat(settings: _settings));
         }

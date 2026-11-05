@@ -213,8 +213,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                            o.Endpoint = new Uri("http://localhost:3000/api/public/otel/v1/traces"); // TODO: Langfuse settings
                            o.Protocol = OtlpExportProtocol.HttpProtobuf;   // Langfuse no acepta gRPC
                            o.Headers = $"Authorization=Basic {Convert.ToBase64String(Encoding.UTF8.GetBytes("pk-lf-xxx:sk-lf-xxx"))}"; //TODO: Langfuse settings
-                       })
-                .Build();
+                       });
             });
                 
             return services;
