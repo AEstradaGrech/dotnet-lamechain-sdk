@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
+using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
@@ -142,7 +143,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                 _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> Sending request to LLM >> {JsonSerializer.Serialize<ChatRequest>(request)}", LogLevel.Information);
             }
 
-            if(_traceConfig != null)
+            using var activity = _traceConfig != null ? LameTelemetry.Source.StartActivity(_traceConfig.TraceName) : null;
+            if (_traceConfig != null)
             {
                 _traceConfig.Tags.Add(this.GetType().Name); //LameAgent | AutoSkilledAgent | SelectedSkillsAgent | X_Agent
                 _traceConfig.Tags.Add(Id.ToString());
@@ -167,7 +169,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                 _traceConfig.Metadata.Add(nameof(Provider).ToLower(), Provider);
                 _traceConfig.Metadata.Add(nameof(Model).ToLower(), Model);
 
-                LameTelemetry.Source.StartActivity(_traceConfig.TraceName);
             }
                 
 
@@ -179,8 +180,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             if(_onBroadcast != null)
                 _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> LLM Response >> {response.Content ?? ""}", LogLevel.Information);
 
-            if(_traceConfig != null)
-                LameTelemetry.StopSource();
+            if(activity != null)
+                activity.Stop();
 
             return response.Content ?? "";
         }

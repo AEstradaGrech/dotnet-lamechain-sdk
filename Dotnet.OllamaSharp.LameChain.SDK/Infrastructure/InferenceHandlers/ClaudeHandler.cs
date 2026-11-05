@@ -64,8 +64,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                     notifyThinking(request.Model, string.Concat(response.Messages.FirstOrDefault().Contents.OfType<TextReasoningContent>().Select(x => x.Text)));
 
                 if (activity != null)
-                    LameTelemetry.TraceGenerationResponse(activity, response.Messages.FirstOrDefault().Text, (int?)response.Usage?.InputTokenCount ?? 0, (int?)response.Usage?.OutputTokenCount ?? 0, shouldStop: true);
+                {
 
+                    var llmMessage = response.Messages.FirstOrDefault() as AIMessage;
+                    var toolMessage = llmMessage.Contents.Where(x => x.GetType().IsAssignableTo(typeof(FunctionCallContent))).FirstOrDefault() as FunctionCallContent;
+
+                    LameTelemetry.TraceGenerationResponse(activity, toolMessage.Name, (int?)response.Usage?.InputTokenCount ?? 0, (int?)response.Usage?.OutputTokenCount ?? 0, shouldStop: true);
+                }
                 return await handleFunctionCall<ChatRequest, AIMessage>(request, response.Messages.FirstOrDefault(), requestTools);
             }
             else
@@ -80,6 +85,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                     if (llmResponse.StartsWith("```json"))
                         llmResponse = llmResponse.Replace("```json", "").Replace("```", "").Trim();
                 }
+
+                if (activity != null)
+                    LameTelemetry.TraceGenerationResponse(activity, response.Messages.FirstOrDefault().Text, (int?)response.Usage?.InputTokenCount ?? 0, (int?)response.Usage?.OutputTokenCount ?? 0, shouldStop: true);
 
                 return llmResponse;
             }

@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using OllamaSharp.Models.Chat;
 using System.Diagnostics;
 using System.Text.Json;
+using static OllamaSharp.Models.Chat.Message;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 {
@@ -65,7 +66,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             if (responseMessage.ToolCalls != null && responseMessage.ToolCalls.Count() > 0)
             {
                 if (activity != null)
-                    LameTelemetry.TraceGenerationResponse(activity, responseMessage.Content, response.Usage.PromptTokens, response.Usage.CompletionTokens, shouldStop: true);
+                    LameTelemetry.TraceGenerationResponse(activity, responseMessage.ToolCalls.FirstOrDefault().Function.Name, response.Usage.PromptTokens, response.Usage.CompletionTokens, shouldStop: true);
 
                 return await handleFunctionCall<ChatRequest, Message>(request, responseMessage, requestTools);
             }
