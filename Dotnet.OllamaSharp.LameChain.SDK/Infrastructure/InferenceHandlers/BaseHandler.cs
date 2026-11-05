@@ -1,6 +1,7 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -16,10 +17,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
         protected readonly string _provider;
         protected bool _isSolvingTools = false;
         protected string _requestModel = string.Empty;
-        protected readonly Action<string, string> _onHandlerNotify;
-        // protected readonly Dictionary<string, ToolBinding> loadedTools <- herramientas cargadas usando otra herramienta< (SkillLoaderTool, p.ej)
-        // UpdateLoadedTools() <- LoadingTool.onNewToolsLoaded(string, MethodInfo) <- evento al que se suscribe IOllamaInferenceService <- service.LoadNewTools(string, ToolBinding) = _handler.AddNewRequestTools(string, ToolBinding)
-        // en cada GetLlmResponse se checkea _loadedTools.Count > 0 then -> _loadedTools.ForEach => request.Tools.Add(OllamaTools.FromMethod(ToolBinding.methodInfo); _loadedTools.Clear() [se añaden a la request y se limpia la cache. Cada vez que se cargan tools dinamicamente se da este proceso
+        protected readonly Action<string, string>? _onHandlerNotify;
         protected readonly Dictionary<string, ToolBinding> _newRequestTools;
         public string Name => _provider;
         public string ScopedModel => _requestModel;
@@ -161,6 +159,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
         {
             if (_onHandlerNotify != null)
                 _onHandlerNotify.Invoke($"- LLM REQUEST: {_provider}/{model}", prompt);
+
+
         }
 
         protected void notifyThinking(string model, string thinking)

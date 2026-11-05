@@ -4,10 +4,12 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OllamaSharp.Models.Chat;
+using System.Diagnostics;
 using AIMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
@@ -48,6 +50,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             _requestModel = request.Model;
 
             notifyRequest(_requestModel, request.Messages.Last().Content);
+
+            using Activity? activity = LameTelemetry.IsEnabled ? LameTelemetry.StartActivity() : null;
+
+            if (activity != null)
+                LameTelemetry.TraceGenerationRequest(activity, request.Model, request.Messages.ToList());
 
             var response = await _client.GetResponseAsync(request.Messages.ToChatMessages(), request.ToClaudeChatClientRequest(mapRequestTools(requestTools), allowParallelToolCall: false));
 

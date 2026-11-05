@@ -13,6 +13,8 @@
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.8" />
     <PackageReference Include="OllamaSharp" Version="5.4.25" />
 	<PackageReference Include="Markdig" Version="1.4.0" />
+	<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.21.0-rc.1" />
+	<PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.21.0-rc.1" />
 	<PackageReference Include="PdfPig" Version="0.1.14" />
   </ItemGroup>
 	<PropertyGroup>

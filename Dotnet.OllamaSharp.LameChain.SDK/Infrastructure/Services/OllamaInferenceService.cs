@@ -6,6 +6,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;

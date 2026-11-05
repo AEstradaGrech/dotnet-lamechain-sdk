@@ -1,4 +1,5 @@
-﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
+﻿using Anthropic.Models.Beta.Vaults.Credentials;
+using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.DocumentLoader;
@@ -9,6 +10,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuratio
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoader;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -18,6 +20,7 @@ using OllamaSharp.Models.Chat;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 {
@@ -51,7 +54,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
         protected readonly IServiceProvider _serviceProvider;
         protected readonly IOllamaInferenceService _inferenceService;
-
+        private TraceConfig? _traceConfig = null;
         private Action<Guid, string, LogLevel>? _onBroadcast;
         public LameAgent() { }
         public LameAgent(IServiceProvider serviceProvider, string model, PromptSettings? settings = null, string? name = null, string? description = null)
@@ -137,10 +140,36 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             {
                 _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> {broadcastAgentSetup(finalInstruction)}", LogLevel.Information);
                 _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> Sending request to LLM >> {JsonSerializer.Serialize<ChatRequest>(request)}", LogLevel.Information);
-                //Note: right now this is being logged twice, once in the inference service and once here, but the goal of the agent _onBroadcast is to provide
-                // a way to log all the agent's activities in one place for telemetry and debugging purposes so you can store the broadcasted messages in a database (logging it is just an example)
-                _inferenceService.SubscribeNotifier(onInferenceServiceNotify);
             }
+
+            if(_traceConfig != null)
+            {
+                _traceConfig.Tags.Add(this.GetType().Name); //LameAgent | AutoSkilledAgent | SelectedSkillsAgent | X_Agent
+                _traceConfig.Tags.Add(Id.ToString());
+                _traceConfig.Tags.Add(FullHandlerModel); 
+                
+                if (!string.IsNullOrEmpty(Name))
+                {
+                    _traceConfig.Tags.Add(Name);
+
+                    _traceConfig.Metadata.Add(nameof(Name).ToLower(), Name);
+                }
+
+                if(!string.IsNullOrEmpty(Description))
+                    _traceConfig.Metadata.Add(nameof(Description).ToLower(), Description);
+
+                if(Skills.Count > 0)
+                    _traceConfig.Metadata.Add(nameof(Skills).ToLower(), string.Join(",", Skills));
+
+                if(HasTools)
+                    _traceConfig.Metadata.Add(nameof(Tools).ToLower(), string.Join(",", Tools.Keys));
+
+                _traceConfig.Metadata.Add(nameof(Provider).ToLower(), Provider);
+                _traceConfig.Metadata.Add(nameof(Model).ToLower(), Model);
+
+                LameTelemetry.Source.StartActivity(_traceConfig.TraceName);
+            }
+                
 
             var response = await _inferenceService.ChatPrompt(request, Provider, Tools);
 
@@ -190,10 +219,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                 _onBroadcast(Id, $"{nameof(RunCommand)} >> {broadcastId()} >> {broadcastAgentSetup(finalInstruction)}", LogLevel.Information);
                 _onBroadcast(Id, $"{nameof(RunCommand)} >> {broadcastId()} >> Running command of type {typeof(T).Name}", LogLevel.Information);
                 _onBroadcast(Id, $"{nameof(RunCommand)} >> {broadcastId()} >> Sending request to LLM >> {JsonSerializer.Serialize<ChatCommandRequest>(request)}", LogLevel.Information);
-                //Note: right now this is being logged twice, once in the inference service and once here, but the goal of the agent _onBroadcast is to provide
-                // a way to log all the agent's activities in one place for telemetry and debugging purposes so you can store the broadcasted messages in a database (logging it is just an example)
-                _inferenceService.SubscribeNotifier(onInferenceServiceNotify);
             }
+
+            if (_traceConfig != null)
+                _inferenceService.EnableLangfuse(_traceConfig);
 
             return await _inferenceService.CommandPrompt<T>(request.ToOllamaChat(settings: _settings));
         }
@@ -226,7 +255,34 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
         {
             _onBroadcast += broadcastAction;
 
+            //Note: right now this is being logged twice, once in the inference service and once here, but the goal of the agent _onBroadcast is to provide
+            // a way to log all the agent's activities in one place for telemetry and debugging purposes so you can store the broadcasted messages in a database (logging it is just an example)
+            _inferenceService.SubscribeNotifier(onInferenceServiceNotify);
+
             return this;
+        }
+
+        public LameAgent WithLangfuseTraces(TraceConfig traceConfig, string? sourceName = null) 
+        {
+            if (!string.IsNullOrEmpty(sourceName))
+                LameTelemetry.CreateSource(sourceName);
+            
+            // else the Singleton Source getter will create the default source for "LameChain"
+
+            LameTelemetry.IsEnabled = true;
+
+            _traceConfig = traceConfig;
+
+            if(string.IsNullOrEmpty(_traceConfig.TraceName))
+                _traceConfig.TraceName = Name ?? $"LameAgent_{Id.ToString()}";
+            
+            if(string.IsNullOrEmpty(_traceConfig.SessionId))
+                _traceConfig.SessionId = Id.ToString();
+            
+            if(string.IsNullOrEmpty(_traceConfig.UserId))
+                _traceConfig.UserId = Guid.NewGuid().ToString();
+
+            return this; 
         }
         public LameAgent AddDataSources(string sourceName, List<string> data, bool isOverride = false)
         {

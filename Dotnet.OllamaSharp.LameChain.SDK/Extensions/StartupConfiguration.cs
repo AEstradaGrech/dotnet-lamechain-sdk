@@ -19,7 +19,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
+using OpenTelemetry;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Trace;
 using System.Net.Http.Headers;
+using System.Text;
 using static OllamaSharp.OllamaApiClient;
 
 
@@ -200,6 +204,21 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return services;
         }
 
+        public static IServiceCollection AddLangfuseTracing(this IServiceCollection services, IConfiguration configuration)
+        {
+            services.AddOpenTelemetry().WithTracing(builder =>
+            {
+                builder.AddSource("LameChain")                       // TODO: Langfuse settings
+                       .AddOtlpExporter(o => {
+                           o.Endpoint = new Uri("http://localhost:3000/api/public/otel/v1/traces"); // TODO: Langfuse settings
+                           o.Protocol = OtlpExportProtocol.HttpProtobuf;   // Langfuse no acepta gRPC
+                           o.Headers = $"Authorization=Basic {Convert.ToBase64String(Encoding.UTF8.GetBytes("pk-lf-xxx:sk-lf-xxx"))}"; //TODO: Langfuse settings
+                       })
+                .Build();
+            });
+                
+            return services;
+        }
         public static IServiceCollection AddPdfDocumentLoader(this IServiceCollection services, ServiceLifetime lifetime = ServiceLifetime.Scoped)
             => lifetime switch {
                 ServiceLifetime.Scoped => services.AddScoped<IDocumentLoader<PdfLoaderService>, PdfLoaderService>(),
