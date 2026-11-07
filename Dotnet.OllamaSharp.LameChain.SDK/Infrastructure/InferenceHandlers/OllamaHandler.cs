@@ -96,9 +96,29 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             var sb = new StringBuilder();
 
+            using Activity? activity = LameTelemetry.IsEnabled ? LameTelemetry.StartActivity() : null;
+
+            if (activity != null)
+                LameTelemetry.TraceGenerationRequest(activity, request.Model, new List<Message> { new Message(ChatRole.System.ToString(), request.System ?? ""), new Message(ChatRole.User, request.Prompt)});
+
+            int inputTokens = 0;
+            int outputTokens = 0;
             await foreach (var part in _client.GenerateAsync(request))
+            {
                 if (!string.IsNullOrEmpty(part?.Response))
+                {
                     sb.Append(part.Response);
+
+                    if (part is GenerateDoneResponseStream done)
+                    {
+                        inputTokens = done.PromptEvalCount;
+                        outputTokens = done.EvalCount;
+                    }
+                }
+            }
+
+            if (activity != null)
+                LameTelemetry.TraceGenerationResponse(activity, sb.ToString(), inputTokens, outputTokens, shouldStop: true);
 
             return sb.ToString().Trim();
         }

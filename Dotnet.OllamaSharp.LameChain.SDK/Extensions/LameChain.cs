@@ -1,4 +1,5 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
@@ -409,8 +410,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return step;
         }
        
-        public static async Task<ChainResult> ThenExecuteAsync(this SingleThrowStep step, bool withFinalMessage = false, bool withReplay = false, CommandSettings finalMsgSettings = null)
-            => await step.ExecuteChainAsync(withFinalMessage, withReplay, finalMsgSettings);
+        public static async Task<ChainResult> ThenExecuteAsync(this SingleThrowStep step, bool withFinalMessage = false, bool withReplay = false, CommandSettings finalMsgSettings = null, TraceConfig? traceConfig = null)
+            => await step.ExecuteChainAsync(withFinalMessage, withReplay, finalMsgSettings, traceConfig);
 
     }
 }

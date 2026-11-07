@@ -10,7 +10,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
         private const string _boostersSectionTag = "## ADDITIONAL INFORMATION: ";
         public IJsoneable Command { get; }
         public bool WithFullContext { get; private set; }
-        //public bool WithPrevSchema { get; private set; }
         public string? ForwardMessage { get; private set; }
         public StepSettings() 
         {
@@ -20,7 +19,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
             CommandRequest = new PromptCommandRequest();
             ForwardMessage = null;
             WithFullContext = true;
-            //WithPrevSchema = false;
         }
 
         public StepSettings(PromptCommandRequest request, string? feedFwd = null, bool withFullContext = true) : this()
@@ -28,7 +26,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
             CommandRequest = request;
             ForwardMessage = feedFwd;
             WithFullContext = withFullContext;
-            //WithPrevSchema = withPrevSchema;
+
         }
 
         public StepSettings(IJsoneable command, string? feedFwd = null, string? requestPrompt = null, bool isGuidanceAppend = true, bool withFullContext = true) : this()
@@ -37,7 +35,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
             Command = command;
             ForwardMessage = feedFwd;
             WithFullContext = withFullContext;
-            //WithPrevSchema = withPrevSchema;
         }
 
         public StepSettings(IJsoneable command, PromptCommandRequest request, string? feedFwd = null, bool withFullContext = true) : this()
@@ -46,13 +43,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
             Command = command;
             ForwardMessage = feedFwd;
             WithFullContext = withFullContext;
-            //WithPrevSchema = withPrevSchema;
         }
 
         public StepSettings(StepSettings cloned, bool cloneFeeds = true, bool cloneBoosters = true)
         {
             WithFullContext = cloned.WithFullContext;
-            //WithPrevSchema = cloned.WithPrevSchema;
             ForwardMessage = cloned.ForwardMessage;
             CommandRequest = cloned.CommandRequest.Clone();
             Command = cloned.Command;

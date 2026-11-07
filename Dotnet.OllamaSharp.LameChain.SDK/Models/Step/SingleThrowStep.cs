@@ -2,12 +2,14 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Response;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Microsoft.Extensions.Logging;
 using OllamaSharp.Models.Chat;
+using System.Diagnostics;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 {
@@ -74,7 +76,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         public override bool CanBeForged(IChaineable previous)
             => IsRunning && previous == null ? _commands.Count > 0 : !previous.IsMultiSocket;
 
-        public async Task<ChainResult> ExecuteChainAsync(bool withFinalMessage = false, bool withReplay = false, CommandSettings? finalMsgSettings = null)
+        public async Task<ChainResult> ExecuteChainAsync(bool withFinalMessage = false, bool withReplay = false, CommandSettings? finalMsgSettings = null, TraceConfig? traceConfig = null)
         {
             notify($"{nameof(ExecuteChainAsync)} >> BEGINNING CHAIN EXECUTION");
 
@@ -85,6 +87,49 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
                 notify($"{nameof(ExecuteChainAsync)} :: {nameof(firstStep.IsReady)} >> CHAIN CRASH >> FIRST STEP NOT READY", LogLevel.Critical);
 
                 throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(ExecuteChainAsync)} >> {nameof(firstStep.IsReady)} >> FIRST STEP IS NOT READY :: ABORTING CHAIN");
+            }
+            var chainId = firstStep.IsRunning ? $"{firstStep.Runner.Intent ?? ""}_{Guid.NewGuid()}" : $"{firstStep.GetType().Name}_{firstStep.Id}";
+
+            using Activity? activity = traceConfig != null ? LameTelemetry.StartRootActivity(chainId): null;
+
+            if (activity != null)
+            {
+                if (string.IsNullOrEmpty(traceConfig.TraceName))
+                    traceConfig.TraceName = $"{nameof(ChainRunner)}_{Id.ToString()}";
+
+                if (string.IsNullOrEmpty(traceConfig.SessionId))
+                    traceConfig.SessionId = chainId;
+
+                if (string.IsNullOrEmpty(traceConfig.UserId))
+                    traceConfig.UserId = Guid.NewGuid().ToString();
+
+                // AddTags skips duplicates and the metadata indexer overwrites: the same agent can run many times
+                traceConfig.AddTags(GetType().Name, Id.ToString(), chainId); //LameAgent | AutoSkilledAgent | SelectedSkillsAgent | X_Agent
+
+                if (!string.IsNullOrEmpty(firstStep.Runner.Intent))
+                {
+                    traceConfig.AddTags(firstStep.Runner.Intent);
+
+                    traceConfig.Metadata[nameof(firstStep.Runner.Intent).ToLower()] = firstStep.Runner.Intent;
+                }
+
+                if (!string.IsNullOrEmpty(firstStep.Runner.UserPrompt))
+                    traceConfig.Metadata[nameof(firstStep.Runner.UserPrompt).ToLower()] = firstStep.Runner.UserPrompt;
+
+
+                traceConfig.Metadata[nameof(firstStep.Request.Provider).ToLower()] = firstStep.Request.Provider;
+                traceConfig.Metadata[nameof(firstStep.Request.Model).ToLower()] = firstStep.Request.Model;
+                
+                if(firstStep.Runner.DefaultSettings.ContextLength != null)
+                    traceConfig.Metadata[nameof(firstStep.Runner.DefaultSettings.ContextLength).ToLower()] = $"{firstStep.Runner.DefaultSettings.ContextLength}";
+                
+                if(firstStep.Runner.DefaultSettings.MaxTokens != null)
+                    traceConfig.Metadata[nameof(firstStep.Runner.DefaultSettings.MaxTokens).ToLower()] = $"{firstStep.Runner.DefaultSettings.MaxTokens}";
+                
+                if(firstStep.Runner.DefaultSettings.Temperature != null)
+                    traceConfig.Metadata[nameof(firstStep.Runner.DefaultSettings.Temperature).ToLower()] = $"{firstStep.Runner.DefaultSettings.Temperature}";
+
+                LameTelemetry.TraceExecutionConfig(activity, traceConfig);
             }
 
             var finalStep = await firstStep.Forge(null);
@@ -145,6 +190,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             }
 
             else finalRunner = finalStep.Drop();
+            
+            if (activity != null)
+                 if(!LameTelemetry.TryStopRootActivity(activity.DisplayName) && finalRunner != null)
+                    finalRunner.onBroadcast(_id, $"Failed to stop root activity: {activity.DisplayName}", LogLevel.Warning);
 
             return new ChainResult(withReplay ? finalRunner.GetReplays() : [], result: finalStep.Outputs.First().ResultObject(), finalStep.Outputs.First().JsonSchema, chainInput: firstStep.Input, stepsLog: finalRunner.RunnedInstructions, processedResult: withFinalMessage ? finalMessage : null);
         }

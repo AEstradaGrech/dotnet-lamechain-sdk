@@ -143,11 +143,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                 _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> Sending request to LLM >> {JsonSerializer.Serialize<ChatRequest>(request)}", LogLevel.Information);
             }
 
-            using var activity = _traceConfig != null ? LameTelemetry.StartRootActivity(_traceConfig.TraceName) : null;
+            using var activity = _traceConfig != null ? LameTelemetry.StartRootActivity(_traceConfig.TraceName ?? $"{Name ?? GetType().Name}_{Id}") : null;
+
             if (_traceConfig != null)
             {
                 // AddTags skips duplicates and the metadata indexer overwrites: the same agent can run many times
-                _traceConfig.AddTags(this.GetType().Name, Id.ToString(), FullHandlerModel); //LameAgent | AutoSkilledAgent | SelectedSkillsAgent | X_Agent
+                _traceConfig.AddTags(GetType().Name, Id.ToString(), FullHandlerModel); //LameAgent | AutoSkilledAgent | SelectedSkillsAgent | X_Agent
 
                 if (!string.IsNullOrEmpty(Name))
                 {
@@ -169,7 +170,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                 _traceConfig.Metadata[nameof(Model).ToLower()] = Model;
 
                 if (activity != null)
-                    LameTelemetry.TraceAgentConfig(activity, _traceConfig);
+                    LameTelemetry.TraceExecutionConfig(activity, _traceConfig);
             }
                 
 
@@ -182,7 +183,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                 _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> LLM Response >> {response.Content ?? ""}", LogLevel.Information);
 
             if(activity != null)
-                activity.Stop();
+                if(!LameTelemetry.TryStopRootActivity(activity.DisplayName) && _onBroadcast != null)
+                    _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> Failed to stop root activity for activity: {activity.DisplayName}", LogLevel.Warning);
 
             return response.Content ?? "";
         }
@@ -271,7 +273,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             
             // else the Singleton Source getter will create the default source for "LameChain"
 
-            LameTelemetry.IsEnabled = true;
+            //LameTelemetry.IsEnabled = true;
 
             _traceConfig = traceConfig;
 

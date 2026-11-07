@@ -7,6 +7,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Clients;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoader;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
 using DotnetLlamaSharp.Domain.Services.Embeddings;
 using DotnetLlamaSharp.Domain.Services.Inference;
@@ -207,6 +208,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
         {
             var langfuseSettings = configuration.GetSection("LangfuseSettings").Get<LangfuseSettings>();
 
+            if (langfuseSettings == null) return services;
+
             services.AddOpenTelemetry().WithTracing(builder =>
             {
                 builder.AddSource(langfuseSettings.SourceName)                       
@@ -216,7 +219,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                            o.Headers = $"Authorization=Basic {Convert.ToBase64String(Encoding.UTF8.GetBytes(langfuseSettings.PublicKey + ":" + langfuseSettings.PrivateKey))},x-langfuse-ingestion-version=4";
                        });
             });
-                
+
+            LameTelemetry.CreateSource(langfuseSettings.SourceName);  
+            
             return services;
         }
         public static IServiceCollection AddPdfDocumentLoader(this IServiceCollection services, ServiceLifetime lifetime = ServiceLifetime.Scoped)
