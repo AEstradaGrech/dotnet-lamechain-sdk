@@ -5,6 +5,7 @@ using Moq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
+using OllamaSharp.Models;
 using OllamaSharp.Models.Chat;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
@@ -132,12 +133,91 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Telemetry
         [Fact]
         public async Task Ollama_GetLlmResponse_WithTracingDisabled_CreatesNoActivities()
         {
-            // Arrange: the collector resets LameTelemetry, so IsEnabled is false and there is no root.
+            // Arrange: no agent or chain root is open in this flow, so IsTracing is false.
             var handler = new OllamaHandler(_serviceProvider.Object, _config.Object);
             _ollamaClient.Setup(c => c.ChatAsync(It.IsAny<ChatRequest>())).Returns(Stream(DoneChunk("answer", 1, 1)));
 
             // Act
             var result = await handler.GetLlmResponse(UserRequest("llama3"));
+
+            // Assert
+            result.Should().Be("answer");
+            _collector.Stopped.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task Ollama_GetLlmResponse_WithoutALameChainParentWhileAnotherRootIsRunning_CreatesNoActivity()
+        {
+            // Arrange: a traced agent is running in another async flow; this call belongs to none.
+            var handler = new OllamaHandler(_serviceProvider.Object, _config.Object);
+            _ollamaClient.Setup(c => c.ChatAsync(It.IsAny<ChatRequest>())).Returns(Stream(DoneChunk("answer", 1, 1)));
+            using var otherRun = ActivityCollector.StartRoot();
+            Activity.Current = null;
+
+            // Act
+            await handler.GetLlmResponse(UserRequest("llama3"));
+
+            // Assert
+            _collector.Named(Generation).Should().BeEmpty();
+        }
+
+        #endregion
+
+        #region OllamaHandler.GenerateLlmResponse
+
+        [Fact]
+        public async Task Ollama_GenerateLlmResponse_UnderRoot_TracesGenerationWithSystemAndPromptAsInput()
+        {
+            // Arrange: chain steps using a plain PromptCommandRequest go through Ollama's generate endpoint.
+            var handler = new OllamaHandler(_serviceProvider.Object, _config.Object);
+            _ollamaClient.Setup(c => c.GenerateAsync(It.IsAny<GenerateRequest>())).Returns(GenerateStream(
+                new GenerateResponseStream { Response = "Hello " },
+                new GenerateResponseStream { Response = "World" }));
+            var request = new GenerateRequest { Model = "llama3", System = "You are a geography teacher", Prompt = "capital of Jamaica?" };
+
+            // Act
+            string result;
+            using (ActivityCollector.StartRoot())
+                result = await handler.GenerateLlmResponse(request);
+
+            // Assert
+            result.Should().Be("Hello World");
+            var generation = _collector.Single(Generation);
+            generation.ParentSpanId.Should().Be(_collector.Root.SpanId);
+            generation.Tag("langfuse.observation.type").Should().Be("generation");
+            generation.Tag("gen_ai.request.model").Should().Be("llama3");
+            generation.StringTag("langfuse.observation.input").Should().Contain("You are a geography teacher").And.Contain("capital of Jamaica?");
+            generation.Tag("langfuse.observation.output").Should().Be("Hello World");
+        }
+
+        [Fact]
+        public async Task Ollama_GenerateLlmResponse_UnderRoot_TracesTheTokensOfTheDoneChunk()
+        {
+            // Arrange
+            var handler = new OllamaHandler(_serviceProvider.Object, _config.Object);
+            _ollamaClient.Setup(c => c.GenerateAsync(It.IsAny<GenerateRequest>())).Returns(GenerateStream(
+                new GenerateResponseStream { Response = "Kingston" },
+                new GenerateDoneResponseStream { Response = string.Empty, Done = true, PromptEvalCount = 14, EvalCount = 3 }));
+
+            // Act
+            using (ActivityCollector.StartRoot())
+                await handler.GenerateLlmResponse(new GenerateRequest { Model = "llama3", Prompt = "capital of Jamaica?" });
+
+            // Assert
+            var generation = _collector.Single(Generation);
+            generation.Tag("gen_ai.usage.input_tokens").Should().Be(14);
+            generation.Tag("gen_ai.usage.output_tokens").Should().Be(3);
+        }
+
+        [Fact]
+        public async Task Ollama_GenerateLlmResponse_WithTracingDisabled_CreatesNoActivities()
+        {
+            // Arrange
+            var handler = new OllamaHandler(_serviceProvider.Object, _config.Object);
+            _ollamaClient.Setup(c => c.GenerateAsync(It.IsAny<GenerateRequest>())).Returns(GenerateStream(new GenerateResponseStream { Response = "answer" }));
+
+            // Act
+            var result = await handler.GenerateLlmResponse(new GenerateRequest { Model = "llama3", Prompt = "hi" });
 
             // Assert
             result.Should().Be("answer");
@@ -355,6 +435,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Telemetry
             => new AIChatResponse(message) { FinishReason = finishReason, Usage = new AIUsageDetails { InputTokenCount = inputTokens, OutputTokenCount = outputTokens } };
 
         private static IAsyncEnumerable<ChatResponseStream?> Stream(params ChatResponseStream[] parts) => StreamIterator(parts);
+
+        private static IAsyncEnumerable<GenerateResponseStream?> GenerateStream(params GenerateResponseStream[] parts) => GenerateStreamIterator(parts);
+
+        private static async IAsyncEnumerable<GenerateResponseStream?> GenerateStreamIterator(GenerateResponseStream[] parts)
+        {
+            foreach (var part in parts)
+            {
+                await Task.Yield();
+                yield return part;
+            }
+        }
 
         private static async IAsyncEnumerable<ChatResponseStream?> StreamIterator(ChatResponseStream[] parts)
         {

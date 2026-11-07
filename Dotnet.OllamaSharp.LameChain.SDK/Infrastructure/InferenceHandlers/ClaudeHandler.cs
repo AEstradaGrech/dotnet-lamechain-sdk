@@ -51,7 +51,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             notifyRequest(_requestModel, request.Messages.Last().Content);
 
-            using Activity? activity = LameTelemetry.IsEnabled ? LameTelemetry.StartActivity() : null;
+            using Activity? activity = LameTelemetry.IsTracing ? LameTelemetry.StartActivity() : null;
 
             if (activity != null)
                 LameTelemetry.TraceGenerationRequest(activity, request.Model, request.Messages.ToList());

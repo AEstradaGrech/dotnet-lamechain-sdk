@@ -1,4 +1,5 @@
 ﻿using OllamaSharp.Models.Chat;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 
@@ -7,10 +8,16 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry
 {
     public static class LameTelemetry
     {
-        // at least one source created and one root activity must be started to enable telemetry, otherwise it is considered disabled
-        public static bool IsEnabled => _source != null && _rootActivities.Count > 0;
+        // _source configured and CurrentActivity.Source (one per async flow) is the same as _source, then tracing is enabled and we can start activities and add tags to them.
+        public static bool IsTracing => _source != null && Activity.Current?.Source == _source;
         public static bool HasSource => _source != null;
+        public static ActivitySource? Source => _source;
         private static ActivitySource? _source;
+
+        // This is either the LameAgent initial Prompt method or the first step of a chain, which is the first activity to be started and the one that will be used to trace the entire chain execution.
+        // It is also used to set the trace-level attributes (Langfuse OpenTelemetry property mapping) on the root activity.
+        private static ConcurrentDictionary<string, Activity> _rootActivities = new ConcurrentDictionary<string, Activity>();
+
 
         // This is called on the 'AddLanfuseTracing' configuration extension, to create the singleton source for the app,
         // to prevent the overriding of the source by accidental calls to 'CreateSource' with different names.
@@ -22,42 +29,43 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry
             return _source;
         }
 
-        // This is either the LameAgent initial Prompt method or the first step of a chain, which is the first activity to be started and the one that will be used to trace the entire chain execution.
-        // It is also used to set the trace-level attributes (Langfuse OpenTelemetry property mapping) on the root activity.
-        private static Dictionary<string, Activity> _rootActivities = new Dictionary<string, Activity>();
-        // this is the singleton source for the app. It will create a source if it is null, but that would mean that the user has not configure Langfuse tracing so the system won't crash but won't trace either
-        public static ActivitySource Source { get { return _source ?? CreateSource(); } }
-
         // Starts a new root activity with the given name. If an activity with the same name already exists,
         // it will return the existing activity instead of creating a new one. (so ensure that the activity name is unique per agent or chain execution,
         // otherwise it will be reused and the trace will be incorrect)
         public static Activity? StartRootActivity(string activityName)
         {
+            if (!HasSource) return null;
+
             // Ensure that the current activity is not from a different source before starting a new root activity
-            if (Activity.Current?.Source != Source)
+            if (Activity.Current?.Source != _source)
                 Activity.Current = null;
 
-            var rootActivity = Source.StartActivity(activityName, ActivityKind.Internal);
+            var rootActivity = _source.StartActivity(activityName, ActivityKind.Internal);
             
             if (rootActivity != null)
-                _rootActivities[activityName] = rootActivity;
+                _rootActivities[rootActivity.Id] = rootActivity;
             
             return rootActivity;
         }
 
-        public static bool TryStopRootActivity(string activityName)
+        public static bool TryStopRootActivity(string activityId)
         {
-            if (_rootActivities.TryGetValue(activityName, out var rootActivity))
+            if (_rootActivities.ContainsKey(activityId))
             {
-                rootActivity.Stop();
-                _rootActivities.Remove(activityName);
-                return true;
+                if (_rootActivities.Remove(activityId, out var activity) && activity != null)
+                {
+                    activity.Stop();
+
+                    return true;
+                }
+
+                return false;
             }
 
             return false;
         }
         public static Activity? StartActivity(string activityName = "generation", ActivityKind kind = ActivityKind.Client)
-            => _source == null ? StartRootActivity(activityName) : _source.StartActivity(activityName, kind);
+            => _source != null ? _source.StartActivity(activityName, kind) : null;
         
 
         // Trace-level attributes (Langfuse OpenTelemetry property mapping), set on the agent or chain root activity
@@ -110,7 +118,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry
         {
             if (_source != null)
             {
-                _rootActivities.Clear();
+                if(_rootActivities.Count > 0)
+                {
+                    foreach (var activity in _rootActivities.Values)
+                        activity.Stop();
+                    
+                    _rootActivities.Clear();
+                }
+
                 _source.Dispose();
                 _source = null;
             }

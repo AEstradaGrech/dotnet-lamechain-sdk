@@ -193,7 +193,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
         protected async Task<object?> getToolResult(ToolBinding binding, IDictionary<string, object> arguments)
         {
-            using Activity? activity = LameTelemetry.IsEnabled ? LameTelemetry.StartActivity(binding.methodInfo.Name) : null;
+            using Activity? activity = LameTelemetry.IsTracing ? LameTelemetry.StartActivity(binding.methodInfo.Name) : null;
 
             if(activity != null)
                 LameTelemetry.TraceToolCall(activity, JsonSerializer.Serialize(arguments));

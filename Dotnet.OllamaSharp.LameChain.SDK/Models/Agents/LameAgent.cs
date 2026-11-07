@@ -145,48 +145,60 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
             using var activity = _traceConfig != null ? LameTelemetry.StartRootActivity(_traceConfig.TraceName ?? $"{Name ?? GetType().Name}_{Id}") : null;
 
-            if (_traceConfig != null)
+            // The try starts right after the root is registered, so the finally always unregisters it
+            try
             {
-                // AddTags skips duplicates and the metadata indexer overwrites: the same agent can run many times
-                _traceConfig.AddTags(GetType().Name, Id.ToString(), FullHandlerModel); //LameAgent | AutoSkilledAgent | SelectedSkillsAgent | X_Agent
-
-                if (!string.IsNullOrEmpty(Name))
+                if (_traceConfig != null)
                 {
-                    _traceConfig.AddTags(Name);
+                    // AddTags skips duplicates and the metadata indexer overwrites: the same agent can run many times
+                    _traceConfig.AddTags(GetType().Name, Id.ToString(), FullHandlerModel); //LameAgent | AutoSkilledAgent | SelectedSkillsAgent | X_Agent
 
-                    _traceConfig.Metadata[nameof(Name).ToLower()] = Name;
+                    if (!string.IsNullOrEmpty(Name))
+                    {
+                        _traceConfig.AddTags(Name);
+
+                        _traceConfig.Metadata[nameof(Name).ToLower()] = Name;
+                    }
+
+                    if(!string.IsNullOrEmpty(Description))
+                        _traceConfig.Metadata[nameof(Description).ToLower()] = Description;
+
+                    if(Skills.Count > 0)
+                        _traceConfig.Metadata[nameof(Skills).ToLower()] = string.Join(",", Skills);
+
+                    if(HasTools)
+                        _traceConfig.Metadata[nameof(Tools).ToLower()] = string.Join(",", Tools.Keys);
+
+                    _traceConfig.Metadata[nameof(Provider).ToLower()] = Provider;
+                    _traceConfig.Metadata[nameof(Model).ToLower()] = Model;
+
+                    if (activity != null)
+                        LameTelemetry.TraceExecutionConfig(activity, _traceConfig);
                 }
 
-                if(!string.IsNullOrEmpty(Description))
-                    _traceConfig.Metadata[nameof(Description).ToLower()] = Description;
+                var response = await _inferenceService.ChatPrompt(request, Provider, Tools);
 
-                if(Skills.Count > 0)
-                    _traceConfig.Metadata[nameof(Skills).ToLower()] = string.Join(",", Skills);
+                if (response == null)
+                    throw new ArgumentNullException($"{nameof(LameAgent)} >> {nameof(RunPrompt)} >> An error has occured while getting the LLM response");
 
-                if(HasTools)
-                    _traceConfig.Metadata[nameof(Tools).ToLower()] = string.Join(",", Tools.Keys);
+                if (_onBroadcast != null)
+                    _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> LLM Response >> {response.Content ?? ""}", LogLevel.Information);
 
-                _traceConfig.Metadata[nameof(Provider).ToLower()] = Provider;
-                _traceConfig.Metadata[nameof(Model).ToLower()] = Model;
-
-                if (activity != null)
-                    LameTelemetry.TraceExecutionConfig(activity, _traceConfig);
+                return response.Content ?? "";
             }
-                
-
-            var response = await _inferenceService.ChatPrompt(request, Provider, Tools);
-
-            if (response == null)
-                throw new ArgumentNullException($"{nameof(LameAgent)} >> {nameof(RunPrompt)} >> An error has occured while getting the LLM response");
-
-            if(_onBroadcast != null)
-                _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> LLM Response >> {response.Content ?? ""}", LogLevel.Information);
-
-            if(activity != null)
-                if(!LameTelemetry.TryStopRootActivity(activity.DisplayName) && _onBroadcast != null)
-                    _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> Failed to stop root activity for activity: {activity.DisplayName}", LogLevel.Warning);
-
-            return response.Content ?? "";
+            catch(Exception ex)
+            {
+                if (_onBroadcast != null)
+                    _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> Error while running prompt: {ex.Message}", LogLevel.Error);
+             
+                throw;
+            }
+            finally
+            {
+                if (activity != null)
+                    if (!LameTelemetry.TryStopRootActivity(activity.Id) && _onBroadcast != null)
+                        _onBroadcast(Id, $"{nameof(RunPrompt)} >> {broadcastId()} >> Failed to stop root activity for activity: {activity.DisplayName}", LogLevel.Warning);
+            }
         }
         /// <summary>
         /// Runs a prompt using the LameChain Commands system to get structured responses. #WIP
@@ -266,19 +278,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             return this;
         }
 
-        public LameAgent WithLangfuseTraces(TraceConfig traceConfig, string? sourceName = null) 
+        public LameAgent WithLangfuseTraces(TraceConfig traceConfig) 
         {
-            if (!string.IsNullOrEmpty(sourceName))
-                LameTelemetry.CreateSource(sourceName);
-            
-            // else the Singleton Source getter will create the default source for "LameChain"
-
-            //LameTelemetry.IsEnabled = true;
-
             _traceConfig = traceConfig;
 
             if(string.IsNullOrEmpty(_traceConfig.TraceName))
-                _traceConfig.TraceName = Name ?? $"LameAgent_{Id.ToString()}";
+                _traceConfig.TraceName = !string.IsNullOrEmpty(Name) ? $"{Name}_{Id}" : $"LameAgent_{Id}";
             
             if(string.IsNullOrEmpty(_traceConfig.SessionId))
                 _traceConfig.SessionId = Id.ToString();

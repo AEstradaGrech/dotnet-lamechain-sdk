@@ -47,7 +47,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             var sb = new StringBuilder();
 
-            using Activity? activity = LameTelemetry.IsEnabled ? LameTelemetry.StartActivity() : null;
+            using Activity? activity = LameTelemetry.IsTracing ? LameTelemetry.StartActivity() : null;
 
             if(activity != null)
                 LameTelemetry.TraceGenerationRequest(activity, request.Model, request.Messages.ToList());
@@ -96,7 +96,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
             var sb = new StringBuilder();
 
-            using Activity? activity = LameTelemetry.IsEnabled ? LameTelemetry.StartActivity() : null;
+            using Activity? activity = LameTelemetry.IsTracing ? LameTelemetry.StartActivity() : null;
 
             if (activity != null)
                 LameTelemetry.TraceGenerationRequest(activity, request.Model, new List<Message> { new Message(ChatRole.System.ToString(), request.System ?? ""), new Message(ChatRole.User, request.Prompt)});
@@ -106,14 +106,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             await foreach (var part in _client.GenerateAsync(request))
             {
                 if (!string.IsNullOrEmpty(part?.Response))
-                {
                     sb.Append(part.Response);
 
-                    if (part is GenerateDoneResponseStream done)
-                    {
-                        inputTokens = done.PromptEvalCount;
-                        outputTokens = done.EvalCount;
-                    }
+                if (part is GenerateDoneResponseStream done)
+                {
+                    inputTokens = done.PromptEvalCount;
+                    outputTokens = done.EvalCount;
                 }
             }
 

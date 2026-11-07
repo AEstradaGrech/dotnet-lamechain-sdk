@@ -92,110 +92,122 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
             using Activity? activity = traceConfig != null ? LameTelemetry.StartRootActivity(chainId): null;
 
-            if (activity != null)
+            // The try starts right after the root is registered, so the finally always unregisters it
+            try
             {
-                if (string.IsNullOrEmpty(traceConfig.TraceName))
-                    traceConfig.TraceName = $"{nameof(ChainRunner)}_{Id.ToString()}";
-
-                if (string.IsNullOrEmpty(traceConfig.SessionId))
-                    traceConfig.SessionId = chainId;
-
-                if (string.IsNullOrEmpty(traceConfig.UserId))
-                    traceConfig.UserId = Guid.NewGuid().ToString();
-
-                // AddTags skips duplicates and the metadata indexer overwrites: the same agent can run many times
-                traceConfig.AddTags(GetType().Name, Id.ToString(), chainId); //LameAgent | AutoSkilledAgent | SelectedSkillsAgent | X_Agent
-
-                if (!string.IsNullOrEmpty(firstStep.Runner.Intent))
+                if (activity != null)
                 {
-                    traceConfig.AddTags(firstStep.Runner.Intent);
+                    if (string.IsNullOrEmpty(traceConfig.TraceName))
+                        traceConfig.TraceName = $"{nameof(ChainRunner)}_{Id.ToString()}";
 
-                    traceConfig.Metadata[nameof(firstStep.Runner.Intent).ToLower()] = firstStep.Runner.Intent;
+                    if (string.IsNullOrEmpty(traceConfig.SessionId))
+                        traceConfig.SessionId = chainId;
+
+                    if (string.IsNullOrEmpty(traceConfig.UserId))
+                        traceConfig.UserId = Guid.NewGuid().ToString();
+
+                    // AddTags skips duplicates and the metadata indexer overwrites: the same agent can run many times
+                    traceConfig.AddTags(GetType().Name, Id.ToString(), chainId); //LameAgent | AutoSkilledAgent | SelectedSkillsAgent | X_Agent
+
+                    if (!string.IsNullOrEmpty(firstStep.Runner.Intent))
+                    {
+                        traceConfig.AddTags(firstStep.Runner.Intent);
+
+                        traceConfig.Metadata[nameof(firstStep.Runner.Intent).ToLower()] = firstStep.Runner.Intent;
+                    }
+
+                    if (!string.IsNullOrEmpty(firstStep.Runner.UserPrompt))
+                        traceConfig.Metadata[nameof(firstStep.Runner.UserPrompt).ToLower()] = firstStep.Runner.UserPrompt;
+
+
+                    traceConfig.Metadata[nameof(firstStep.Request.Provider).ToLower()] = firstStep.Request.Provider;
+                    traceConfig.Metadata[nameof(firstStep.Request.Model).ToLower()] = firstStep.Request.Model;
+
+                    if(firstStep.Runner.DefaultSettings.ContextLength != null)
+                        traceConfig.Metadata[nameof(firstStep.Runner.DefaultSettings.ContextLength).ToLower()] = $"{firstStep.Runner.DefaultSettings.ContextLength}";
+
+                    if(firstStep.Runner.DefaultSettings.MaxTokens != null)
+                        traceConfig.Metadata[nameof(firstStep.Runner.DefaultSettings.MaxTokens).ToLower()] = $"{firstStep.Runner.DefaultSettings.MaxTokens}";
+
+                    if(firstStep.Runner.DefaultSettings.Temperature != null)
+                        traceConfig.Metadata[nameof(firstStep.Runner.DefaultSettings.Temperature).ToLower()] = $"{firstStep.Runner.DefaultSettings.Temperature}";
+
+                    LameTelemetry.TraceExecutionConfig(activity, traceConfig);
                 }
 
-                if (!string.IsNullOrEmpty(firstStep.Runner.UserPrompt))
-                    traceConfig.Metadata[nameof(firstStep.Runner.UserPrompt).ToLower()] = firstStep.Runner.UserPrompt;
+                var finalStep = await firstStep.Forge(null);
 
+                notify($"{nameof(ExecuteChainAsync)} >> CHAIN FINISHED");
 
-                traceConfig.Metadata[nameof(firstStep.Request.Provider).ToLower()] = firstStep.Request.Provider;
-                traceConfig.Metadata[nameof(firstStep.Request.Model).ToLower()] = firstStep.Request.Model;
-                
-                if(firstStep.Runner.DefaultSettings.ContextLength != null)
-                    traceConfig.Metadata[nameof(firstStep.Runner.DefaultSettings.ContextLength).ToLower()] = $"{firstStep.Runner.DefaultSettings.ContextLength}";
-                
-                if(firstStep.Runner.DefaultSettings.MaxTokens != null)
-                    traceConfig.Metadata[nameof(firstStep.Runner.DefaultSettings.MaxTokens).ToLower()] = $"{firstStep.Runner.DefaultSettings.MaxTokens}";
-                
-                if(firstStep.Runner.DefaultSettings.Temperature != null)
-                    traceConfig.Metadata[nameof(firstStep.Runner.DefaultSettings.Temperature).ToLower()] = $"{firstStep.Runner.DefaultSettings.Temperature}";
-
-                LameTelemetry.TraceExecutionConfig(activity, traceConfig);
-            }
-
-            var finalStep = await firstStep.Forge(null);
-
-            notify($"{nameof(ExecuteChainAsync)} >> CHAIN FINISHED");
-
-            if (!finalStep.Outputs.Any())
-            {
-                notify($"{nameof(ExecuteChainAsync)} >> CHAIN ERROR >> OUTPUT RESULTS GENERATED", LogLevel.Critical);
-
-                throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(ExecuteChainAsync)} >> CHAIN ERROR >> OUTPUT RESULTS GENERATED");
-            }
-
-            if (string.IsNullOrEmpty(finalStep.Outputs.First().SerializedResult))
-            {
-                notify($"{nameof(ExecuteChainAsync)} >> CHAIN ERROR >> NO SERIALIZED RESULT FOUND", LogLevel.Critical);
-
-                throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(ExecuteChainAsync)} >> CHAIN ERROR >> NO SERIALIZED RESULT FOUND");
-            }
-
-            var finalMessage = new ChatMessage(ChatRole.Assistant.ToString(), string.Empty);
-
-            ChainRunner finalRunner = null;
-            if (withFinalMessage)
-            {
-                IChaineable endMessage = null;
-                try
+                if (!finalStep.Outputs.Any())
                 {
-                    notify($"{nameof(ExecuteChainAsync)} >> REQUESTING CHAIN FINAL MESSAGE");
+                    notify($"{nameof(ExecuteChainAsync)} >> CHAIN ERROR >> OUTPUT RESULTS GENERATED", LogLevel.Critical);
 
-                    var finalInstruction = getDefaultFinalInstruction();
-
-                    var finalizer = ExpandTo<MessagePromptCommand, ChatMessage>(
-                        instruction: finalInstruction.SystemMessage,
-                        finalMsgSettings ?? finalStep.Runner.DefaultSettings,
-                        new StepSettings(
-                            new PromptCommandRequest(
-                                message: finalInstruction.Prompt,
-                                guidanceMessage: string.IsNullOrEmpty(finalStep.Runner.FwdSystemMessage) ? string.Empty : $"## USER PREFERENCES: {finalStep.Runner.FwdSystemMessage}\n")
-                        )
-                    );
-
-                    endMessage = await finalizer.Forge(finalStep);
-
-                    notify($"{nameof(ExecuteChainAsync)} >> ON FINAL MESSAGE GENERATED >> CHAIN FINISHED");
-
-                    finalMessage = endMessage.GetOutputAs<ChatMessage>();
-
-                    finalRunner = endMessage.Drop();
+                    throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(ExecuteChainAsync)} >> CHAIN ERROR >> OUTPUT RESULTS GENERATED");
                 }
-                catch(Exception ex)
+
+                if (string.IsNullOrEmpty(finalStep.Outputs.First().SerializedResult))
                 {
-                    notify($"{nameof(ExecuteChainAsync)} >> FINAL MESSAGE KO >> EXCEPTION: {ex.Message}", LogLevel.Critical);
-                    notify($"{nameof(ExecuteChainAsync)} >> FINAL MESSAGE ABORT >> RETURNING CHAIN RESULT: {ex.Message}", LogLevel.Warning);
-                    finalMessage.Content = "AN ERROR HAS OCCURED WHILE GENERATING THE FINAL MESSAGE";
-                    finalRunner = endMessage.IsRunning ? endMessage.Drop() : finalStep.Drop();
+                    notify($"{nameof(ExecuteChainAsync)} >> CHAIN ERROR >> NO SERIALIZED RESULT FOUND", LogLevel.Critical);
+
+                    throw new InvalidOperationException($"{nameof(SingleThrowStep)} >> {nameof(ExecuteChainAsync)} >> CHAIN ERROR >> NO SERIALIZED RESULT FOUND");
                 }
+
+                var finalMessage = new ChatMessage(ChatRole.Assistant.ToString(), string.Empty);
+
+                ChainRunner finalRunner = null;
+                if (withFinalMessage)
+                {
+                    IChaineable endMessage = null;
+                    try
+                    {
+                        notify($"{nameof(ExecuteChainAsync)} >> REQUESTING CHAIN FINAL MESSAGE");
+
+                        var finalInstruction = getDefaultFinalInstruction();
+
+                        var finalizer = ExpandTo<MessagePromptCommand, ChatMessage>(
+                            instruction: finalInstruction.SystemMessage,
+                            finalMsgSettings ?? finalStep.Runner.DefaultSettings,
+                            new StepSettings(
+                                new PromptCommandRequest(
+                                    message: finalInstruction.Prompt,
+                                    guidanceMessage: string.IsNullOrEmpty(finalStep.Runner.FwdSystemMessage) ? string.Empty : $"## USER PREFERENCES: {finalStep.Runner.FwdSystemMessage}\n")
+                            )
+                        );
+
+                        endMessage = await finalizer.Forge(finalStep);
+
+                        notify($"{nameof(ExecuteChainAsync)} >> ON FINAL MESSAGE GENERATED >> CHAIN FINISHED");
+
+                        finalMessage = endMessage.GetOutputAs<ChatMessage>();
+
+                        finalRunner = endMessage.Drop();
+                    }
+                    catch (Exception ex)
+                    {
+                        notify($"{nameof(ExecuteChainAsync)} >> FINAL MESSAGE KO >> EXCEPTION: {ex.Message}", LogLevel.Critical);
+                        notify($"{nameof(ExecuteChainAsync)} >> FINAL MESSAGE ABORT >> RETURNING CHAIN RESULT: {ex.Message}", LogLevel.Warning);
+                        finalMessage.Content = "AN ERROR HAS OCCURED WHILE GENERATING THE FINAL MESSAGE";
+                        finalRunner = endMessage.IsRunning ? endMessage.Drop() : finalStep.Drop();
+                    }
+                }
+
+                else finalRunner = finalStep.Drop();
+
+                return new ChainResult(withReplay ? finalRunner.GetReplays() : [], result: finalStep.Outputs.First().ResultObject(), finalStep.Outputs.First().JsonSchema, chainInput: firstStep.Input, stepsLog: finalRunner.RunnedInstructions, processedResult: withFinalMessage ? finalMessage : null);
             }
-
-            else finalRunner = finalStep.Drop();
-            
-            if (activity != null)
-                 if(!LameTelemetry.TryStopRootActivity(activity.DisplayName) && finalRunner != null)
-                    finalRunner.onBroadcast(_id, $"Failed to stop root activity: {activity.DisplayName}", LogLevel.Warning);
-
-            return new ChainResult(withReplay ? finalRunner.GetReplays() : [], result: finalStep.Outputs.First().ResultObject(), finalStep.Outputs.First().JsonSchema, chainInput: firstStep.Input, stepsLog: finalRunner.RunnedInstructions, processedResult: withFinalMessage ? finalMessage : null);
+            catch(Exception ex)
+            {
+                notify($"{nameof(ExecuteChainAsync)} >> CHAIN EXCEPTION: {ex.Message}", LogLevel.Critical);
+                
+                throw;
+            }
+            finally
+            {
+                if (activity != null)
+                    if (!LameTelemetry.TryStopRootActivity(activity.Id))
+                        notify($"Failed to stop root activity: {activity.DisplayName}", LogLevel.Warning);
+            }
         }
 
         private Instruction getDefaultFinalInstruction()

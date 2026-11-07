@@ -4,7 +4,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Telemetry
 {
-    // LameTelemetry is static (one ActivitySource + IsEnabled flag for the whole process) and an
+    // LameTelemetry is static (one ActivitySource + the registry of running roots for the whole process) and an
     // ActivityListener sees every activity of its source, so every test that enables tracing runs in
     // this non-parallel collection, isolated from the rest of the suite.
     [CollectionDefinition(Name, DisableParallelization = true)]
@@ -24,8 +24,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Telemetry
 
         public ActivityCollector(string sourceName = "LameChain")
         {
-            // Known starting point: no source and tracing disabled.
+            // Known starting point: no root activities, and the app source created as AddLangfuseTracing does.
             LameTelemetry.StopSource();
+            LameTelemetry.CreateSource(sourceName);
 
             _listener = new ActivityListener
             {
@@ -52,9 +53,24 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Telemetry
 
         public Activity Root => Single(RootName);
 
-        // Opens the root a LameAgent would open, so handler tests can check what hangs from it.
-        public static Activity StartRoot() => LameTelemetry.StartRootActivity(RootName)
-            ?? throw new InvalidOperationException("The test root activity was not created: is the collector listening?");
+        // Opens the root a LameAgent or a chain would open, so handler tests can check what hangs from it.
+        // Disposing the scope ends it the same way the SDK does (TryStopRootActivity).
+        public static IDisposable StartRoot()
+        {
+            var root = LameTelemetry.StartRootActivity(RootName)
+                ?? throw new InvalidOperationException("The test root activity was not created: is the collector listening?");
+
+            return new RootScope(root);
+        }
+
+        private sealed class RootScope(Activity root) : IDisposable
+        {
+            public void Dispose()
+            {
+                LameTelemetry.TryStopRootActivity(root.Id!);
+                root.Dispose();
+            }
+        }
 
         public void Dispose()
         {
