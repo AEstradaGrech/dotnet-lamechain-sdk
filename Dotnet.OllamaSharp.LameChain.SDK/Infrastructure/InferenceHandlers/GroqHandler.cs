@@ -66,7 +66,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
             if (responseMessage.ToolCalls != null && responseMessage.ToolCalls.Count() > 0)
             {
                 if (activity != null)
-                    LameTelemetry.TraceGenerationResponse(activity, responseMessage.ToolCalls.FirstOrDefault().Function.Name, response.Usage.PromptTokens, response.Usage.CompletionTokens, shouldStop: true);
+                    LameTelemetry.TraceGenerationResponse(activity, responseMessage.ToolCalls.FirstOrDefault().Function.Name, response.Usage?.PromptTokens, response.Usage?.CompletionTokens, shouldStop: true);
 
                 return await handleFunctionCall<ChatRequest, Message>(request, responseMessage, requestTools);
             }
@@ -83,7 +83,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
                 }
             }
 
-            return response.Choices.FirstOrDefault().Message.Content.Trim();
+            var llmResponse = response.Choices.FirstOrDefault().Message.Content.Trim();
+
+            if (activity != null)
+                LameTelemetry.TraceGenerationResponse(activity, llmResponse, response.Usage?.PromptTokens, response.Usage?.CompletionTokens, shouldStop: true);
+
+            return llmResponse;
         }
 
         protected override List<Message> getToolResponseMessages(string toolName, Message toolRequestMessage, object? toolResult)

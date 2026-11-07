@@ -37,6 +37,18 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry
             return _source.StartActivity(activityName, kind);
         }
 
+        // Trace-level attributes (Langfuse OpenTelemetry property mapping), set on the agent root activity
+        public static void TraceAgentConfig(Activity activity, TraceConfig config)
+        {
+            activity.SetTag("langfuse.trace.name", config.TraceName);
+            activity.SetTag("langfuse.session.id", config.SessionId);
+            activity.SetTag("langfuse.user.id", config.UserId);
+            activity.SetTag("langfuse.trace.tags", config.Tags.ToArray());
+
+            foreach (var item in config.Metadata)
+                activity.SetTag($"langfuse.trace.metadata.{item.Key}", item.Value);
+        }
+
         public static void TraceGenerationRequest(Activity activity, string model, List<Message> input )
         {
             activity.SetTag("langfuse.observation.type", "generation");

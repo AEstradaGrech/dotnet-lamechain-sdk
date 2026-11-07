@@ -177,7 +177,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Telemetry
             });
         }
 
-        [Fact(Skip = "SDK bug: RunPrompt adds the agent metadata with Dictionary.Add on every run, so the second run of the same traced agent throws ArgumentException (and the tags list keeps growing with duplicates).")]
+        [Fact]
         public async Task RunPrompt_WithTracesRunTwice_DoesNotThrow()
         {
             // Arrange
@@ -192,7 +192,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Telemetry
             _collector.Named(AgentName).Should().HaveCount(2);
         }
 
-        [Fact(Skip = "SDK gap: the TraceConfig (session, user, tags, metadata) is filled but never written to the root activity, so Langfuse receives none of it.")]
+        [Fact]
         public async Task RunPrompt_WithTraces_WritesTheTraceConfigToTheRootActivity()
         {
             // Arrange

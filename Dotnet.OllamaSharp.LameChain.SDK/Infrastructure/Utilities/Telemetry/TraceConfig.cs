@@ -19,5 +19,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry
             Tags = tags ?? new List<string>();
             Metadata = metadata ?? new Dictionary<string, string>();
         }
+
+        // Adds the tags not present yet (ignores empty ones), so it is safe to call on every run
+        public TraceConfig AddTags(params string[] tags)
+        {
+            foreach (var tag in tags)
+                if (!string.IsNullOrEmpty(tag) && !Tags.Contains(tag))
+                    Tags.Add(tag);
+
+            return this;
+        }
     }
 }

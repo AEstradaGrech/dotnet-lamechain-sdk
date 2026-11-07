@@ -146,29 +146,30 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             using var activity = _traceConfig != null ? LameTelemetry.StartRootActivity(_traceConfig.TraceName) : null;
             if (_traceConfig != null)
             {
-                _traceConfig.Tags.Add(this.GetType().Name); //LameAgent | AutoSkilledAgent | SelectedSkillsAgent | X_Agent
-                _traceConfig.Tags.Add(Id.ToString());
-                _traceConfig.Tags.Add(FullHandlerModel); 
-                
+                // AddTags skips duplicates and the metadata indexer overwrites: the same agent can run many times
+                _traceConfig.AddTags(this.GetType().Name, Id.ToString(), FullHandlerModel); //LameAgent | AutoSkilledAgent | SelectedSkillsAgent | X_Agent
+
                 if (!string.IsNullOrEmpty(Name))
                 {
-                    _traceConfig.Tags.Add(Name);
+                    _traceConfig.AddTags(Name);
 
-                    _traceConfig.Metadata.Add(nameof(Name).ToLower(), Name);
+                    _traceConfig.Metadata[nameof(Name).ToLower()] = Name;
                 }
 
                 if(!string.IsNullOrEmpty(Description))
-                    _traceConfig.Metadata.Add(nameof(Description).ToLower(), Description);
+                    _traceConfig.Metadata[nameof(Description).ToLower()] = Description;
 
                 if(Skills.Count > 0)
-                    _traceConfig.Metadata.Add(nameof(Skills).ToLower(), string.Join(",", Skills));
+                    _traceConfig.Metadata[nameof(Skills).ToLower()] = string.Join(",", Skills);
 
                 if(HasTools)
-                    _traceConfig.Metadata.Add(nameof(Tools).ToLower(), string.Join(",", Tools.Keys));
+                    _traceConfig.Metadata[nameof(Tools).ToLower()] = string.Join(",", Tools.Keys);
 
-                _traceConfig.Metadata.Add(nameof(Provider).ToLower(), Provider);
-                _traceConfig.Metadata.Add(nameof(Model).ToLower(), Model);
+                _traceConfig.Metadata[nameof(Provider).ToLower()] = Provider;
+                _traceConfig.Metadata[nameof(Model).ToLower()] = Model;
 
+                if (activity != null)
+                    LameTelemetry.TraceAgentConfig(activity, _traceConfig);
             }
                 
 

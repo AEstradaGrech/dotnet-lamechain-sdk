@@ -68,12 +68,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.InferenceHandlers
 
                     if (!string.IsNullOrEmpty(part?.Message.Content))
                         sb.Append(part.Message.Content);
+                }
 
-                    if(part is ChatDoneResponseStream done)
-                    {
-                        inputTokens = done.PromptEvalCount;
-                        outputTokens = done.EvalCount;
-                    }
+                // Outside the if/else: the final (done) chunk carries the usage even when it also carries the tool call
+                if(part is ChatDoneResponseStream done)
+                {
+                    inputTokens = done.PromptEvalCount;
+                    outputTokens = done.EvalCount;
                 }
             }
 

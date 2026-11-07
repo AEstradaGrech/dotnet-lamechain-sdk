@@ -110,7 +110,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Telemetry
             second.StringTag("langfuse.observation.input").Should().Contain(ToolName);
         }
 
-        [Fact(Skip = "SDK bug: OllamaHandler only reads PromptEvalCount/EvalCount in the non-tool-call branch, so when the tool call arrives in the final (done) chunk the generation is traced with 0 tokens.")]
+        [Fact]
         public async Task Ollama_GetLlmResponse_WithToolCallInsideTheDoneChunk_KeepsTheGenerationTokens()
         {
             // Arrange
@@ -172,7 +172,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Telemetry
             first.Tag("gen_ai.usage.output_tokens").Should().Be(5);
         }
 
-        [Fact(Skip = "SDK gap: GroqHandler only calls TraceGenerationResponse in the tool-call branch, so a plain answer is traced without output nor tokens.")]
+        [Fact]
         public async Task Groq_GetLlmResponse_WithPlainAnswer_TracesOutputAndTokens()
         {
             // Arrange
@@ -190,7 +190,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Telemetry
             generation.Tag("gen_ai.usage.input_tokens").Should().Be(9);
         }
 
-        [Fact(Skip = "SDK bug: GroqHandler reads response.Usage without a null check in the traced tool-call branch, so with tracing on a completion without usage throws NullReferenceException.")]
+        [Fact]
         public async Task Groq_GetLlmResponse_WithToolCallAndNoUsageWhileTracing_DoesNotThrow()
         {
             // Arrange
