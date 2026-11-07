@@ -155,11 +155,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             => IsForged ? Outputs.Skip(idx).FirstOrDefault().ResultObject() as TDeserialized ??
             throw new InvalidOperationException($"Failed to deserialize JSON to type {typeof(TDeserialized).Name}") :
             throw new InvalidOperationException("The chain step has not been forged and has no output value");
-        //=> IsForged ? (typeof(TDeserialized) is ChatMessage ?
-        //    Outputs.Skip(idx).FirstOrDefault().ResultObject()  as TDeserialized :
-        //    JsonSerializer.Deserialize<TDeserialized>(Outputs.Skip(idx).FirstOrDefault().SerializedResult, getSerializerOptions())) ??
-        //throw new InvalidOperationException($"Failed to deserialize JSON to type {typeof(TDeserialized).Name}") :
-        //throw new InvalidOperationException("The chain step has not been forged and has no output value");
+        
 
         public void SendReplay()
         {
@@ -175,8 +171,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             onReportReplay(report);
         }
 
-        // 19-05-2026 --> esto realmente rompe el patron rugby (info al runner y solo un runner)
-        //                si tengo que llamar a esto en algun sitio es que lo estoy haciendo mal
         public IChaineable OnRunnerCall() => this;
 
         public void OnRunnerSupport(Guid id)

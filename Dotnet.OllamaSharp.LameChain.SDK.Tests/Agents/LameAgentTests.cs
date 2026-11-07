@@ -355,7 +355,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Agents
             _host.Inference.Verify(s => s.SubscribeNotifier(It.IsAny<Action<string>>()), Times.Never);
         }
 
-        [Fact(Skip = "SDK bug: LameAgent.RunPrompt calls SubscribeNotifier on every run, so a reused agent (or a shared scoped inference service) accumulates handlers and broadcasts every notification N times.")]
+        [Fact]
         public async Task RunPrompt_WithBroadcastRunTwice_SubscribesToInferenceNotificationsOnce()
         {
             var agent = CreateAgent().WithBroadcast((_, _, _) => { });
