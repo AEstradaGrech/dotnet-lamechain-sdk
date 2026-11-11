@@ -51,9 +51,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Base
         }
 
         //TODO: string getPromptInstruction() &&  Task<string> getPromptInstruction + IsDbCommand == typeof == DbCommand & !IsDefaultMode
-        protected override async Task<string> getPromptInstruction(string? additionalData = null, bool isAfterCore = true)
+        protected override async Task<string> getPromptInstruction(string? additionalData = null, bool isAppend = true)
         {
-            var instruction = await base.getPromptInstruction(additionalData, isAfterCore);
+            var instruction = await base.getPromptInstruction(additionalData, isAppend);
 
             return string.IsNullOrEmpty(instruction) ? $">> STORING >> {nameof(StoreableCommand<TStored>)}" : instruction;
         }

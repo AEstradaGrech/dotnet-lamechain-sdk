@@ -42,7 +42,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
         protected virtual JsonOutputRefinerCommand<T> validatorFor<T>(string messageSource, string name, Func<string, string, Task<string>> retriever) 
             where T : class => new JsonOutputRefinerCommand<T>(_ollama, messageSource,name, retriever, null, _settings);
 
-        protected override async Task<string> getPromptInstruction(string? additionalData = null, bool isAfterCore = true)
+        protected override async Task<string> getPromptInstruction(string? additionalData = null, bool isAppend = true)
         {
             try
             {
@@ -67,7 +67,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Bases
                     throw new InvalidDataException($"{nameof(DbPromptCommand<T>)} >> NO SYSTEM MESSAGE FOUND >> TRYING DEFAULT MESSAGES");
                 
                 if (!string.IsNullOrEmpty(additionalData))
-                    systemMessage = isAfterCore ? 
+                    systemMessage = isAppend ? 
                         $"{systemMessage}\n\n{additionalData}" :
                         $"{additionalData}\n\n{systemMessage}"; // enhanced core message
 

@@ -11,29 +11,37 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
     {
         public LameTools(IServiceProvider serviceProvider) : base(serviceProvider) { }
 
-        [Description("Load a list of skills into the LLM context")]
-        public async Task<string> SkillsLoaderTool([Description("List of skills to load")] List<string> skills)
+        [Description("Usando process")]
+        public async Task<string> PythonScriptRunnerTool(string taskDefinition)
         {
             using var scope = _services.CreateScope();
 
-            var docLoader = _services.GetService<IDocumentLoader<MarkdownLoaderService>>();
+            // 1 - Generate python Code based on the taskDefinition
+            // 2 - Generate python code to be saved into temporary directory
+            // 3 - Execute the python code and capture the output
+            // 4 - Remove the temporary python code file
 
-            if (docLoader == null) return string.Empty;
-
-            StringBuilder sb = new StringBuilder();
-
-            foreach(var skill in skills)
-            {
-                // Note: the expected folder structure is <PathToResourcesFromAppSettings>\markdowns\skills\<skillname>\SKILL.md
-                // TODO / WIP --> SkillsLoader
-                var skillDoc = await docLoader.LoadDocument($"skills\\{skill}.md");
-                
-                if(skillDoc != null && skillDoc.Pages.Count > 0 && !string.IsNullOrEmpty(skillDoc.Pages.FirstOrDefault().Text))
-                    sb.AppendLine()
-                      .AppendLine(skillDoc.Pages.FirstOrDefault().Text);
-            }
-
-            return sb.ToString();
+            return "response from python script output";
         }
+
+        /*Usando PythonNET (Python.NET) para ejecutar código Python desde C#, sin guardar archivos:
+         
+         PythonGeneratorCommand (genera el string en base a la definición de la tarea):
+
+         PythonInterop.RunPythonCode(
+@"import clr
+clr.AddReference(""TestProject"");
+from TestProject import MyClass;
+csharpVariable=MyClass.MyVar
+csharpVariable=csharpVariable + "" and this part was added by Python"";
+print(csharpVariable);
+");
+
+        PythonCodeExecutorTool (ejecuta el código generado y captura la salida): || Rula el comando que genera el código, lo ejecuta y captura la salida
+
+        UserIntentCommand || TaskAnalysisCommand + TaskDefinitionCommand (analiza la tarea (chapa reflexiva) y genera la definición de la tarea de forma concisa como input para la tool
+            .Then(PythonGeneratorCommand)
+            .Then(PythonCodeExecutorCommand);
+         */
     }
 }
