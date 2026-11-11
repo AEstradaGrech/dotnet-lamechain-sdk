@@ -1,6 +1,7 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
@@ -52,5 +53,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services
         IJsoneable GetAsJsoneable<TCommand, TResult>(string instruction, CommandSettings? settings = null) where TCommand : BasePromptCommand<TResult>, new();
         IJsoneable GetAsJsoneable<TCommand, TResult>(string source, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, CommandSettings? settings = null) 
             where TCommand : DbPromptCommand<TResult>, new();
+        
+        // Coding commands
+        PythonGeneratorCommand GetPythonGeneratorCommand(string? guidanceMessage = null, CommandSettings? settings = null);
+        PythonCodeExecutorCommand GetPythonExecutorCommand(string? guidanceMessage = null, CommandSettings? settings = null);
     }
 }

@@ -1,10 +1,13 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Clients;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.DocumentLoader;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Clients;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoader;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry;
@@ -200,6 +203,24 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                     services.AddScoped<IEmbeddingsService, EmbeddingsService>();
                     break;
 
+            }
+            return services;
+        }
+
+        public static IServiceCollection WithPythonExecutor(this IServiceCollection services, IConfiguration configuration, ServiceLifetime lifetime = ServiceLifetime.Scoped)
+        {
+            // Register the PythonExecutionOptions from configuration for DI
+            services.Configure<PythonExecutionOptions>(configuration.GetSection("PythonExecutor"));
+
+            switch (lifetime)
+            {
+                case (ServiceLifetime.Transient):
+                    services.AddTransient<IPythonExecutor, PythonExecutor>();
+                    break;
+                case (ServiceLifetime.Scoped):
+                default:
+                    services.AddScoped<IPythonExecutor, PythonExecutor>();
+                    break;
             }
             return services;
         }

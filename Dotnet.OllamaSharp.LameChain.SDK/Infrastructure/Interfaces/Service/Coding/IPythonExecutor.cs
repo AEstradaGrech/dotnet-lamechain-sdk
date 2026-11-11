@@ -4,6 +4,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Cod
 {
     public interface IPythonExecutor
     {
-        Task<PythonExecutionResult> ExecuteAsync(string code, CancellationToken ct = default);
+        Task<PythonExecutionResult> ExecuteAsync(string code, PythonExecutionOptions options, CancellationToken ct = default);
     }
 }

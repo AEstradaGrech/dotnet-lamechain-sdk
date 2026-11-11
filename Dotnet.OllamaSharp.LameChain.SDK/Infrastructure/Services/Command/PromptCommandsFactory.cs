@@ -1,13 +1,18 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Model;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Coding;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
 using DotnetLlamaSharp.Domain.Services.Embeddings;
 using DotnetLlamaSharp.Domain.Services.Inference;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using OllamaSharp.Models.Chat;
 
 namespace DotnetLlamaSharp.Services.Prompting
@@ -16,10 +21,14 @@ namespace DotnetLlamaSharp.Services.Prompting
     {
         private readonly IOllamaInferenceService _ollama;
         private readonly IEmbeddingsService _embeddingsService;
-        public PromptCommandsFactory(IOllamaInferenceService ollama, IEmbeddingsService embeddingsService) 
+        private readonly IServiceProvider _serviceProvider;
+        private readonly IConfiguration _appConfig;
+        public PromptCommandsFactory(IOllamaInferenceService ollama, IEmbeddingsService embeddingsService, IServiceProvider serviceProvider, IConfiguration appConfig) 
         { 
             _ollama = ollama;
             _embeddingsService = embeddingsService;
+            _serviceProvider = serviceProvider;
+            _appConfig = appConfig;
         }
         
         //Generic factory methods
@@ -119,5 +128,25 @@ namespace DotnetLlamaSharp.Services.Prompting
         public StoreableCommand<TStored> GetStoreableLlama<TStored>(Func<TStored, string, Task<TStored>> storingLambda, string source, string messageName, 
             Func<string, string, Task<string>> retrieverLambda, string? llamaGuidance = null, CommandSettings? settings = null) where TStored : class
             => Activator.CreateInstance(typeof(StoreableCommand<TStored>), _ollama, storingLambda, source, messageName, retrieverLambda, llamaGuidance, settings) as StoreableCommand<TStored>;
+
+        public PythonGeneratorCommand GetPythonGeneratorCommand(string? guidanceMessage = null, CommandSettings? settings = null)
+            => new PythonGeneratorCommand(_ollama, guidanceMessage, settings);
+
+        public PythonCodeExecutorCommand GetPythonExecutorCommand(string? guidanceMessage = null, CommandSettings? settings = null)
+        {
+            var config = _appConfig.GetSection("PythonExecutor").Get<PythonExecutionOptions>();
+
+            if (config == null)
+                throw new InvalidOperationException("PythonExecutor configuration section is missing or invalid.");
+
+            using var scope = _serviceProvider.CreateScope();
+
+            var pythonExecutor = scope.ServiceProvider.GetRequiredService<IPythonExecutor>();
+
+            if (pythonExecutor == null)
+                throw new InvalidOperationException("IPythonExecutor service is not registered in the service provider.");
+
+            return new PythonCodeExecutorCommand(_ollama, pythonExecutor, config.PythonExe, config.HarnessPath, config.WorkRoot, guidanceMessage, settings);
+        }
     }
 }

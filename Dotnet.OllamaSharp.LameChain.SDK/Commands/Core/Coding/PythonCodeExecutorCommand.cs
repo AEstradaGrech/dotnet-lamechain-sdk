@@ -2,6 +2,7 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Coding;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
@@ -17,15 +18,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
     public class PythonCodeExecutorCommand : BasePromptCommand<ChatMessage>
     {
         public PythonCodeExecutorCommand() : base() { }
-        public PythonCodeExecutorCommand(IOllamaInferenceService ollama, IPythonExecutor executor, string harnessPath, string workRoot, string? systemMessage = null, CommandSettings? settings = null) 
+        public PythonCodeExecutorCommand(IOllamaInferenceService ollama, IPythonExecutor executor, string pythonExe, string harnessPath, string workRoot, string? systemMessage = null, CommandSettings? settings = null) 
             : base(ollama, systemMessage, settings) 
         {
             _harnessPath = harnessPath;
             _workRoot = workRoot;
             _executor = executor;
+            _pythonExe = pythonExe;
         }
 
         private readonly IPythonExecutor _executor;
+        private readonly string _pythonExe;
         private readonly string _harnessPath;
         private readonly string _workRoot;
 
@@ -38,7 +41,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
             if (string.IsNullOrEmpty(request.Prompt))
                 return new ChatMessage(ChatRole.Assistant.ToString(), "Empty input provided, cannot execute Python code.");
 
-            var executionResult = await _executor.ExecuteAsync(request.Prompt);
+            var options = new PythonExecutionOptions
+            {
+                HarnessPath = _harnessPath,
+                WorkRoot = _workRoot,
+                PythonExe = req.PythonExe ?? _pythonExe,
+                Timeout = req.Timeout
+            };
+
+            var executionResult = await _executor.ExecuteAsync(request.Prompt, options);
 
             var message = request.GetType() == typeof(ChatCommandRequest) ?
                 await _ollama.ChatPrompt(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), provider: request.Provider, request.HasTools ? request.Tools : null) :

@@ -8,23 +8,19 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
 {
     public class PythonExecutor : IPythonExecutor
     {
-        private readonly PythonExecutionOptions _options;
 
-        public PythonExecutor(PythonExecutionOptions options)
-        {
-            _options = options;
-        }
+        public PythonExecutor() {}
 
-        public async Task<PythonExecutionResult> ExecuteAsync(string code, CancellationToken ct = default)
+        public async Task<PythonExecutionResult> ExecuteAsync(string code, PythonExecutionOptions options, CancellationToken ct = default)
         {
-            var runDir = Directory.CreateDirectory(Path.Combine(_options.WorkRoot, $"run_{Guid.NewGuid():N}")).FullName;
+            var runDir = Directory.CreateDirectory(Path.Combine(options.WorkRoot, $"run_{Guid.NewGuid():N}")).FullName;
             var codePath = Path.Combine(runDir, "generated.py");
             var outDir = Path.Combine(runDir, "out");                   
             var envelopePath = Path.Combine(runDir, "envelope.json");
 
             await File.WriteAllTextAsync(codePath, code, ct);
 
-            var psi = new ProcessStartInfo(_options.PythonExe)                // C:\...\venv\Scripts\python.exe
+            var psi = new ProcessStartInfo(options.PythonExe)                // C:\...\venv\Scripts\python.exe
             {
                 WorkingDirectory = runDir,
                 UseShellExecute = false,
@@ -33,7 +29,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
                 RedirectStandardError = true,
             };
             
-            foreach (var a in new[] { "-X", "utf8", _options.HarnessPath, codePath, outDir, envelopePath })
+            foreach (var a in new[] { "-X", "utf8", options.HarnessPath, codePath, outDir, envelopePath })
                 psi.ArgumentList.Add(a);
             
             psi.Environment["MPLBACKEND"] = "Agg";                       // matplotlib sin intentar abrir ventanas
@@ -46,7 +42,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             
-            cts.CancelAfter(_options.Timeout);
+            cts.CancelAfter(options.Timeout);
 
             try 
             { 
@@ -55,7 +51,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
             catch (OperationCanceledException)
             {
                 proc.Kill(entireProcessTree: true);
-                return new() { TimedOut = true, Error = new("Timeout", $"Exceeded {_options.Timeout}", "") };
+                return new() { TimedOut = true, Error = new("Timeout", $"Exceeded {options.Timeout}", "") };
             }
 
             if (!File.Exists(envelopePath))                              // harness fail (crash, os._exit...)
