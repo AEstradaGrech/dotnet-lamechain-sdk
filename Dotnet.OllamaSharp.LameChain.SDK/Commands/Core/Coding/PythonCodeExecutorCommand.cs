@@ -7,6 +7,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using OllamaSharp.Models.Chat;
+using System.Text;
 
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
@@ -51,6 +52,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
 
             var executionResult = await _executor.ExecuteAsync(request.Prompt, options);
 
+            if (executionResult == null)
+                return new ChatMessage(ChatRole.Assistant.ToString(), "Execution failed, no result returned.");
+
+            if(executionResult.Error != null)
+                return new ChatMessage(ChatRole.Assistant.ToString(), $"Execution failed with error >> Type: {executionResult.Error.Type}, Message: {executionResult.Error.Message}, Traceback: {executionResult.Error.Traceback}");
+
+            request.Prompt = getExecutionResultPrompt(executionResult);
+
             var message = request.GetType() == typeof(ChatCommandRequest) ?
                 await _ollama.ChatPrompt(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), provider: request.Provider, request.HasTools ? request.Tools : null) :
                 await _ollama.GeneratePrompt(request.ToOllamaGenerate(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), provider: request.Provider);
@@ -59,6 +68,24 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
         }
 
         protected override string getDefaultInstruction() => "You are a helpful assistant. Your task is to return a brief sentence informing of the output of the provided code execution result";
+
+        private string getExecutionResultPrompt(PythonExecutionResult result)
+        {
+            StringBuilder sb = new StringBuilder();
+
+            if(result.Result != null)   
+                sb.AppendLine($"The code executed successfully. The result is: {result.Result}");
+
+            if(result.Artifacts.Count > 0)
+            {
+                sb.AppendLine("The following artifacts were generated:");
+                
+                foreach (var artifact in result.Artifacts)
+                    sb.AppendLine($"- {artifact}");
+            }
+
+            return sb.ToString();
+        }
 
     }
 }

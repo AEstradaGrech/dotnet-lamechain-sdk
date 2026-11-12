@@ -301,14 +301,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             onFinishNotify(log, updateRunnersLog);
         }
        
-        private JsonSerializerOptions getSerializerOptions()
-        {
-            var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-
-            options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
-
-            return options;
-        }
         protected IChaineable getFirstStep(IChaineable current)
             => current.IsFirstStep() ? current : getFirstStep(current.Previous);
         protected IChaineable getLastStep(IChaineable current)
@@ -326,7 +318,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         {
             var sb = new StringBuilder();
 
-            if (!IsFirstStep() && previous.IsForged)
+            if (!IsFirstStep() && previous.IsForged && !_stepSettings.PreviousAsInput)
             {
                 if (previous.GetType() == typeof(StashedStep) && ((StashedStep)previous).IsGreedy) return string.Empty;
                 
@@ -347,11 +339,16 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
         {
             if (idx >= _commands.Count) return;
 
-            Request.Prompt = IsFirstStep() && _runner.RunnedInstructions.Count == 0 ? 
-                _runner.UserPrompt : !string.IsNullOrEmpty(Request.Prompt.Trim()) ? 
+            if (!_stepSettings.PreviousAsInput)
+            {
+                Request.Prompt = IsFirstStep() && _runner.RunnedInstructions.Count == 0 ?
+                _runner.UserPrompt : !string.IsNullOrEmpty(Request.Prompt.Trim()) ?
                 Request.Prompt :
                 "Complete the specified instruction. Do not chat with the user, just output the requested data as described.";
+            }
 
+            else Request.Prompt = string.IsNullOrEmpty(Request.Prompt) ? previous.Outputs.First().SerializedResult : $"{Request.Prompt}\n{previous.Outputs.First().SerializedResult}";
+            
             setupRequestContext(previous);
 
             notify($"{nameof(forgeLink)} >> FORGING CHAIN LINK");

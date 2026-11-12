@@ -222,7 +222,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                     services.AddScoped<IPythonExecutor, PythonExecutor>();
                     break;
             }
-            return services;
+
+            return services.WithToolsFrom<LameTools>(lifetime);
         }
 
         public static IServiceCollection AddLangfuseTracing(this IServiceCollection services, IConfiguration configuration)

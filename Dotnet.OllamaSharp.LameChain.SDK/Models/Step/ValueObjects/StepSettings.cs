@@ -11,6 +11,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
         public IJsoneable Command { get; }
         public bool WithFullContext { get; private set; }
         public string? ForwardMessage { get; private set; }
+        // Will pass the previous output as user input message instead of as context / system instruction
+        public bool PreviousAsInput { get; private set; }
         public StepSettings() 
         {
             ChainFeeds = new List<Func<Guid>>();
@@ -99,7 +101,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects
 
             return this;
         }
+        public StepSettings UsePreviousAsInput(bool bValue)
+        {
+            PreviousAsInput = bValue;
 
+            return this;
+        }
         public string BoostersFeedText()
         {
             if (Boosters.Count == 0) return string.Empty;
