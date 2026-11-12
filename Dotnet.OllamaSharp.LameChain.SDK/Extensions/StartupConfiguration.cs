@@ -209,18 +209,27 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 
         public static IServiceCollection WithPythonExecutor(this IServiceCollection services, IConfiguration configuration, ServiceLifetime lifetime = ServiceLifetime.Scoped)
         {
-            // Register the PythonExecutionOptions from configuration for DI
-            services.Configure<PythonExecutionOptions>(configuration.GetSection("PythonExecutor"));
+            var section = configuration.GetSection(nameof(PythonExecutionOptions));
 
-            switch (lifetime)
+            var options = section.Get<PythonExecutionOptions>()
+                ?? throw new InvalidOperationException($"{nameof(WithPythonExecutor)} >> missing '{nameof(PythonExecutionOptions)}' configuration section");
+
+            // Register the PythonExecutionOptions from configuration for DI (IOptions<PythonExecutionOptions>)
+            services.Configure<PythonExecutionOptions>(section);
+
+            // The execution mode is decided once, here: consumers only see IPythonExecutor
+            if (options.UseUv)
             {
-                case (ServiceLifetime.Transient):
-                    services.AddTransient<IPythonExecutor, PythonExecutor>();
-                    break;
-                case (ServiceLifetime.Scoped):
-                default:
-                    services.AddScoped<IPythonExecutor, PythonExecutor>();
-                    break;
+                // Installs the configured Python version, prunes the uv cache and warms up packages in background
+                services.AddHostedService<PythonEnvService>();
+                services.Add(new ServiceDescriptor(typeof(IPythonExecutor), typeof(PythonUvExecutor), lifetime));
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(options.PythonExe))
+                    throw new InvalidOperationException($"{nameof(PythonExecutionOptions)} >> set '{nameof(PythonExecutionOptions.UseUv)}' to true or provide '{nameof(PythonExecutionOptions.PythonExe)}' (path to your local python executable)");
+
+                services.Add(new ServiceDescriptor(typeof(IPythonExecutor), typeof(LocalPythonExecutor), lifetime));
             }
 
             return services.WithToolsFrom<LameTools>(lifetime);
@@ -228,7 +237,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 
         public static IServiceCollection AddLangfuseTracing(this IServiceCollection services, IConfiguration configuration)
         {
-            var langfuseSettings = configuration.GetSection("LangfuseSettings").Get<LangfuseSettings>();
+            var langfuseSettings = configuration.GetSection(nameof(LangfuseSettings)).Get<LangfuseSettings>();
 
             if (langfuseSettings == null) return services;
 

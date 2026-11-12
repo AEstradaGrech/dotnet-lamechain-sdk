@@ -4,6 +4,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Cod
 {
     public interface IPythonExecutor
     {
-        Task<PythonExecutionResult> ExecuteAsync(string code, PythonExecutionOptions options, CancellationToken ct = default);
+        /// <summary>
+        /// Runs a generated Python script and returns its result envelope. Never throws for execution problems:
+        /// they come back in <see cref="PythonExecutionResult.Error"/> (DependencyError, Timeout, python exceptions...).
+        /// The implementation (uv or local python) is chosen on startup by WithPythonExecutor().
+        /// </summary>
+        /// <param name="code">Python script following the execution contract (final answer in `result`, files in OUTPUT_DIR)</param>
+        /// <param name="dependencies">PyPI requirements of the script (e.g. "pandas", "matplotlib>=3.8")</param>
+        Task<PythonExecutionResult> ExecuteAsync(string code, IReadOnlyList<string> dependencies, CancellationToken ct = default);
     }
 }

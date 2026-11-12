@@ -5,7 +5,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Coding;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Coding;
+
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
@@ -134,19 +134,13 @@ namespace DotnetLlamaSharp.Services.Prompting
 
         public PythonCodeExecutorCommand GetPythonExecutorCommand(string? guidanceMessage = null, CommandSettings? settings = null)
         {
-            var config = _appConfig.GetSection("PythonExecutor").Get<PythonExecutionOptions>();
-
-            if (config == null)
-                throw new InvalidOperationException("PythonExecutor configuration section is missing or invalid.");
-
             using var scope = _serviceProvider.CreateScope();
 
-            var pythonExecutor = scope.ServiceProvider.GetRequiredService<IPythonExecutor>();
+            // Options and execution mode (uv / local python) are resolved by the executor registered in WithPythonExecutor()
+            var pythonExecutor = scope.ServiceProvider.GetService<IPythonExecutor>()
+                ?? throw new InvalidOperationException($"{nameof(IPythonExecutor)} is not registered. Call services.WithPythonExecutor(configuration) on startup.");
 
-            if (pythonExecutor == null)
-                throw new InvalidOperationException("IPythonExecutor service is not registered in the service provider.");
-
-            return new PythonCodeExecutorCommand(_ollama, pythonExecutor, config.PythonExe, config.HarnessPath, config.WorkRoot, guidanceMessage, settings);
+            return new PythonCodeExecutorCommand(_ollama, pythonExecutor, guidanceMessage, settings);
         }
     }
 }

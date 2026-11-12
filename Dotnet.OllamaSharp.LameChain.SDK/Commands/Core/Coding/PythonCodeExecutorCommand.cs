@@ -6,9 +6,10 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
+using Dotnet.OllamaSharp.LameChain.SDK.Extensions;
 using OllamaSharp.Models.Chat;
 using System.Text;
-
+using System.Text.Json;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
 {
@@ -18,42 +19,26 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
     /// </summary>
     public class PythonCodeExecutorCommand : BasePromptCommand<ChatMessage>
     {
-        public PythonCodeExecutorCommand() : base() { }
-        public PythonCodeExecutorCommand(IOllamaInferenceService ollama, IPythonExecutor executor, string pythonExe, string harnessPath, string workRoot, string? systemMessage = null, CommandSettings? settings = null) 
-            : base(ollama, systemMessage, settings) 
-        {
-            _harnessPath = harnessPath;
-            _workRoot = workRoot;
-            _executor = executor;
-            _pythonExe = pythonExe;
-        }
-
         private readonly IPythonExecutor _executor;
-        private readonly string _pythonExe;
-        private readonly string _harnessPath;
-        private readonly string _workRoot;
+
+        public PythonCodeExecutorCommand() : base() { }
+        public PythonCodeExecutorCommand(IOllamaInferenceService ollama, IPythonExecutor executor, string? systemMessage = null, CommandSettings? settings = null)
+            : base(ollama, systemMessage, settings)
+        {
+            _executor = executor ?? throw new ArgumentNullException($"{nameof(IPythonExecutor)} >> No Python executor provided. Register it on startup with {nameof(StartupConfiguration.WithPythonExecutor)}()");
+        }
 
         public override async Task<ChatMessage> Prompt(PromptCommandRequest request)
         {
             validateInputRequest<PythonCodingRequest>(request);
 
-            var req = request as PythonCodingRequest;
+            var req = (PythonCodingRequest)request;
 
-            if (string.IsNullOrEmpty(request.Prompt))
+            if (string.IsNullOrWhiteSpace(req.GeneratorParams?.Code))
                 return new ChatMessage(ChatRole.Assistant.ToString(), "Empty input provided, cannot execute Python code.");
 
-            var options = new PythonExecutionOptions
-            {
-                HarnessPath = _harnessPath,
-                WorkRoot = _workRoot,
-                PythonExe = req.PythonExe ?? _pythonExe,
-                Timeout = req.Timeout
-            };
-
-            var executionResult = await _executor.ExecuteAsync(request.Prompt, options);
-
-            if (executionResult == null)
-                return new ChatMessage(ChatRole.Assistant.ToString(), "Execution failed, no result returned.");
+            // uv / local python, dependencies install and harness: all handled by the executor configured on startup
+            var executionResult = await _executor.ExecuteAsync(req.GeneratorParams.Code, req.GeneratorParams.Dependencies ?? []);
 
             if(executionResult.Error != null)
                 return new ChatMessage(ChatRole.Assistant.ToString(), $"Execution failed with error >> Type: {executionResult.Error.Type}, Message: {executionResult.Error.Message}, Traceback: {executionResult.Error.Traceback}");
@@ -73,16 +58,21 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
         {
             StringBuilder sb = new StringBuilder();
 
-            if(result.Result != null)   
-                sb.AppendLine($"The code executed successfully. The result is: {result.Result}");
+            if (result.Result is { ValueKind: not JsonValueKind.Null and not JsonValueKind.Undefined } value)
+                sb.AppendLine($"The code executed successfully. The result ({result.ResultType}) is: {value.GetRawText()}");
+            else
+                sb.AppendLine("The code executed successfully but it did not return any result.");
 
             if(result.Artifacts.Count > 0)
             {
                 sb.AppendLine("The following artifacts were generated:");
-                
+
                 foreach (var artifact in result.Artifacts)
-                    sb.AppendLine($"- {artifact}");
+                    sb.AppendLine($"- {artifact.Path} ({artifact.SizeBytes} bytes)");
             }
+
+            if (!string.IsNullOrWhiteSpace(result.Stdout))
+                sb.AppendLine($"Console output:\n{result.Stdout}");
 
             return sb.ToString();
         }

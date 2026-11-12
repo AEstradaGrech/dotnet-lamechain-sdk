@@ -1,11 +1,12 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using DotnetLlamaSharp.Domain.Services.Inference;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
 {
-    public class PythonGeneratorCommand : DbPromptCommand<string>
+    public class PythonGeneratorCommand : DbPromptCommand<PythonGeneratorResponse>
     {
         public PythonGeneratorCommand() : base() { }
         public PythonGeneratorCommand(IOllamaInferenceService ollama) : base(ollama) { }
@@ -16,18 +17,18 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
         public PythonGeneratorCommand(IOllamaInferenceService ollama, string messageSourceName, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, CommandSettings? settings = null)
             : base(ollama, messageSourceName, messageName, retrieverLambda, guidanceMessage, settings) {}
 
-        public async override Task<string> Prompt(PromptCommandRequest request)
+        public async override Task<PythonGeneratorResponse> Prompt(PromptCommandRequest request)
         {
             validateInputRequest<PromptCommandRequest>(request);
 
             if (string.IsNullOrEmpty(request.Prompt))
-                return "Empty input provided, cannot generate Python code.";
+                return new PythonGeneratorResponse { Code = "Error >> Empty input provided, cannot generate Python code." };
 
             request.Prompt = $"Generate Python code that fulfills the following input: {request.Prompt}";
             
-            var response = await _ollama.ChatPrompt(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), provider: request.Provider, request.HasTools ? request.Tools : null);
-            
-            return response.Content ?? string.Empty;
+            return await _ollama.CommandPrompt<PythonGeneratorResponse>(
+                request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), 
+                validation: _settings != null ? validatorFor<PythonGeneratorResponse>(_settings.CommandValidations, _settings.ValidationType) : null);
         }
 
         protected override string getDefaultInstruction() => @"
@@ -41,9 +42,6 @@ You are a Python code generator. Write ONE self-contained Python 3 script that s
 - For charts call matplotlib.use(""Agg"") before importing pyplot. Never call plt.show(), input() or anything that waits for a user.
 - Only use the standard library and these packages: {AVAILABLE_PACKAGES}. No network access unless the task explicitly requires it.
 - Let exceptions propagate. Do not wrap the script in try/except.
-
-# OUTPUT FORMAT
-Return ONLY one ```python code block. No explanations.
 
 # EXAMPLE 1
 ## TASK:
