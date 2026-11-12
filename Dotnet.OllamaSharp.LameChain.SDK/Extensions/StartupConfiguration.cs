@@ -223,6 +223,18 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                 // Installs the configured Python version, prunes the uv cache and warms up packages in background
                 services.AddHostedService<PythonEnvService>();
                 services.Add(new ServiceDescriptor(typeof(IPythonExecutor), typeof(PythonUvExecutor), lifetime));
+
+                // Known malicious packages check (OSV.dev) before installing the dependencies
+                if (options.CheckMaliciousPackages)
+                {
+                    services.AddHttpClient(OsvMaliciousPackageChecker.HttpClientName, client =>
+                    {
+                        client.BaseAddress = new Uri(options.OsvApiUrl.TrimEnd('/') + "/");
+                        client.Timeout = TimeSpan.FromSeconds(20);
+                    });
+
+                    services.TryAddSingleton<IMaliciousPackageChecker, OsvMaliciousPackageChecker>();
+                }
             }
             else
             {

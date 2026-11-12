@@ -1,8 +1,15 @@
+using Dotnet.OllamaSharp.LameChain.SDK.Extensions;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Coding;
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Moq;
+using System.Net;
+using System.Text;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
 {
@@ -213,6 +220,211 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
             {
                 workRoot.Delete(recursive: true);
             }
+        }
+    }
+
+    public class OsvMaliciousPackageCheckerTests
+    {
+        private static readonly PythonDependency[] _dependencies =
+            [new PythonDependency("Credential_SDK", "Credential_SDK"), new PythonDependency("numpy", "numpy>=2")];
+
+        [Fact]
+        public async Task CheckAsync_ReportsOnlyMaliciousAdvisories()
+        {
+            var handler = new StubHandler(HttpStatusCode.OK, """
+                {"results":[
+                    {"vulns":[{"id":"MAL-2024-5000","modified":"2024-10-24T01:01:58Z"}]},
+                    {"vulns":[{"id":"GHSA-2fc2-6r4j-p65h","modified":"2024-10-01T21:25:39Z"},{"id":"PYSEC-2017-1","modified":"2023-11-08T03:58:54Z"}]}
+                ]}
+                """);
+
+            var report = await new OsvMaliciousPackageChecker(new StubFactory(handler)).CheckAsync(_dependencies, TestContext.Current.CancellationToken);
+
+            report.Error.Should().BeNull();
+            report.Malicious.Should().ContainSingle();
+            report.Malicious[0].Name.Should().Be("Credential_SDK");
+            report.Malicious[0].AdvisoryIds.Should().Equal("MAL-2024-5000");
+
+            handler.Requests.Should().ContainSingle().Which.Should().Be("https://osv.test/v1/querybatch");
+            handler.Bodies[0].Should().Contain("\"name\":\"credential-sdk\"").And.Contain("\"ecosystem\":\"PyPI\"");
+        }
+
+        [Fact]
+        public async Task CheckAsync_WhenTheServiceFails_ReturnsErrorInsteadOfThrowing()
+        {
+            var handler = new StubHandler(HttpStatusCode.InternalServerError, "oops");
+
+            var report = await new OsvMaliciousPackageChecker(new StubFactory(handler)).CheckAsync(_dependencies, TestContext.Current.CancellationToken);
+
+            report.Error.Should().NotBeNullOrEmpty();
+            report.Malicious.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task CheckAsync_WithUnexpectedResultsCount_ReturnsError()
+        {
+            var handler = new StubHandler(HttpStatusCode.OK, """{"results":[{}]}""");
+
+            var report = await new OsvMaliciousPackageChecker(new StubFactory(handler)).CheckAsync(_dependencies, TestContext.Current.CancellationToken);
+
+            report.Error.Should().Contain("Unexpected");
+        }
+
+        [Fact]
+        public async Task CheckAsync_WithoutDependencies_DoesNotCallTheService()
+        {
+            var handler = new StubHandler(HttpStatusCode.OK, "{}");
+
+            var report = await new OsvMaliciousPackageChecker(new StubFactory(handler)).CheckAsync([], TestContext.Current.CancellationToken);
+
+            report.Malicious.Should().BeEmpty();
+            handler.Requests.Should().BeEmpty();
+        }
+
+        private sealed class StubHandler(HttpStatusCode status, string responseBody) : HttpMessageHandler
+        {
+            public List<string> Requests { get; } = [];
+            public List<string> Bodies { get; } = [];
+
+            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                Requests.Add(request.RequestUri!.ToString());
+                Bodies.Add(request.Content == null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken));
+
+                return new HttpResponseMessage(status) { Content = new StringContent(responseBody, Encoding.UTF8, "application/json") };
+            }
+        }
+
+        private sealed class StubFactory(HttpMessageHandler handler) : IHttpClientFactory
+        {
+            public HttpClient CreateClient(string name) => new(handler, disposeHandler: false) { BaseAddress = new Uri("https://osv.test/") };
+        }
+    }
+
+    public class PythonUvExecutorTests : IDisposable
+    {
+        private readonly DirectoryInfo _workRoot = Directory.CreateTempSubdirectory("lamechain-uv-test");
+        private readonly Mock<IMaliciousPackageChecker> _checker = new();
+
+        public void Dispose() => _workRoot.Delete(recursive: true);
+
+        // uv path that does not exist: if the executor gets to launch uv, the result is a LauncherError
+        private PythonUvExecutor executor(bool check = true, bool require = false) => new(Options.Create(new PythonExecutionOptions
+        {
+            UseUv = true,
+            UvPath = Path.Combine(_workRoot.FullName, "missing", "uv"),
+            WorkRoot = _workRoot.FullName,
+            CheckMaliciousPackages = check,
+            RequireMaliciousPackagesCheck = require
+        }), _checker.Object);
+
+        [Fact]
+        public async Task ExecuteAsync_WithMaliciousPackage_BlocksBeforeInstalling()
+        {
+            _checker.Setup(c => c.CheckAsync(It.IsAny<IReadOnlyList<PythonDependency>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MaliciousPackageReport([new MaliciousPackage("credential-sdk", ["MAL-2024-5000"])], null));
+
+            var result = await executor().ExecuteAsync("result = 1", ["credential-sdk"], TestContext.Current.CancellationToken);
+
+            result.Error!.Type.Should().Be("MaliciousPackage");
+            result.Error.Message.Should().Contain("credential-sdk").And.Contain("MAL-2024-5000");
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WhenTheCheckFailsAndIsRequired_AbortsTheInstallation()
+        {
+            _checker.Setup(c => c.CheckAsync(It.IsAny<IReadOnlyList<PythonDependency>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MaliciousPackageReport([], "service unavailable"));
+
+            var result = await executor(require: true).ExecuteAsync("result = 1", ["pandas"], TestContext.Current.CancellationToken);
+
+            result.Error!.Type.Should().Be("DependencyError");
+            result.Error.Message.Should().Contain("service unavailable");
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WhenTheCheckFailsAndIsNotRequired_GoesOnWithTheInstallation()
+        {
+            _checker.Setup(c => c.CheckAsync(It.IsAny<IReadOnlyList<PythonDependency>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MaliciousPackageReport([], "service unavailable"));
+
+            var result = await executor(require: false).ExecuteAsync("result = 1", ["pandas"], TestContext.Current.CancellationToken);
+
+            result.Error!.Type.Should().Be("LauncherError");
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WithCheckDisabled_DoesNotCallTheChecker()
+        {
+            var result = await executor(check: false).ExecuteAsync("result = 1", ["pandas"], TestContext.Current.CancellationToken);
+
+            result.Error!.Type.Should().Be("LauncherError");
+            _checker.Verify(c => c.CheckAsync(It.IsAny<IReadOnlyList<PythonDependency>>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WithStdlibOnlyDependencies_DoesNotCallTheChecker()
+        {
+            await executor().ExecuteAsync("import json\nresult = 1", ["json", "os"], TestContext.Current.CancellationToken);
+
+            _checker.Verify(c => c.CheckAsync(It.IsAny<IReadOnlyList<PythonDependency>>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+    }
+
+    public class WithPythonExecutorTests
+    {
+        private static ServiceProvider build(Dictionary<string, string?> settings)
+        {
+            var config = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.WithPythonExecutor(config);
+
+            return services.BuildServiceProvider();
+        }
+
+        [Fact]
+        public void UvMode_RegistersTheUvExecutorAndTheMaliciousPackagesChecker()
+        {
+            using var provider = build(new() { ["PythonExecutionOptions:UseUv"] = "true" });
+            using var scope = provider.CreateScope();
+
+            scope.ServiceProvider.GetRequiredService<IPythonExecutor>().Should().BeOfType<PythonUvExecutor>();
+            scope.ServiceProvider.GetRequiredService<IMaliciousPackageChecker>().Should().BeOfType<OsvMaliciousPackageChecker>();
+        }
+
+        [Fact]
+        public void UvMode_WithCheckDisabled_DoesNotRegisterTheChecker()
+        {
+            using var provider = build(new() { ["PythonExecutionOptions:UseUv"] = "true", ["PythonExecutionOptions:CheckMaliciousPackages"] = "false" });
+
+            provider.GetService<IMaliciousPackageChecker>().Should().BeNull();
+        }
+
+        [Fact]
+        public void LocalMode_RegistersTheLocalExecutor()
+        {
+            using var provider = build(new() { ["PythonExecutionOptions:UseUv"] = "false", ["PythonExecutionOptions:PythonExe"] = "python" });
+            using var scope = provider.CreateScope();
+
+            scope.ServiceProvider.GetRequiredService<IPythonExecutor>().Should().BeOfType<LocalPythonExecutor>();
+        }
+
+        [Fact]
+        public void LocalMode_WithoutPythonExe_FailsOnStartup()
+        {
+            var act = () => build(new() { ["PythonExecutionOptions:UseUv"] = "false" });
+
+            act.Should().Throw<InvalidOperationException>().WithMessage("*PythonExe*");
+        }
+
+        [Fact]
+        public void MissingSection_FailsOnStartup()
+        {
+            var act = () => build(new() { ["Other:Key"] = "value" });
+
+            act.Should().Throw<InvalidOperationException>().WithMessage("*PythonExecutionOptions*");
         }
     }
 }

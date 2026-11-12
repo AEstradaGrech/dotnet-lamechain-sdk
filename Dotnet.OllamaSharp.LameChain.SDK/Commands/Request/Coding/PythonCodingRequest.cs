@@ -10,12 +10,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Coding
 
         // By default it is expected a command with _systemMessage + req.Guidance + core message (db || hardcoded)
         // In case there is no DB || Hardcoded message, change 'isGuidanceAppend' to true so the context is added to the _system instruction
-        public PythonCodingRequest(PythonGeneratorResponse parameters, string resultsPrompt, bool isGuidanceAppend = true, string? model = null) : base(resultsPrompt, isGuidanceAppend, model)
+        public PythonCodingRequest(PythonGeneratorResponse parameters, string resultsPrompt = "", bool isGuidanceAppend = true, string? model = null) : base(resultsPrompt, isGuidanceAppend, model)
         {
             GeneratorParams = parameters;
         }
 
-        public PythonCodingRequest(PythonGeneratorResponse parameters, string resultsPrompt, string? guidanceMessage, bool isGuidanceAppend = true, string? model = null) : base(resultsPrompt, guidanceMessage, isGuidanceAppend, model)
+        public PythonCodingRequest(string resultsPrompt, PythonGeneratorResponse parameters, string? guidanceMessage, bool isGuidanceAppend = true, string? model = null) : base(resultsPrompt, guidanceMessage, isGuidanceAppend, model)
         {
             GeneratorParams = parameters;
         }

@@ -16,6 +16,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Coding
         public string? UvPythonInstallDir { get; set; }
         // Installed in background on startup (PythonEnvService) so the first executions do not wait for them
         public List<string>? WarmupPackages { get; set; }
+        // Checks the dependencies against OSV.dev known malicious packages (MAL- reports) before installing anything
+        public bool CheckMaliciousPackages { get; set; } = true;
+        // true: if OSV.dev cannot be reached the installation is aborted (fail closed). false: the check is skipped and logged (fail open)
+        public bool RequireMaliciousPackagesCheck { get; set; }
+        public string OsvApiUrl { get; set; } = "https://api.osv.dev/";
 
         // ---------------- LOCAL MODE ----------------
         // Path to the python executable. Recommended: a venv (venv\Scripts\python.exe) instead of the global install
