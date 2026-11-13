@@ -9,13 +9,13 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Coding
     public sealed record PythonDependency(string Name, string Requirement);
 
     // Raw output of a launched process (uv, python...). ExitCode is null when the process was killed by timeout
-    public sealed record PythonProcessResult(int? ExitCode, string Stdout, string Stderr, bool TimedOut);
+    public sealed record ProcessResult(int? ExitCode, string Stdout, string Stderr, bool TimedOut);
 
     // Known malicious packages check. Error != null means the check could not be done (service unreachable...)
     public sealed record MaliciousPackage(string Name, IReadOnlyList<string> AdvisoryIds);
     public sealed record MaliciousPackageReport(IReadOnlyList<MaliciousPackage> Malicious, string? Error);
 
-    public sealed record PythonExecutionResult
+    public sealed record ExecutionResults
     {
         public bool Success { get; init; }
         public JsonElement? Result { get; init; }   // JSON result of the execution, if any. It can be null if the code does not return anything or if there was an error.

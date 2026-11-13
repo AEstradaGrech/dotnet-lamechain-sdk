@@ -379,7 +379,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             var commandResult = jsonResult.RawJson;
 
             // Exception case: message command removes the json format since it is not relevant and can mislead small models in other steps
-            if (_commands[idx] is MessagePromptCommand)
+            if (jsonResult.Object is ChatMessage)
             {
                 var message = JsonSerializer.Deserialize<ChatMessage>(jsonResult.RawJson, jsonResult.SerializerOptions);
 

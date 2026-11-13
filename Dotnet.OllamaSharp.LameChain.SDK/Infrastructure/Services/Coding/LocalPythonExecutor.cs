@@ -27,7 +27,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
         protected override (string FileName, string[] Prefix) getLauncher(IReadOnlyList<PythonDependency> dependencies) => (_options.PythonExe!, []);
 
         // Version specifiers are ignored: there is nothing to install, so only the package names are checked
-        protected override async Task<PythonExecutionResult?> prepareDependenciesAsync(IReadOnlyList<PythonDependency> dependencies, string runDir, CancellationToken ct)
+        protected override async Task<ExecutionResults?> prepareDependenciesAsync(IReadOnlyList<PythonDependency> dependencies, string runDir, CancellationToken ct)
         {
             if (dependencies.Count == 0) return null;
 

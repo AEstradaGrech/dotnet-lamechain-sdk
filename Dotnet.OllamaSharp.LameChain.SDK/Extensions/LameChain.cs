@@ -33,6 +33,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             return nextStep;
         }
 
+        public static SingleThrowStep ExecutePython(this SingleThrowStep step, StepSettings settings)
+        {
+            var pythonExeStep = step.ExpandTo<PythonExeStep>(settings);
+
+            step.Link(pythonExeStep, isForward: true, isTwoWay: true);
+
+            return pythonExeStep;
+        }
+
         // Expose ChainSteps to FeedAlsoFrom([Guid]) to pass chain results past the
         // Next step
         public static SingleThrowStep ExposeThisId(this SingleThrowStep step, out Func<Guid> id)

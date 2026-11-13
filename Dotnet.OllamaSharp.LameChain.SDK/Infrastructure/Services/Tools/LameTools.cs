@@ -28,14 +28,16 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
                     ),
                     defaultSettings: new CommandSettings(),
                     chainIntent: "Generate and execute Python code")
-                .Then(new StepSettings(new PythonCodingRequest())
-                    .UsePreviousAsInput(true)
-                 )
+                .ExecutePython(
+                    new StepSettings(
+                        factory.GetPythonExecutorCommand(),
+                        new PythonCodingRequest())
+                )
                 .ExecuteChainAsync();
-
-
+            
             return (result.Result as ChatMessage).Content;
         }
 
+        
     }
 }

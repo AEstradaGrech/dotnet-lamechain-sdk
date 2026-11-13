@@ -26,7 +26,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
         protected override (string FileName, string[] Prefix) getLauncher(IReadOnlyList<PythonDependency> dependencies)
             => (_options.UvPath, [.. UvTooling.RunPrefix(_options, dependencies), "python"]);
 
-        protected override async Task<PythonExecutionResult?> prepareDependenciesAsync(IReadOnlyList<PythonDependency> dependencies, string runDir, CancellationToken ct)
+        protected override async Task<ExecutionResults?> prepareDependenciesAsync(IReadOnlyList<PythonDependency> dependencies, string runDir, CancellationToken ct)
         {
             if (dependencies.Count == 0) return null;
 
@@ -46,7 +46,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
 
         protected override Dictionary<string, string?> buildEnvironment(string homeDir) => UvTooling.BuildEnvironment(_options, homeDir);
 
-        private async Task<PythonExecutionResult?> checkMaliciousPackagesAsync(IReadOnlyList<PythonDependency> dependencies, CancellationToken ct)
+        private async Task<ExecutionResults?> checkMaliciousPackagesAsync(IReadOnlyList<PythonDependency> dependencies, CancellationToken ct)
         {
             if (!_options.CheckMaliciousPackages) return null;
 

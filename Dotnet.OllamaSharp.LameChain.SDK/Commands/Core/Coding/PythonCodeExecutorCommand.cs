@@ -52,9 +52,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
             return new ChatMessage(message.Role.ToString(), message.Content);
         }
 
-        protected override string getDefaultInstruction() => "You are a helpful assistant. Your task is to return a brief sentence informing of the output of the provided code execution result";
+        protected override string getDefaultInstruction() => "You are a helpful assistant. Your task is to return a brief sentence informing of the output of the provided code execution result. If the provided output includes any generated file, you must include in your response the file names and also the path to the directory containing those files";
 
-        private string getExecutionResultPrompt(PythonExecutionResult result)
+        private string getExecutionResultPrompt(ExecutionResults result)
         {
             StringBuilder sb = new StringBuilder();
 

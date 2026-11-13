@@ -40,5 +40,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Response
         public List<string> ChainStepsLog { get; set; }
         public List<ReplayLog> ChainLogs { get; set; }
 
+        public T? ResultAs<T>() where T : class
+            => Result is T ? (T)Result : null;
+
     }
 }

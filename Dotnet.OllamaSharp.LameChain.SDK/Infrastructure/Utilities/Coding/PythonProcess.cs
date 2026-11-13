@@ -44,7 +44,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Coding
         /// Runs the process and returns its output. Throws Win32Exception when the executable cannot be started (wrong path)
         /// and OperationCanceledException when <paramref name="ct"/> is cancelled. A timeout kills the whole process tree.
         /// </summary>
-        public static async Task<PythonProcessResult> RunAsync(string fileName, IEnumerable<string> args, string workDir, IReadOnlyDictionary<string, string?> environment, TimeSpan timeout, CancellationToken ct = default)
+        public static async Task<ProcessResult> RunAsync(string fileName, IEnumerable<string> args, string workDir, IReadOnlyDictionary<string, string?> environment, TimeSpan timeout, CancellationToken ct = default)
         {
             var psi = new ProcessStartInfo(fileName)
             {
@@ -85,10 +85,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Coding
 
                 ct.ThrowIfCancellationRequested();     // cancelled from outside, not a timeout
 
-                return new PythonProcessResult(null, string.Empty, string.Empty, TimedOut: true);
+                return new ProcessResult(null, string.Empty, string.Empty, TimedOut: true);
             }
 
-            return new PythonProcessResult(proc.ExitCode, await stdoutTask, await stderrTask, TimedOut: false);
+            return new ProcessResult(proc.ExitCode, await stdoutTask, await stderrTask, TimedOut: false);
         }
     }
 }
