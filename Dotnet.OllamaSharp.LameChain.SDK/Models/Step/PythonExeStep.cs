@@ -45,6 +45,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Step
             catch(Exception ex)
             {
                 notify($"{nameof(runStep)} >> AN ERROR HAS OCCURED WHILE EXECUTING THE PYTHON CODE GENERATED IN THE PREVIOUS STEP >> EXCEPTION: {ex.Message}");
+
+                throw;
             }
         }
     }

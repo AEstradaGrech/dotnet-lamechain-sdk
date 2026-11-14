@@ -208,6 +208,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
            
             var trueBranch = step.ExpandTo<TStep>(trueInstruction);
 
+            if (trueBranch == null) throw new ArgumentNullException($"{nameof(SmartConditionalStep)} >> CHAIN BUILD FAILURE >> NO TRUE BRANCH STEP FOUND");
+
             conditional.IfTrueThen(trueBranch);
 
             step.Link(conditional, isForward: true, isTwoWay: true);
@@ -224,9 +226,31 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
         /// <returns></returns>
         public static SmartConditionalStep ThenIf(this SingleThrowStep step, StepSettings evaluator, SingleThrowStep trueBranch)
         {
+            if (trueBranch == null) throw new ArgumentNullException($"{nameof(SmartConditionalStep)} >> CHAIN BUILD FAILURE >> NO TRUE BRANCH STEP FOUND");
+
             var conditional = step.ToSmartConditional(evaluator);
 
             conditional.IfTrueThen(trueBranch);
+
+            step.Link(conditional, isForward: true, isTwoWay: true);
+
+            return conditional;
+        }
+
+        /// <summary>
+        /// Executes a Subchain if an LLM evaluation condition is met, forwarding the first subchain element to properly link the Subchain.
+        /// </summary>
+        /// <param name="step"></param>
+        /// <param name="evaluator"></param>
+        /// <param name="trueBranch"></param>
+        /// <returns></returns>
+        public static SmartConditionalStep ThenForwardedIf<TForwarded>(this SingleThrowStep step, StepSettings evaluator, SingleThrowStep trueBranch) where TForwarded : SingleThrowStep
+        {
+            if (trueBranch == null) throw new ArgumentNullException($"{nameof(SmartConditionalStep)} >> CHAIN BUILD FAILURE >> NO TRUE BRANCH STEP FOUND");
+
+            var conditional = step.ToSmartConditional(evaluator);
+
+            conditional.IfTrueThen(trueBranch.ForwardFirstType<TForwarded>());
 
             step.Link(conditional, isForward: true, isTwoWay: true);
 
@@ -247,7 +271,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
         {
             var conditional = step.ToConditional(condition, conditionSettings);
 
-            ChainStep trueBranch = step.ExpandTo<TStep>(trueInstruction); 
+            ChainStep trueBranch = step.ExpandTo<TStep>(trueInstruction);
+
+            if (trueBranch == null) throw new ArgumentNullException($"{nameof(ConditionalStep)} >> CHAIN BUILD FAILURE >> NO TRUE BRANCH STEP FOUND");
 
             conditional.IfTrueThen(trueBranch);
 
@@ -267,10 +293,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
         /// <returns></returns>
         public static ConditionalStep ThenIf(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, SingleThrowStep trueBranch)
         {
+            if (trueBranch == null) throw new ArgumentNullException($"{nameof(ConditionalStep)} >> CHAIN BUILD FAILURE >> NO TRUE BRANCH STEP FOUND");
+
             var conditional = step.ToConditional(condition, conditionSettings);
 
-            if(trueBranch != null)
-                conditional.IfTrueThen(trueBranch);
+            conditional.IfTrueThen(trueBranch);
 
             step.Link(conditional, isForward: true, isTwoWay: true);
 
@@ -310,6 +337,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 
             var trueBranch = step.AsStore<TPrev>(trueInstruction);
 
+            if (trueBranch == null) throw new ArgumentNullException($"{nameof(ConditionalStep)} >> CHAIN BUILD FAILURE >> NO TRUE BRANCH STEP FOUND");
+
             conditional.IfTrueThen(trueBranch);
 
             step.Link(conditional, isForward: true, isTwoWay: true);
@@ -329,10 +358,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
         /// <returns></returns>
         public static ConditionalStep StoreIf<TPrev>(this SingleThrowStep step, Expression<Func<bool>> condition, StepSettings conditionSettings, StoredStep<TPrev> trueBranch) where TPrev : class
         {
+            if (trueBranch == null) throw new ArgumentNullException($"{nameof(ConditionalStep)} >> CHAIN BUILD FAILURE >> NO TRUE BRANCH STEP FOUND");
+
             var conditional = step.ToConditional(condition, conditionSettings);
 
-            if (trueBranch != null)
-                conditional.IfTrueThen(trueBranch);
+            conditional.IfTrueThen(trueBranch);
 
             step.Link(conditional, isForward: true, isTwoWay: true);
 
@@ -354,6 +384,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 
             var trueBranch = step.ToStash(stashSettings);
 
+            if (trueBranch == null) throw new ArgumentNullException($"{nameof(SmartConditionalStep)} >> CHAIN BUILD FAILURE >> NO TRUE BRANCH STEP FOUND");
+
             conditional.IfTrueThen(trueBranch);
 
             step.Link(conditional, isForward: true, isTwoWay: true);
@@ -370,6 +402,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
         /// <returns></returns>
         public static SmartConditionalStep StashIf(this SingleThrowStep step, StepSettings evaluator, StashedStep trueBranch)
         {
+            if (trueBranch == null) throw new ArgumentNullException($"{nameof(SmartConditionalStep)} >> CHAIN BUILD FAILURE >> NO TRUE BRANCH STEP FOUND");
+
             var conditional = step.ToSmartConditional(evaluator);
 
             conditional.IfTrueThen(trueBranch);

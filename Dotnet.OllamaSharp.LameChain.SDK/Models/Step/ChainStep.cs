@@ -1,8 +1,10 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Evaluators;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces;
@@ -267,8 +269,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
         public SmartConditionalStep ToSmartConditional(StepSettings settings)
         {
-            if (settings.Command.GetType() != typeof(ScoredBoolCommand) && !settings.Command.GetType().IsSubclassOf(typeof(ScoredBoolCommand)))
-                throw new InvalidDataException($"{nameof(SmartConditionalStep)} >> {settings.Command.GetType().Name} >> A SmartConditionalStep command must be a ScoredBoolCommand or a subclass of it");
+            if (settings.Command.GetType() != typeof(ReasonedBoolCommand) && !settings.Command.GetType().IsSubclassOf(typeof(ReasonedBoolCommand)))
+                throw new InvalidDataException($"{nameof(SmartConditionalStep)} >> {settings.Command.GetType().Name} >> A SmartConditionalStep command must be a ReasonedBoolCommand or a subclass of it");
 
             return Activator.CreateInstance(typeof(SmartConditionalStep), settings) as SmartConditionalStep;
         }

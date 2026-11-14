@@ -37,6 +37,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators
             => isAppend ? getDefaultInstruction() + $"\n{additionalData}" : additionalData + $"\n{getDefaultInstruction()}";
 
         protected virtual string getDefaultInstruction() => @"Analyze the user prompt and try to determine the user intent. Pay attention to what is the user trying to do, what does the user expect you to do, 
-            what's the user query about or the scope of the user request (in case is chatting or role-playing) and output a short description (10 words maximum) of the user intent";
+what's the user query about or the scope of the user request (in case is chatting or role-playing) and output a short description (10 words maximum) of the user intent. DO NOT ANSWER THE USER, JUST ANALYZE THE USER PROMPT AND RETURN THE INTENT.";
     }
 }
