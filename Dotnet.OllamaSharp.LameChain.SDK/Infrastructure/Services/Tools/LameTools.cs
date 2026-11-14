@@ -18,6 +18,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
         public LameTools() : base() { }
         public LameTools(IServiceProvider serviceProvider) : base(serviceProvider) { }
 
+        // Add this tool to any agent or command
         [Description("Solves a task by writing and running a Python script by itself. You do NOT write any code: describe in plain language WHAT has to be done and this tool generates the Python code, runs it and returns the result. Use it for calculations, statistics, data processing (Excel, CSV...) and charts.")]
         public async Task<string> PythonExecutorTool([Description("Definition of the task to be done based on the user request. NEVER Python code (this will be used to generate the python code to execute")]string goal)
         {

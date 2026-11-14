@@ -2,7 +2,6 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
 using Dotnet.OllamaSharp.LameChain.SDK.Extensions;
-using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
@@ -10,7 +9,6 @@ using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Microsoft.Extensions.DependencyInjection;
 using System.ComponentModel;
-using System.Reflection;
 using System.Text;
 using Chain = Dotnet.OllamaSharp.LameChain.SDK.Extensions.LameChain;
 
@@ -18,6 +16,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 {
     public class PythonAgent : LameAgent
     {
+        // Settings for the python coding chain
+        private CommandSettings? _toolChainSettings = null;
         public PythonAgent() { }
         public PythonAgent(IServiceProvider serviceProvider, string model, PromptSettings? settings = null, string? name = null, string? description = null) 
             : base(serviceProvider, model, settings, name, description)
@@ -28,14 +28,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             if(string.IsNullOrEmpty(description))
                 Description = "An agent specialized in generating and executing Python code and providing insights about the results.";
 
-            using var toolboxScope = _serviceProvider.CreateScope();
-
-            var toolbox = toolboxScope.ServiceProvider.GetRequiredService<IToolbox>();
-
-            if (toolbox.TryGetMethodInfo(nameof(LameTools.PythonExecutorTool), out MethodInfo toolMethod))
-                AddTool(nameof(LameTools.PythonExecutorTool), new ToolBinding(toolMethod));
-
-            else throw new ArgumentNullException($"{nameof(PythonAgent)} >> {nameof(LameTools.PythonExecutorTool)} >> No tool found in toolbox");
+            AddTool(nameof(SolveTaskWithPython), new ToolBinding(GetType().GetMethod(nameof(SolveTaskWithPython)), target: this));
         }
 
         [Description("Solves a task by writing and running a Python script by itself. You do NOT write any code: describe in plain language WHAT has to be done and this tool generates the Python code, runs it and returns the result. Use it for calculations, statistics, data processing (Excel, CSV...) and charts.")]
@@ -62,7 +55,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                         factory.GetPythonGeneratorCommand(),
                         new PromptCommandRequest(message: task.ToString())
                     ),
-                    defaultSettings: new CommandSettings(),
+                    defaultSettings: _toolChainSettings ?? defaultToolSettings(),
                     chainIntent: "Generate and execute Python code")
                 .ExecutePython(
                     new StepSettings(
@@ -73,5 +66,25 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
             return result.ResultAs<ChatMessage>().Content;
         }
+
+        public LameAgent UseToolSettings(CommandSettings settings)
+        {
+            _toolChainSettings = settings;
+
+            return this;
+        }
+
+        private CommandSettings defaultToolSettings()
+            => new CommandSettings
+            {
+                Model = "gpt-oss:20b",
+                ContextLength = 10000,
+                MaxTokens = 4000,
+                Temperature = 0.3f,
+                TopP = 0.6f,
+                TopK = 20,
+                RepeatPenalty = 1.1f,
+                RepeatLastN = 2147483647
+            };
     }
 }
