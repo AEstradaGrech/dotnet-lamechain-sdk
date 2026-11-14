@@ -18,14 +18,18 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Coding
             => firstNonEmpty(options.UvPythonInstallDir, Environment.GetEnvironmentVariable("UV_PYTHON_INSTALL_DIR")) ?? Path.Combine(ToolsDir(options), "python");
 
         /// <summary>
-        /// Clean base environment + the uv settings of the API (UV_* variables, e.g. a private index) + explicit cache and Python folders.
+        /// Generic ProcessRunner environment + the uv variables. Used by the PythonEnvService (uv commands, no Python code involved)
+        /// </summary>
+        public static Dictionary<string, string?> BuildEnvironment(PythonExecutionOptions options, string homeDir)
+            => ApplyUvVariables(ProcessRunner.BaseEnvironment(homeDir), options);
+
+        /// <summary>
+        /// Adds the uv settings of the API (UV_* variables, e.g. a private index) + explicit cache and Python folders.
         /// Without explicit folders uv would use a cache inside HOME (the execution folder) and reinstall everything on every execution.
         /// Note: uv passes its environment to the python process, so the generated code can read these variables too.
         /// </summary>
-        public static Dictionary<string, string?> BuildEnvironment(PythonExecutionOptions options, string homeDir)
+        public static Dictionary<string, string?> ApplyUvVariables(Dictionary<string, string?> env, PythonExecutionOptions options)
         {
-            var env = PythonProcess.BaseEnvironment(homeDir);
-
             foreach (DictionaryEntry variable in Environment.GetEnvironmentVariables())
                 if (variable.Key is string key && key.StartsWith("UV_", StringComparison.OrdinalIgnoreCase))
                     env[key] = variable.Value as string;

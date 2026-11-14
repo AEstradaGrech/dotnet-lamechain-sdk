@@ -144,8 +144,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
                 env.Should().NotContainKey("LAMECHAIN_TEST_SECRET");
                 env["UV_CACHE_DIR"].Should().Be("/cache");
                 env["UV_PYTHON_INSTALL_DIR"].Should().Be("/python");
+                env["PYTHONNOUSERSITE"].Should().Be("1");
                 env["HOME"].Should().Be("/home/run");
-                env["MPLBACKEND"].Should().Be("Agg");
+                env.Should().NotContainKey("MPLBACKEND", "matplotlib variables belong to the Python executors, not to the uv tooling");
             }
             finally
             {

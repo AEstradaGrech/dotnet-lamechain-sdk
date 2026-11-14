@@ -1,5 +1,6 @@
 ﻿
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Coding;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Coding;
 using Microsoft.Extensions.Options;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
@@ -44,14 +45,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
 
         // Local mode behaves like the user's own Python: keeps the real profile folders so user site-packages (pip install --user) are visible
         protected override Dictionary<string, string?> buildEnvironment(string homeDir)
-        {
-            var env = base.buildEnvironment(homeDir);
-
-            foreach (var key in new[] { "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA" })
-                if (Environment.GetEnvironmentVariable(key) is { Length: > 0 } value)
-                    env[key] = value;
-
-            return env;
-        }
+            => ProcessRunner.PassThrough(base.buildEnvironment(homeDir), ["HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA"]);
     }
 }

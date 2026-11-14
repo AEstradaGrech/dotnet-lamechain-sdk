@@ -97,12 +97,21 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
         protected abstract (string FileName, string[] Prefix) getLauncher(IReadOnlyList<PythonDependency> dependencies);
 
         /// <summary>
-        /// Environment of every child process. The API environment is NOT inherited (it may contain secrets)
+        /// Environment of every child process: the generic ProcessRunner one + the Python specific variables.
+        /// The API environment is NOT inherited (it may contain secrets). Subclasses add their own variables on top (base.buildEnvironment)
         /// </summary>
-        protected virtual Dictionary<string, string?> buildEnvironment(string homeDir) => PythonProcess.BaseEnvironment(homeDir);
+        protected virtual Dictionary<string, string?> buildEnvironment(string homeDir)
+        {
+            var env = ProcessRunner.BaseEnvironment(homeDir);
+
+            env["MPLCONFIGDIR"] = homeDir;   // matplotlib needs a writable cache folder
+            env["MPLBACKEND"] = "Agg";       // matplotlib without trying to open windows
+
+            return env;
+        }
 
         protected Task<ProcessResult> runProcess(string fileName, IEnumerable<string> args, string workDir, TimeSpan timeout, CancellationToken ct = default)
-            => PythonProcess.RunAsync(fileName, args, workDir, buildEnvironment(workDir), timeout, ct);
+            => ProcessRunner.RunAsync(fileName, args, workDir, buildEnvironment(workDir), timeout, ct);
 
         protected static ExecutionResults failed(string type, string message)
             => new() { Success = false, Error = new PythonError(type, message, string.Empty) };

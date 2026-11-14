@@ -44,7 +44,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
             return install.ExitCode == 0 ? null : failed("DependencyError", $"Unable to install the dependencies: {tail(install.Stderr)}");
         }
 
-        protected override Dictionary<string, string?> buildEnvironment(string homeDir) => UvTooling.BuildEnvironment(_options, homeDir);
+        // Python variables (base) + uv variables
+        protected override Dictionary<string, string?> buildEnvironment(string homeDir) => UvTooling.ApplyUvVariables(base.buildEnvironment(homeDir), _options);
 
         private async Task<ExecutionResults?> checkMaliciousPackagesAsync(IReadOnlyList<PythonDependency> dependencies, CancellationToken ct)
         {

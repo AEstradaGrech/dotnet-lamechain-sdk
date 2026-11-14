@@ -9,6 +9,10 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Clients;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoader;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Scripting;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Scripting;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Scripting;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
@@ -245,6 +249,26 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
             }
 
             return services.WithToolsFrom<LameTools>(lifetime);
+        }
+
+        /// <summary>
+        /// Registers the IScriptExecutor (Bash or PowerShell) from the optional 'ScriptExecutionOptions' section.
+        /// Without the section: PowerShell on Windows, Bash anywhere else, scripts in [temp]/lamechain-scripts
+        /// </summary>
+        public static IServiceCollection WithScriptExecutor(this IServiceCollection services, IConfiguration configuration, ServiceLifetime lifetime = ServiceLifetime.Scoped)
+        {
+            var section = configuration.GetSection(nameof(ScriptExecutionOptions));
+
+            var options = section.Get<ScriptExecutionOptions>() ?? new ScriptExecutionOptions();
+
+            // Register the ScriptExecutionOptions from configuration for DI (IOptions<ScriptExecutionOptions>)
+            services.Configure<ScriptExecutionOptions>(section);
+
+            var executorType = options.ResolveShell() == EScriptShell.PowerShell ? typeof(PowerShellScriptExecutor) : typeof(BashScriptExecutor);
+
+            services.Add(new ServiceDescriptor(typeof(IScriptExecutor), executorType, lifetime));
+
+            return services;
         }
 
         public static IServiceCollection AddLangfuseTracing(this IServiceCollection services, IConfiguration configuration)

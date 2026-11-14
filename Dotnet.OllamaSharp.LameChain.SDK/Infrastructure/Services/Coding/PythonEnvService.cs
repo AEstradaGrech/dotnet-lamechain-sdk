@@ -35,7 +35,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
                 var env = UvTooling.BuildEnvironment(_settings, toolsDir);
 
                 Task<ProcessResult> uv(string[] args, TimeSpan timeout)
-                    => PythonProcess.RunAsync(_settings.UvPath, args, toolsDir, env, timeout, stoppingToken);
+                    => ProcessRunner.RunAsync(_settings.UvPath, args, toolsDir, env, timeout, stoppingToken);
 
                 var version = await uv(["--version"], TimeSpan.FromSeconds(30));
 
