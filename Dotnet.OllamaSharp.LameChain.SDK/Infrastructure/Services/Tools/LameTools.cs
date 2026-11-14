@@ -40,20 +40,5 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
             
             return result.ResultAs<ChatMessage>().Content;
         }
-
-        // Use the python executor to write files from the specified container path to the host machine
-        public async Task<string> DockerFileExtractor(string filePath, string fileName)
-        {
-            var containerName = Environment.GetEnvironmentVariable("CONTAINER_NAME");
-
-            if (string.IsNullOrEmpty(containerName)) return "No container name has been found in the ENVIRONMENT variables, unable to transfer files";
-            /*
-             import docker
-client = docker.from_env()
-container = client.containers.get(containerName)
-bits, stat = container.get_archive($"{filePath}/{fileName}")
-             */
-            return "WIP";
-        }
     }
 }
