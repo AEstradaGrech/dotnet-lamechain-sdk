@@ -40,13 +40,13 @@ namespace DotnetLlamaSharp.Services.Prompting
             => Activator.CreateInstance(typeof(TCommand), _ollama, source, messageName, retrieverLambda, guidanceMessage, settings) as TCommand;
 
         public VectorSearchCommand GetSimilaritySearchCommand(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<ILameSearchResult>>> queryFunction)
-            => Activator.CreateInstance(typeof(VectorSearchCommand), _embeddingsService, queryFunction) as VectorSearchCommand;
+            => new VectorSearchCommand(_embeddingsService, queryFunction);
 
         public TCommand GetSimilaritySearchLlama<TCommand>(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<ILameSearchResult>>> queryFunction) where TCommand : VectorSearchCommand
            => Activator.CreateInstance(typeof(TCommand),_ollama, _embeddingsService, queryFunction) as TCommand;
 
         public VectorSearchSourceable GetVectorSearchSourceable(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<ILameSearchResult>>> queryFunction)
-            => Activator.CreateInstance(typeof(VectorSearchSourceable), _embeddingsService, queryFunction) as VectorSearchSourceable;
+            => new VectorSearchSourceable(_embeddingsService, queryFunction);
 
         public TCommand GetEmbeddedSourceable<TCommand>(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<ILameSearchResult>>> queryFunction, string? llamaGuidance = null, CommandSettings? settings = null) 
             where TCommand : VectorSearchSourceable
@@ -54,7 +54,7 @@ namespace DotnetLlamaSharp.Services.Prompting
 
         public VectorSearchSourceable GetVectorSearchSourceable(Func<string, ReadOnlyMemory<float>, int, Dictionary<string, object>, Task<List<ILameSearchResult>>> queryFunction,
             string source, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, CommandSettings? settings = null)
-           => Activator.CreateInstance(typeof(VectorSearchSourceable), _ollama, _embeddingsService, queryFunction, source, messageName, retrieverLambda, guidanceMessage, settings) as VectorSearchSourceable;
+           => new VectorSearchSourceable(_ollama, _embeddingsService, queryFunction, source, messageName, retrieverLambda, guidanceMessage, settings);
 
 
         // Sourceables with no DB dependency AND ollama dependency (no sysmessage. SimilaritySearchCommands for example)
@@ -68,7 +68,7 @@ namespace DotnetLlamaSharp.Services.Prompting
 
         //Domain object command helpers
         public MessagePromptCommand GetMessagePromptCommand(string? systemMessage = null, CommandSettings? settings = null)
-            => Activator.CreateInstance(typeof(MessagePromptCommand), _ollama, systemMessage, settings) as MessagePromptCommand;
+            => new MessagePromptCommand(_ollama, systemMessage, settings);
 
         //Atomic Value Helpers:
         // WITH DEFAULT INSTRUCTION SETUP
@@ -76,31 +76,31 @@ namespace DotnetLlamaSharp.Services.Prompting
             => Activator.CreateInstance(typeof(EnumPromptCommand<TEnum>), _ollama, null, null, null, guidanceMessage, settings) as EnumPromptCommand<TEnum>;
 
         public BoolPromptCommand GetBoolPromptCommand(string? guidanceMessage = null, CommandSettings? settings = null)
-            => Activator.CreateInstance(typeof(BoolPromptCommand), _ollama, null, null, null, guidanceMessage, settings) as BoolPromptCommand;
+            => new BoolPromptCommand(_ollama, null, null, null, guidanceMessage, settings);
 
         public StringChoiceCommand GetStringChoiceCommand(string? guidanceMessage = null, CommandSettings? settings = null)
-            => Activator.CreateInstance(typeof(StringChoiceCommand), _ollama, null, null, null, guidanceMessage, settings) as StringChoiceCommand;
+            => new StringChoiceCommand(_ollama, null, null, null, guidanceMessage, settings);
 
         public MultiChoiceCommand GetMultiChoiceCommand(string? guidanceMessage = null, CommandSettings? settings = null)
-            => Activator.CreateInstance(typeof(MultiChoiceCommand), _ollama, null, null, null, guidanceMessage, settings) as MultiChoiceCommand;
+            => new MultiChoiceCommand(_ollama, null, null, null, guidanceMessage, settings);
 
         public NumericPromptCommand GetNumericPromptCommand(string? guidanceMessage = null, CommandSettings? settings = null)
-            => Activator.CreateInstance(typeof(NumericPromptCommand), _ollama, null, null, null, guidanceMessage, settings) as NumericPromptCommand;
+            => new NumericPromptCommand(_ollama, null, null, null, guidanceMessage, settings);
 
         // Atomic Values with DB SETUP
         public EnumPromptCommand<TEnum> GetEnumChoiceCommand<TEnum>(string source, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, CommandSettings? settings = null) where TEnum : struct, Enum
             => Activator.CreateInstance(typeof(EnumPromptCommand<TEnum>), _ollama, source, messageName, retrieverLambda, guidanceMessage, settings) as EnumPromptCommand<TEnum>;
         public BoolPromptCommand GetBoolPromptCommand(string source, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, CommandSettings? settings = null)
-            => Activator.CreateInstance(typeof(BoolPromptCommand), _ollama, source, messageName, retrieverLambda, guidanceMessage, settings) as BoolPromptCommand;
+            => new BoolPromptCommand(_ollama, source, messageName, retrieverLambda, guidanceMessage, settings);
 
         public StringChoiceCommand GetStringChoiceCommand(string source, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, CommandSettings? settings = null)
-            => Activator.CreateInstance(typeof(StringChoiceCommand), _ollama, source, messageName, retrieverLambda, guidanceMessage, settings) as StringChoiceCommand;
+            => new StringChoiceCommand(_ollama, source, messageName, retrieverLambda, guidanceMessage, settings);
 
         public MultiChoiceCommand GetMultiChoiceCommand(string source, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, CommandSettings? settings = null)
-            => Activator.CreateInstance(typeof(MultiChoiceCommand), _ollama, source, messageName, retrieverLambda, guidanceMessage, settings) as MultiChoiceCommand;
+            => new MultiChoiceCommand(_ollama, source, messageName, retrieverLambda, guidanceMessage, settings);
 
         public NumericPromptCommand GetNumericPromptCommand(string source, string messageName, Func<string, string, Task<string>> retrieverLambda, string? guidanceMessage = null, CommandSettings? settings = null)
-            => Activator.CreateInstance(typeof(NumericPromptCommand), _ollama, source, messageName, retrieverLambda, guidanceMessage, settings) as NumericPromptCommand;
+            => new NumericPromptCommand(_ollama, source, messageName, retrieverLambda, guidanceMessage, settings);
 
 
         public IJsoneable GetAsJsoneable<TCommand, TResult>(string instruction) where TCommand : BasePromptCommand<TResult>, new()
