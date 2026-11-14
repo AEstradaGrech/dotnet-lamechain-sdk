@@ -357,13 +357,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
             {
                 CommandSettings settings = _commands[idx].CommandSettings ?? _runner.DefaultSettings;
 
-                var split = settings.Model.Split("_");
-                if (split.Length > 1) //command | default settings != request. provider
+                if(!string.IsNullOrEmpty(settings.Model))
                 {
-                    if (split.First() != Request.Provider)
-                        Request.Model = settings.Model; // whatever provider_model has been set for the command, it will be parsed in the inference service and will update the handler to change the provider
+                    var split = settings.Model.Split("_");
+                    if (split.Length > 1) //command | default settings != request. provider
+                    {
+                        if (split.First() != Request.Provider)
+                            Request.Model = settings.Model; // whatever provider_model has been set for the command, it will be parsed in the inference service and will update the handler to change the provider
+                    }
+
+                    else Request.Model = settings.Model; // assumes ollama provider
                 }
-                else Request.Model = settings.Model; // assumes ollama provider
             }
             
             // JsonPrompt

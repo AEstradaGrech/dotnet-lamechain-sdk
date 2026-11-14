@@ -68,12 +68,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configur
         public RequestOptions ToOllamaRequest()
             => new RequestOptions {
                NumCtx = ContextLength ?? 4096,
-               NumPredict = MaxTokens ?? 300,
+               NumPredict = MaxTokens ?? 1000,
                Temperature = Temperature ?? 0f,
                TopP = TopP ?? .1f,
                TopK = TopK ?? 10,
-               RepeatPenalty = RepeatPenalty,
-               RepeatLastN = RepeatLastN,
+               RepeatPenalty = RepeatPenalty ?? 1.0f,
+               RepeatLastN = RepeatLastN ?? 2147483647,
                MiroStat = MiroStat,
                MiroStatEta = MiroStatEta,
                MiroStatTau = MiroStatTau

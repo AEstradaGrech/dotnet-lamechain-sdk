@@ -8,6 +8,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuratio
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Microsoft.Extensions.DependencyInjection;
+using System.ComponentModel;
 using Chain = Dotnet.OllamaSharp.LameChain.SDK.Extensions.LameChain;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
@@ -17,7 +18,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
         public LameTools() : base() { }
         public LameTools(IServiceProvider serviceProvider) : base(serviceProvider) { }
 
-        public async Task<string> PythonExecutorTool(string taskDefinition)
+        [Description("Generates and executes python code to fulfill the task requirements")]
+        public async Task<string> PythonExecutorTool([Description("Definition of the python code to generate based on the user request")]string taskDefinition)
         {
             var factory = _services.GetRequiredService<IPromptCommandsFactory>();
 
@@ -35,9 +37,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
                 )
                 .ExecuteChainAsync();
             
-            return (result.Result as ChatMessage).Content;
+            return result.ResultAs<ChatMessage>().Content;
         }
 
-        
+       
     }
 }

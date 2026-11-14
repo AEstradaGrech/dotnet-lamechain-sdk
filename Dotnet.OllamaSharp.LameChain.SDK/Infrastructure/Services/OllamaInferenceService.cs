@@ -39,11 +39,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
        
         public async Task<Message> GeneratePrompt(GenerateRequest request, string provider)
         {
-            provider = provider.Trim();
-            
-            if (string.IsNullOrEmpty(provider))
-                throw new InvalidDataException($"{nameof(OllamaInferenceService)}.{nameof(GeneratePrompt)} >> NO LLM PROVIDER SELECTED");
-
+            provider = !string.IsNullOrEmpty(provider) ? provider.Trim() : _handler.Name;
 
             if (string.IsNullOrEmpty(request.Model))
                 request.Model = _settings.DefaultModel;
@@ -58,7 +54,6 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
 
                 llmResponse = await _handler.GetLlmResponse(request.GenerateRequestToChat());
             }
-
             else
             {   
                 if (!_handler.IsOfType<OllamaHandler>())
@@ -72,10 +67,7 @@ namespace DotnetLlamaSharp.Infrastructure.Services.Inference
 
         public async Task<Message> ChatPrompt(ChatRequest request, string provider, Dictionary<string, ToolBinding>? requestTools = null)
         {
-            provider = provider.Trim();
-
-            if (string.IsNullOrEmpty(provider))
-                throw new InvalidDataException($"{nameof(OllamaInferenceService)}.{nameof(GeneratePrompt)} >> NO LLM PROVIDER SELECTED");
+            provider = !string.IsNullOrEmpty(provider) ? provider.Trim() : _handler.Name;
 
             if (string.IsNullOrEmpty(request.Model))
                 request.Model = !string.IsNullOrEmpty(_handler.ScopedModel) ? _handler.ScopedModel : _settings.DefaultModel; //TODO: getDefaultModelForProvider(provider) request.Model = _provider.IsSolvingTools ? _provider.CurrentModel : _settings.DefaultModelByProvider(_provider.Name)

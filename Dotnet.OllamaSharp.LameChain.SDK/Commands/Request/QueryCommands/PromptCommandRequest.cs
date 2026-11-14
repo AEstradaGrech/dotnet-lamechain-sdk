@@ -57,7 +57,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                 Stream = false,
                 Think = Reasoning.HasValue ? new ThinkValue(Reasoning.ToString().ToLower()) : new ThinkValue(Reasoning),
                 Tools = HasTools ? GetToolDefinitions() : null,
-                Options = settings == null ? new RequestOptions() : settings.ToOllamaRequest()
+                Options = settings == null ? new PromptSettings().ToOllamaRequest() : settings.ToOllamaRequest()
             };
 
         public virtual GenerateRequest ToOllamaGenerate(string commandSysmsg, PromptSettings settings = null)
@@ -66,7 +66,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands
                 Prompt = Prompt,
                 System = commandSysmsg,
                 Stream = false,
-                Options = settings == null ? new RequestOptions() : settings.ToOllamaRequest() 
+                Options = settings == null ? new PromptSettings().ToOllamaRequest() : settings.ToOllamaRequest() 
             };
 
         public PromptCommandRequest AddTool(string name, ToolBinding binding)

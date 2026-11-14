@@ -1,6 +1,8 @@
 ﻿
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 {
@@ -15,8 +17,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
             if(string.IsNullOrEmpty(description))
                 description = "An agent specialized in generating and executing Python code and providing insights about the results.";
+            
+            using var scope = _serviceProvider.CreateScope();
 
-            AddTool(nameof(LameTools.PythonExecutorTool), new ToolBinding(GetType().GetMethod(nameof(LameTools.PythonExecutorTool)), target: this));
+            var lameTools = scope.ServiceProvider.GetRequiredService<IToolsService<LameTools>>();
+
+            AddTool(nameof(LameTools.PythonExecutorTool), new ToolBinding(lameTools.GetType().GetMethod(nameof(LameTools.PythonExecutorTool))));
         }
     }
 }

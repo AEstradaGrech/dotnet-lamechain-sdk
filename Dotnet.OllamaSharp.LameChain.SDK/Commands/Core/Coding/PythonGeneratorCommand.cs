@@ -31,6 +31,18 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
                 validation: _settings != null ? validatorFor<PythonGeneratorResponse>(_settings.CommandValidations, _settings.ValidationType) : null);
         }
 
+        private CommandSettings getDefaultSettings()
+            => new CommandSettings
+            {
+                Model = "gpt-oss:20b",
+                ContextLength = 10000,
+                MaxTokens = 4000,
+                Temperature = 0.3f,
+                TopP = 0.6f,
+                TopK = 20,
+                RepeatPenalty = 1.1f,
+                RepeatLastN = 2147483647
+            };
         // Raw string literal: the JSON examples need no quote escaping, and "\n" inside them is a literal JSON escape (not a C# one).
         // The PythonGeneratorResponse schema (code + dependencies) is appended to this instruction by CommandPrompt<T>.
         protected override string getDefaultInstruction() => """
