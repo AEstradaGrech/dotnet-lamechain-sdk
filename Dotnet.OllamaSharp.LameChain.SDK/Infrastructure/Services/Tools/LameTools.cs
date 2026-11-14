@@ -18,15 +18,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
         public LameTools() : base() { }
         public LameTools(IServiceProvider serviceProvider) : base(serviceProvider) { }
 
-        [Description("Generates and executes python code to fulfill the task requirements")]
-        public async Task<string> PythonExecutorTool([Description("Definition of the python code to generate based on the user request")]string taskDefinition)
+        [Description("Solves a task by writing and running a Python script by itself. You do NOT write any code: describe in plain language WHAT has to be done and this tool generates the Python code, runs it and returns the result. Use it for calculations, statistics, data processing (Excel, CSV...) and charts.")]
+        public async Task<string> PythonExecutorTool([Description("Definition of the task to be done based on the user request. NEVER Python code (this will be used to generate the python code to execute")]string goal)
         {
             var factory = _services.GetRequiredService<IPromptCommandsFactory>();
 
             var result = await Chain.StartWith(
                 new StepSettings(
                         factory.GetPythonGeneratorCommand(),
-                        new PromptCommandRequest(message: taskDefinition)
+                        new PromptCommandRequest(message: goal)
                     ),
                     defaultSettings: new CommandSettings(),
                     chainIntent: "Generate and execute Python code")
@@ -40,6 +40,19 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
             return result.ResultAs<ChatMessage>().Content;
         }
 
-       
+        // Use the python executor to write files from the specified container path to the host machine
+        public async Task<string> DockerFileExtractor(string filePath, string fileName)
+        {
+            var containerName = Environment.GetEnvironmentVariable("CONTAINER_NAME");
+
+            if (string.IsNullOrEmpty(containerName)) return "No container name has been found in the ENVIRONMENT variables, unable to transfer files";
+            /*
+             import docker
+client = docker.from_env()
+container = client.containers.get(containerName)
+bits, stat = container.get_archive($"{filePath}/{fileName}")
+             */
+            return "WIP";
+        }
     }
 }

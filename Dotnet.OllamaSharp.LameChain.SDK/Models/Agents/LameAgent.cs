@@ -35,9 +35,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
         public string Provider { get; private set; }
 
         // Add to sysmessage (if not null) to provide context to the model about the agent's purpose and behavior.
-        public string? Name { get; private set; }
+        public string? Name { get; protected set; }
         // Add to sysmessage (if not null) to provide context to the model about the agent's purpose and behavior.
-        public string? Description { get; private set; }
+        public string? Description { get; protected set; }
         public string UserInput { get; private set; }
         public string FullHandlerModel => $"{Provider}_{Model}";
         public bool HasTools => Tools.Count > 0;
