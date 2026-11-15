@@ -94,7 +94,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
         /// <param name="temperature"></param>
         /// <param name="topP"></param>
         /// <returns></returns>
-        public async Task<string> RunPrompt(string prompt, string? systemInstruction = null, List<ChatMessage>? chatHistory = null, EReasoning? reasoning = null)
+        public async Task<string> RunPrompt(string prompt, string? systemInstruction = null, bool isSystemAppend = true, List<ChatMessage>? chatHistory = null, EReasoning? reasoning = null)
         {
             if (string.IsNullOrEmpty(prompt.Trim()))
                 throw new InvalidOperationException($"{nameof(LameAgent)} >> {nameof(RunPrompt)} >> No User Prompt to run");
@@ -103,7 +103,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
             var systemMessage = buildSystemMessage();
 
-            var finalInstruction = string.IsNullOrEmpty(systemInstruction) ? systemMessage : $"{systemInstruction}\n\n{systemMessage}";
+            var finalInstruction = string.IsNullOrEmpty(systemInstruction) ? systemMessage : isSystemAppend ? $"{systemMessage}\n\n# USER INSTRUCTION: {systemInstruction}" : $"# USER INSTRUCTION: {systemInstruction}\n\n{systemMessage}";
 
             if(chatHistory != null && chatHistory.Count > 0)
             {

@@ -54,6 +54,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             if (!hasTool) throw new ArgumentNullException($"{nameof(PhilosopherAgent)} >> No reasoning tools found in toolbox. At least one reasoning tool required for this agent");
         }
 
-        protected virtual string selfInstruction() => "ALWAYS use the ReasoningTool to think about the user query and its resolution, then use the ChainOfThoughtTool to generate a thinking plan that will help you to solve the user query";
+        protected override string selfInstruction() => "# IMPORTANT: ALWAYS use the ReasoningTool to think about the user query and its resolution, then use the ChainOfThoughtTool to generate a thinking plan that will help you to solve the user query";
     }
 }

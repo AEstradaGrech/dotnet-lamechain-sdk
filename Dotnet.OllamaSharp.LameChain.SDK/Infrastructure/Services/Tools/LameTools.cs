@@ -137,7 +137,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
                 tag("user_request", userRequest),
                 tag("goal", goal),
                 tag("response_requirements", responseRequirements, "Not specified."),
-                "Write the thinking steps for this request.");
+                "Write the thinking steps for this request as specified in your instructions.");
 
             var result = await command.Prompt(new ChatCommandRequest(message, guidanceMessage: null));
 
