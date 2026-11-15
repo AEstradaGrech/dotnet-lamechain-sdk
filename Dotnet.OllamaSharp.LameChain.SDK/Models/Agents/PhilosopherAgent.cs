@@ -14,7 +14,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
     /// </summary>
     public class PhilosopherAgent : LameAgent
     {
-        protected bool _forceToolsUsage = true;
         public PhilosopherAgent(IServiceProvider serviceProvider, string model, PromptSettings? settings = null, string? name = null, string? description = null)
             : base(serviceProvider, model, settings, name, description)
         {
@@ -24,9 +23,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             if (string.IsNullOrEmpty(description))
                 Description = "An agent specialized in thinking and reasoning.";
 
-            if(_forceToolsUsage)
-                Description += $"\n{toolsUsageEnforcementMessage()}";
-
+            _useSelfInstruction = true;
+            
             using var toolboxScope = _serviceProvider.CreateScope();
 
             var toolbox = toolboxScope.ServiceProvider.GetRequiredService<IToolbox>();
@@ -56,14 +54,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             if (!hasTool) throw new ArgumentNullException($"{nameof(PhilosopherAgent)} >> No reasoning tools found in toolbox. At least one reasoning tool required for this agent");
         }
 
-        // Use this to disable the forceToolUsage flag (enabled by default)
-        public LameAgent ForceToolsUsage(bool bForceTools)
-        {
-            _forceToolsUsage = bForceTools;
-
-            return this;
-        }
-
-        protected string toolsUsageEnforcementMessage() => "ALWAYS use the ReasoningTool to think about the user query and its resolution, then use the ChainOfThoughtTool to generate a thinking plan that will help you to solve the user query";
+        protected virtual string selfInstruction() => "ALWAYS use the ReasoningTool to think about the user query and its resolution, then use the ChainOfThoughtTool to generate a thinking plan that will help you to solve the user query";
     }
 }

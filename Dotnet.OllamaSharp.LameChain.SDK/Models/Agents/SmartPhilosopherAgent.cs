@@ -23,8 +23,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             if (string.IsNullOrEmpty(description))
                 Description = "An agent specialized in thinking and reasoning.";
 
-            if (_forceToolsUsage)
-                Description += $"\n{toolsUsageEnforcementMessage()}";
+            _useSelfInstruction = true;
 
             using var toolboxScope = _serviceProvider.CreateScope();
 
@@ -55,6 +54,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             if (!hasTool) throw new ArgumentNullException($"{nameof(SmartPhilosopherAgent)} >> No reasoning tools found in toolbox. At least one reasoning tool required for this agent");
         }
 
-        protected string toolsUsageEnforcementMessage() => "ALWAYS use the AdvancedReasoningTool to think about the user query and its resolution, then use the AdvancedChainOfThoughtTool to generate a thinking plan that will help you to solve the user query";
+        protected override string selfInstruction() => "# IMPORTANT: ALWAYS use the AdvancedReasoningTool to think about the user query and its resolution, then use the AdvancedChainOfThoughtTool to generate a thinking plan that will help you to solve the user query";
     }
 }

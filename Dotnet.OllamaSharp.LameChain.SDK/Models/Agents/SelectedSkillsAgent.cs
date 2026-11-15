@@ -12,7 +12,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 {
     public class SelectedSkillsAgent : LameAgent
     {
-        private const string SELECTION_MESSAGE = "Select all the SKILL NAMES from the choices list that might help you to generate a response given this USER INPUT: ";
+        protected override string selfInstruction() => "Select all the SKILL NAMES from the choices list that might help you to generate a response given this USER INPUT: ";
         private readonly IPromptCommandsFactory _commandsFactory;
         public SelectedSkillsAgent(IServiceProvider serviceProvider, IPromptCommandsFactory commandsFactory, string model, PromptSettings? settings = null, string? name = null, string? description = null) 
             : base(serviceProvider, model, settings, name, description) 
@@ -65,7 +65,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
             var command = _commandsFactory.GetMultiChoiceCommand();
 
-            var selectRequest = new MultiChoiceRequest(selections: null, choices, SELECTION_MESSAGE + UserInput, isGuidanceAppend: false, model: FullHandlerModel);
+            var selectRequest = new MultiChoiceRequest(selections: null, choices, selfInstruction() + UserInput, isGuidanceAppend: false, model: FullHandlerModel);
 
             var selectedSkills = await command.Prompt(selectRequest);
    

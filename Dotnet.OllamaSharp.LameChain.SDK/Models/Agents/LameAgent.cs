@@ -50,6 +50,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
         public delegate void OnNewToolsLoaded(string toolName, ToolBinding binding);
         public event OnNewToolsLoaded onNewToolsLoaded;
+        protected bool _useSelfInstruction = false;
         // Memory?
 
         protected readonly IServiceProvider _serviceProvider;
@@ -242,6 +243,15 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             return await _inferenceService.CommandPrompt<T>(request.ToOllamaChat(settings: _settings));
         }
 
+        // Some agents have a specific instruction depending on its type. Use this flag
+        // to add it or not to the system message
+        public LameAgent UseSelfInstruction(bool bUseSelfInstruction)
+        {
+            _useSelfInstruction = bUseSelfInstruction;
+
+            return this;
+        }
+
         public LameAgent AddTool(string toolName, ToolBinding binding)
         {
             if (!Tools.ContainsKey(toolName))
@@ -328,7 +338,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
                 foreach (var skill in skills)
                 {
-                    // TODO / WIP --> SkillsLoader
                     var doc = await loader.LoadDocument($"{skill}");
 
                     if (doc != null && doc.Pages.Count() > 0)
@@ -353,6 +362,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             if (!string.IsNullOrEmpty(Description))
                 sb.AppendLine($"# Agent Description: {Description}\n");
 
+            if (_useSelfInstruction)
+            {
+                var instruction = selfInstruction();
+
+                if (!string.IsNullOrEmpty(instruction))
+                    sb.Append(instruction);
+            }
+                  
             var skillsMessage = HandleSystemMessageSkills(Skills).Result;
 
             if (!string.IsNullOrEmpty(skillsMessage))
@@ -418,5 +435,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
         }
 
         protected string broadcastId() => $"{Provider}/{Model}";
+
+        protected virtual string selfInstruction() => string.Empty;
     }
 }
