@@ -10,7 +10,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 {
     public class AutoSkilledAgent : LameAgent
     {
-        private const string SKILL_LOADING_MESSAGE = @"You have access to a set of skills. You must select the skills that might be useful to complete your task. 
+        protected override string selfInstruction() => @"You have access to a set of skills. You must select the skills that might be useful to complete your task. 
 Use the SkillsDiscoveryTool to get a list of the available skills to select along with some other information about the skill, then use the SkillsLoaderTool passing the selected skill names to
 load the skill information and its associated tools (if any).
 
@@ -30,7 +30,7 @@ produce your final response according to the requested tone and mood
             {
                 AddTool(nameof(SkillsDiscoveryTool), new ToolBinding(GetType().GetMethod(nameof(SkillsDiscoveryTool)), target: this));
                 AddTool(nameof(SkillsLoaderTool), new ToolBinding(GetType().GetMethod(nameof(SkillsLoaderTool)), target: this));
-                return SKILL_LOADING_MESSAGE; // return the base instruction specifying how to use the tools / discover & load the assigned skills
+                return selfInstruction(); // return the base instruction specifying how to use the tools / discover & load the assigned skills
             }
 
             return string.Empty; // configuration error. The AutoSkilledAgent requires at least one skill assigned to load the skill discovery & loader tools

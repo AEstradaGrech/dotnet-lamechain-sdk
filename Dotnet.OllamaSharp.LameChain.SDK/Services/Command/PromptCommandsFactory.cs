@@ -15,7 +15,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OllamaSharp.Models.Chat;
 
-namespace DotnetLlamaSharp.Services.Prompting
+namespace Dotnet.OllamaSharp.LameChain.SDK.Services.Command
 {
     public class PromptCommandsFactory : IPromptCommandsFactory
     {

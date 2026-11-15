@@ -12,6 +12,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Command.Responses.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Extensions;
 using static Dotnet.OllamaSharp.LameChain.SDK.Extensions.LameChain;
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.Evaluators;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Evaluators;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Text.Json.Schema;
@@ -242,16 +243,19 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Steps
 
         #region ThenIf Tests
 
+        // ReasonedBoolCommand (or a subclass) is required by ToSmartConditional's type guard
+        private StepSettings ReasonedEvaluator()
+            => new StepSettings(new ReasonedBoolCommand(_mockOllama.Object, null, _cmdSettings), new PromptCommandRequest("evaluate this"));
+
+        private sealed class CustomReasonedBoolCommand(IOllamaInferenceService ollama) : ReasonedBoolCommand(ollama) { }
+
         [Fact]
         public void ThenIf_Smart_CreatesSmartConditionalStepWithTrueBranchSet()
         {
             var mock = MockCommand(new BooleanResponse());
             var step1 = StartWith(Settings(mock, "step1"), _cmdSettings, null, "intent");
-            // ScoredBoolCommand is required by ToSmartConditional's type guard.
-            var scoredCmd = new ScoredBoolCommand(_mockOllama.Object, null, _cmdSettings);
-            var evaluator = new StepSettings(scoredCmd, new PromptCommandRequest("evaluate this"));
 
-            var conditional = step1.ThenIf<SingleThrowStep>(evaluator, Settings(mock, "true-action"));
+            var conditional = step1.ThenIf<SingleThrowStep>(ReasonedEvaluator(), Settings(mock, "true-action"));
 
             conditional.Should().BeOfType<SmartConditionalStep>();
             step1.Next.Should().BeSameAs(conditional);
@@ -260,17 +264,128 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Steps
         }
 
         [Fact]
-        public void ThenIf_Smart_WhenEvaluatorIsNotScoredBoolCommand_ThrowsInvalidDataException()
+        public void ThenIf_Smart_AcceptsReasonedBoolCommandSubclasses()
+        {
+            var mock = MockCommand(new BooleanResponse());
+            var step1 = StartWith(Settings(mock, "step1"), _cmdSettings, null, "intent");
+            var evaluator = new StepSettings(new CustomReasonedBoolCommand(_mockOllama.Object), new PromptCommandRequest("evaluate this"));
+
+            var conditional = step1.ThenIf<SingleThrowStep>(evaluator, Settings(mock, "true-action"));
+
+            conditional.Should().BeOfType<SmartConditionalStep>();
+            conditional.TrueBranchRunner.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void ThenIf_Smart_AcceptsAnyEvaluatorReturningAReasonedBoolResponse()
+        {
+            var mock = MockCommand(new BooleanResponse());
+            var step1 = StartWith(Settings(mock, "step1"), _cmdSettings, null, "intent");
+            // ScoredBoolCommand is not a ReasonedBoolCommand, but its ScoredBoolResponse is a ReasonedBoolResponse
+            var evaluator = new StepSettings(new ScoredBoolCommand(_mockOllama.Object, null, _cmdSettings), new PromptCommandRequest("evaluate this"));
+
+            var conditional = step1.ThenIf<SingleThrowStep>(evaluator, Settings(mock, "true-action"));
+
+            conditional.Should().BeOfType<SmartConditionalStep>();
+            conditional.TrueBranchRunner.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void ThenIf_Smart_WhenEvaluatorIsNotReasonedBoolCommand_ThrowsInvalidDataException()
         {
             var mock = MockCommand(new BooleanResponse());
             var step1 = StartWith(Settings(mock), _cmdSettings, null, "intent");
-            // Moq proxy is not a ScoredBoolCommand — the type guard must reject it.
+            // Moq proxy is not a ReasonedBoolCommand — the type guard must reject it.
             var wrongEvaluator = Settings(mock, "bad-evaluator");
 
             var act = () => step1.ThenIf<SingleThrowStep>(wrongEvaluator, Settings(mock, "action"));
 
             act.Should().Throw<InvalidDataException>()
-               .WithMessage("*ScoredBoolCommand*");
+               .WithMessage("*ReasonedBoolCommand*");
+        }
+
+        [Fact]
+        public void ThenIf_Smart_WithNullTrueBranch_ThrowsArgumentNullException()
+        {
+            var mock = MockCommand(new BooleanResponse());
+            var step1 = StartWith(Settings(mock), _cmdSettings, null, "intent");
+
+            var act = () => step1.ThenIf(ReasonedEvaluator(), (SingleThrowStep)null!);
+
+            act.Should().Throw<ArgumentNullException>()
+               .WithMessage("*NO TRUE BRANCH STEP FOUND*");
+        }
+
+        [Fact]
+        public void ThenForwardedIf_SetsTheFirstStepOfTheSubchainAsTrueBranch()
+        {
+            var mock = MockCommand(new BooleanResponse());
+            var step1 = StartWith(Settings(mock, "step1"), _cmdSettings, null, "intent");
+            // Subchain built apart: the caller only holds its last step
+            var sub1 = new SingleThrowStep(Settings(mock, "sub-1"));
+            var sub2 = new SingleThrowStep(Settings(mock, "sub-2"));
+            sub1.Link(sub2, isForward: true, isTwoWay: true);
+
+            var conditional = step1.ThenForwardedIf<SingleThrowStep>(ReasonedEvaluator(), sub2);
+
+            conditional.Should().BeOfType<SmartConditionalStep>();
+            conditional.TrueBranchRunner.Should().BeSameAs(sub1);
+            step1.Next.Should().BeSameAs(conditional);
+            conditional.Previous.Should().BeSameAs(step1);
+        }
+
+        [Fact]
+        public void ThenForwardedIf_WhenFirstStepIsNotOfTheForwardedType_ThrowsInvalidOperationException()
+        {
+            var mock = MockCommand(new BooleanResponse());
+            var step1 = StartWith(Settings(mock, "step1"), _cmdSettings, null, "intent");
+            var sub1 = new SingleThrowStep(Settings(mock, "sub-1"));
+            var sub2 = new SingleThrowStep(Settings(mock, "sub-2"));
+            sub1.Link(sub2, isForward: true, isTwoWay: true);
+
+            // sub1 is a SingleThrowStep — forwarding it as a StashedStep must fail
+            var act = () => step1.ThenForwardedIf<StashedStep>(ReasonedEvaluator(), sub2);
+
+            act.Should().Throw<InvalidOperationException>()
+               .WithMessage("*INVALID CHAIN CONFIGURATION*");
+        }
+
+        [Fact]
+        public void ThenForwardedIf_WithNullTrueBranch_ThrowsArgumentNullException()
+        {
+            var mock = MockCommand(new BooleanResponse());
+            var step1 = StartWith(Settings(mock), _cmdSettings, null, "intent");
+
+            var act = () => step1.ThenForwardedIf<SingleThrowStep>(ReasonedEvaluator(), null!);
+
+            act.Should().Throw<ArgumentNullException>()
+               .WithMessage("*NO TRUE BRANCH STEP FOUND*");
+        }
+
+        [Fact]
+        public void ThenIf_Func_WithNullTrueBranch_ThrowsArgumentNullException()
+        {
+            var mock = MockCommand(new BooleanResponse());
+            var step1 = StartWith(Settings(mock), _cmdSettings, null, "intent");
+            var conditionSettings = new StepSettings(new PromptCommandRequest("condition-step"));
+
+            var act = () => step1.ThenIf(() => true, conditionSettings, (SingleThrowStep)null!);
+
+            act.Should().Throw<ArgumentNullException>()
+               .WithMessage("*NO TRUE BRANCH STEP FOUND*");
+        }
+
+        [Fact]
+        public void StoreIf_WithNullTrueBranch_ThrowsArgumentNullException()
+        {
+            var mock = MockCommand(new BooleanResponse());
+            var step1 = StartWith(Settings(mock), _cmdSettings, null, "intent");
+            var conditionSettings = new StepSettings(new PromptCommandRequest("condition-step"));
+
+            var act = () => step1.StoreIf<BooleanResponse>(() => true, conditionSettings, (StoredStep<BooleanResponse>)null!);
+
+            act.Should().Throw<ArgumentNullException>()
+               .WithMessage("*NO TRUE BRANCH STEP FOUND*");
         }
 
         [Fact]

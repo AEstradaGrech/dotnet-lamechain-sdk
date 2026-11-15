@@ -10,7 +10,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuratio
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
 using Microsoft.Extensions.Options;
 
-namespace DotnetLlamaSharp.Services.Prompting
+namespace Dotnet.OllamaSharp.LameChain.SDK.Services.Command
 {
     public class PromptCommandsService : IPromptCommandsService
     {
