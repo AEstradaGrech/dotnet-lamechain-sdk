@@ -13,5 +13,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services
         SelectedSkillsAgent CreateSelectedSkillsAgent(string model, string? name, string? description, PromptSettings? settings = null);
         AutoSkilledAgent CreateAutoSkilledAgent(string model, string? name, string? description, PromptSettings? settings = null);
         PythonAgent CreatePythonAgent(string model, PromptSettings? settings = null);
+        PhilosopherAgent CreatePhilosopherAgent(string model, PromptSettings? settings = null);
+        SmartPhilosopherAgent CreateSmartPhilosopherAgent(string model, PromptSettings? settings = null);
     }
 }

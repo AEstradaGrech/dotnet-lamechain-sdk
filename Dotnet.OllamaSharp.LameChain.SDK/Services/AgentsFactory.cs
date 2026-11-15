@@ -33,5 +33,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Services
 
         public PythonAgent CreatePythonAgent(string model, PromptSettings? settings = null)
             => new PythonAgent(_serviceProvider, model, settings, null, null);
+
+        public PhilosopherAgent CreatePhilosopherAgent(string model, PromptSettings? settings = null)
+            => new PhilosopherAgent(_serviceProvider, model, settings, null, null);
+
+        public SmartPhilosopherAgent CreateSmartPhilosopherAgent(string model, PromptSettings? settings = null)
+            => new SmartPhilosopherAgent(_serviceProvider, model, settings, null, null);
     }
 }

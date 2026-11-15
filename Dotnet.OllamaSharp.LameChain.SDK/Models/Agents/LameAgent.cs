@@ -55,7 +55,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
         protected readonly IServiceProvider _serviceProvider;
         protected readonly IOllamaInferenceService _inferenceService;
         private TraceConfig? _traceConfig = null;
-        private Action<Guid, string, LogLevel>? _onBroadcast;
+        protected Action<Guid, string, LogLevel>? _onBroadcast;
         public LameAgent() { }
         public LameAgent(IServiceProvider serviceProvider, string model, PromptSettings? settings = null, string? name = null, string? description = null)
         {
@@ -417,6 +417,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                 _onBroadcast(Id, $"{nameof(LameAgent)} >> {broadcastId()} >> {message}", LogLevel.Information);
         }
 
-        private string broadcastId() => $"{Provider}/{Model}";
+        protected string broadcastId() => $"{Provider}/{Model}";
     }
 }
