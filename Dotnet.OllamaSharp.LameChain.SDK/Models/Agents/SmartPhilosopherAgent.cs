@@ -12,7 +12,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
     /// A version of the PhilosopherAgent that makes use of the Advanced version of the reasoning tools
     /// Use this one with bigger / smarter models
     /// </summary>
-    public class SmartPhilosopherAgent : LameAgent
+    public class SmartPhilosopherAgent : PhilosopherAgent
     {
         public SmartPhilosopherAgent(IServiceProvider serviceProvider, string model, PromptSettings? settings = null, string? name = null, string? description = null)
             : base(serviceProvider, model, settings, name, description)
@@ -22,6 +22,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
             if (string.IsNullOrEmpty(description))
                 Description = "An agent specialized in thinking and reasoning.";
+
+            if (_forceToolsUsage)
+                Description += $"\n{toolsUsageEnforcementMessage()}";
 
             using var toolboxScope = _serviceProvider.CreateScope();
 
@@ -51,5 +54,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
 
             if (!hasTool) throw new ArgumentNullException($"{nameof(SmartPhilosopherAgent)} >> No reasoning tools found in toolbox. At least one reasoning tool required for this agent");
         }
+
+        protected string toolsUsageEnforcementMessage() => "ALWAYS use the AdvancedReasoningTool to think about the user query and its resolution, then use the AdvancedChainOfThoughtTool to generate a thinking plan that will help you to solve the user query";
     }
 }
