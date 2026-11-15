@@ -251,7 +251,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                 services.Add(new ServiceDescriptor(typeof(IPythonExecutor), typeof(LocalPythonExecutor), lifetime));
             }
 
-            return services.WithToolsFrom<LameTools>(lifetime);
+            // default tools for python coding are stored in LameTools
+            return services.Any(s => s.ServiceType == typeof(IToolsService<LameTools>))  ? services : services.WithToolsFrom<LameTools>(lifetime);
         }
 
         /// <summary>
@@ -271,7 +272,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
 
             services.Add(new ServiceDescriptor(typeof(IScriptExecutor), executorType, lifetime));
 
-            return services;
+            return services.Any(s => s.ServiceType == typeof(IToolsService<LameTools>)) ? services : services.WithToolsFrom<LameTools>(lifetime);
         }
 
         public static IServiceCollection AddLangfuseTracing(this IServiceCollection services, IConfiguration configuration)

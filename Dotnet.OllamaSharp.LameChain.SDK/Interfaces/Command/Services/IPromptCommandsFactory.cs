@@ -3,6 +3,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Scripting;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using OllamaSharp.Models.Chat;
@@ -57,5 +58,9 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services
         // Coding commands
         PythonGeneratorCommand GetPythonGeneratorCommand(string? guidanceMessage = null, CommandSettings? settings = null);
         PythonCodeExecutorCommand GetPythonExecutorCommand(string? guidanceMessage = null, CommandSettings? settings = null);
+
+        //Scripting commands
+
+        ScriptGeneratorCommand GetScriptGeneratorCommand(string guidanceMessage = null, CommandSettings? settings = null);
     }
 }

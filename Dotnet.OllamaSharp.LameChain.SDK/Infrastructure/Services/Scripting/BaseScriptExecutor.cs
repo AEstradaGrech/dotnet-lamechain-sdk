@@ -37,14 +37,23 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Scripting
 
         public abstract EScriptShell Shell { get; }
 
-        public async Task<string> SaveScriptAsync(string script, string? folder = null, CancellationToken ct = default)
+        public async Task<string> SaveScriptAsync(string script, string? generatedJson = null, string? folder = null, CancellationToken ct = default)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(script);
 
+            var root = _options.GetWorkRoot();
+           
             var dir = Directory.CreateDirectory(folder ?? Path.Combine(_options.GetWorkRoot(), $"run_{Guid.NewGuid():N}")).FullName;
+
+            if (!dir.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException($"'{folder}' is outside {root}");
+
             var path = Path.Combine(dir, $"{ScriptFileName}{fileExtension}");
 
             await File.WriteAllTextAsync(path, prepareScript(script), scriptEncoding, ct);
+
+            if (!string.IsNullOrEmpty(generatedJson))
+                await File.WriteAllTextAsync(Path.Combine(dir, $"generator_response.json"), generatedJson, ct);
 
             return path;
         }

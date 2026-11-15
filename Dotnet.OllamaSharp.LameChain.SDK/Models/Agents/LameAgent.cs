@@ -357,7 +357,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             StringBuilder sb = new StringBuilder();
 
             if (!string.IsNullOrEmpty(Name))
-                sb.AppendLine($"# Agent Name: {Name}\n");
+                sb.AppendLine($"# Agent Name: {Name}");
 
             if (!string.IsNullOrEmpty(Description))
                 sb.AppendLine($"# Agent Description: {Description}\n");
@@ -367,7 +367,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                 var instruction = selfInstruction();
 
                 if (!string.IsNullOrEmpty(instruction))
-                    sb.Append(instruction);
+                    sb.AppendLine(instruction.Trim());
             }
                   
             var skillsMessage = HandleSystemMessageSkills(Skills).Result;

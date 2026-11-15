@@ -10,6 +10,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Extensions;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
+using Dotnet.OllamaSharp.LameChain.SDK.Services;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Agents

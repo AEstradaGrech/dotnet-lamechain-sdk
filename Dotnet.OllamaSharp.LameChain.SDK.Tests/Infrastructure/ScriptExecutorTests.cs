@@ -147,7 +147,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         {
             var folder = Path.Combine(_workRoot.FullName, "SysAdmin", "k3f9a2");
 
-            var path = await new BashScriptExecutor(options()).SaveScriptAsync("echo hi", folder, TestContext.Current.CancellationToken);
+            var path = await new BashScriptExecutor(options()).SaveScriptAsync("echo hi", folder: folder, ct: TestContext.Current.CancellationToken);
 
             path.Should().Be(Path.Combine(folder, "script.sh"));
         }

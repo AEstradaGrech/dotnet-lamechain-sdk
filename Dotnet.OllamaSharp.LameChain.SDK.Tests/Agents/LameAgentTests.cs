@@ -151,17 +151,60 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Agents
         }
 
         [Fact]
-        public async Task RunPrompt_WithNameDescriptionAndInstruction_BuildsSystemMessageWithInstructionFirst()
+        public async Task RunPrompt_WithInstruction_AppendsItAfterTheAgentSystemMessageByDefault()
         {
             var agent = CreateAgent(name: "Captain", description: "A helpful sailor");
 
             await agent.RunPrompt("hello", systemInstruction: "Be brief.");
 
             var system = _host.LastSystemMessage;
-            system.Should().StartWith("Be brief.");
-            system.Should().Contain("# Agent Name: Captain");
+            system.Should().StartWith("# Agent Name: Captain");
             system.Should().Contain("# Agent Description: A helpful sailor");
-            system.IndexOf("Be brief.").Should().BeLessThan(system.IndexOf("# Agent Name"));
+            system.Should().EndWith("# USER INSTRUCTION: Be brief.");
+            system.IndexOf("# Agent Description").Should().BeLessThan(system.IndexOf("# USER INSTRUCTION"));
+        }
+
+        [Fact]
+        public async Task RunPrompt_WithInstructionNotAppended_PutsItBeforeTheAgentSystemMessage()
+        {
+            var agent = CreateAgent(name: "Captain", description: "A helpful sailor");
+
+            await agent.RunPrompt("hello", systemInstruction: "Be brief.", isSystemAppend: false);
+
+            var system = _host.LastSystemMessage;
+            system.Should().StartWith("# USER INSTRUCTION: Be brief.");
+            system.Should().Contain("# Agent Name: Captain");
+            system.IndexOf("# USER INSTRUCTION").Should().BeLessThan(system.IndexOf("# Agent Name"));
+        }
+
+        [Fact]
+        public async Task RunPrompt_WithSelfInstructionEnabled_AddsTheAgentTypeInstruction()
+        {
+            var agent = new SelfInstructedAgent(_host.Services).UseSelfInstruction(true);
+
+            await agent.RunPrompt("hello", systemInstruction: "Be brief.");
+
+            var system = _host.LastSystemMessage;
+            system.Should().Contain(SelfInstructedAgent.Instruction);
+            system.IndexOf("# Agent Description").Should().BeLessThan(system.IndexOf(SelfInstructedAgent.Instruction));
+            system.IndexOf(SelfInstructedAgent.Instruction).Should().BeLessThan(system.IndexOf("# USER INSTRUCTION"));
+        }
+
+        [Fact]
+        public async Task RunPrompt_WithSelfInstructionDisabled_DoesNotAddIt()
+        {
+            var agent = new SelfInstructedAgent(_host.Services);
+
+            await agent.RunPrompt("hello");
+
+            _host.LastSystemMessage.Should().NotContain(SelfInstructedAgent.Instruction);
+        }
+
+        // Agent with a type specific instruction, like the PhilosopherAgent
+        private sealed class SelfInstructedAgent(IServiceProvider services) : LameAgent(services, "llama3", null, "Captain", "A helpful sailor")
+        {
+            public const string Instruction = "# SELF INSTRUCTION: always answer like a pirate";
+            protected override string selfInstruction() => Instruction;
         }
 
         [Fact]

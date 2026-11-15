@@ -17,9 +17,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Scr
 
         /// <summary>
         /// Saves the script ready to run (right extension, encoding, line endings and the shell header, if any) and returns its path.
+        /// Optionally, saved the LLM response from the ScriptGeneratorCommand as JSON
         /// <paramref name="folder"/> null: a new run_&lt;guid&gt; folder inside WorkRoot. Useful to propose a script and run it later
         /// </summary>
-        Task<string> SaveScriptAsync(string script, string? folder = null, CancellationToken ct = default);
+        Task<string> SaveScriptAsync(string script, string? generationJson = null, string? folder = null, CancellationToken ct = default);
 
         /// <summary>
         /// Runs a script saved with <see cref="SaveScriptAsync"/>. The working directory is the script folder

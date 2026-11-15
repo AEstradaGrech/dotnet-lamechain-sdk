@@ -3,9 +3,10 @@ using Dotnet.OllamaSharp.LameChain.SDK.Command.Core.AtomicValues;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Scripting;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Coding;
-
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Scripting;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
@@ -141,6 +142,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Services.Command
                 ?? throw new InvalidOperationException($"{nameof(IPythonExecutor)} is not registered. Call services.WithPythonExecutor(configuration) on startup.");
 
             return new PythonCodeExecutorCommand(_ollama, pythonExecutor, guidanceMessage, settings);
+        }
+
+        public ScriptGeneratorCommand GetScriptGeneratorCommand(string guidanceMessage = null, CommandSettings? settings = null)
+        {
+            using var scope = _serviceProvider.CreateScope();
+
+            // Options and execution mode (uv / local python) are resolved by the executor registered in WithPythonExecutor()
+            var scriptExecutor = scope.ServiceProvider.GetService<IScriptExecutor>()
+                ?? throw new InvalidOperationException($"{nameof(IScriptExecutor)} is not registered. Call services.WithScriptExecutor(configuration) on startup.");
+
+            return new ScriptGeneratorCommand(_ollama, scriptExecutor, guidanceMessage, settings);
         }
     }
 }
