@@ -189,7 +189,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Steps
         [Fact]
         public async Task SmartConditionalStep_Forge_WhenScoredAnswerIsFalse_ContinuesToNextStep()
         {
-            // SmartConditionalStep runs its ScoredBoolCommand and branches based on the Answer flag.
+            // SmartConditionalStep reads the output as a ReasonedBoolResponse and branches on the Answer flag:
+            // a subclass response (ScoredBoolResponse here) works too.
             var boolMock = MockCommand(new ScoredBoolResponse { Answer = false, Score = 0.1f, Justification = "no" });
             var genericMock = MockCommand(new BooleanResponse { Answer = true });
             var runner = MakeRunner();
@@ -437,20 +438,20 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Steps
         }
 
         [Fact]
-        public void ChainStep_ToSmartConditional_WhenCommandIsNotScoredBoolCommand_ThrowsInvalidDataException()
+        public void ChainStep_ToSmartConditional_WhenCommandIsNotReasonedBoolCommand_ThrowsInvalidDataException()
         {
-            // ToSmartConditional validates that the command is a ScoredBoolCommand or subclass.
+            // ToSmartConditional validates that the command is a ReasonedBoolCommand or subclass.
             var mock = MockCommand(new BooleanResponse());
             var runner = MakeRunner();
             var step = new SingleThrowStep(
                 new StepSettings(mock.Object, new PromptCommandRequest("step")), runner);
-            // Moq proxy is not a ScoredBoolCommand — ToSmartConditional must reject it.
+            // Moq proxy is not a ReasonedBoolCommand — ToSmartConditional must reject it.
             var settings = new StepSettings(mock.Object, new PromptCommandRequest("smart"));
 
             var act = () => step.ToSmartConditional(settings);
 
             act.Should().Throw<InvalidDataException>()
-               .WithMessage("*ScoredBoolCommand*");
+               .WithMessage("*ReasonedBoolCommand*");
         }
 
         #endregion

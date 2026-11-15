@@ -12,11 +12,12 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.DocumentLoader;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Telemetry;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
+using Dotnet.OllamaSharp.LameChain.SDK.Services;
+using Dotnet.OllamaSharp.LameChain.SDK.Services.Command;
 using DotnetLlamaSharp.Domain.Services.Embeddings;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using DotnetLlamaSharp.Infrastructure.Services.Inference;
 using DotnetLlamaSharp.Services.Embeddings;
-using DotnetLlamaSharp.Services.Prompting;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -187,6 +188,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                 case (ServiceLifetime.Transient):
                     services.AddTransient<IPromptCommandsFactory, PromptCommandsFactory>();
                     services.AddTransient<IPromptCommandsService, PromptCommandsService>();
+                    services.AddTransient<ICommandSettingsService, CommandSettingsService>();
                     services.AddTransient<IOllamaInferenceService, OllamaInferenceService>();
                     services.AddTransient<IOllamaStreamService, OllamaStreamService>();
                     services.AddTransient<IAgentsFactory, AgentsFactory>();
@@ -197,6 +199,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
                 default:
                     services.AddScoped<IPromptCommandsFactory, PromptCommandsFactory>();
                     services.AddScoped<IPromptCommandsService, PromptCommandsService>();
+                    services.AddScoped<ICommandSettingsService, CommandSettingsService>();
                     services.AddScoped<IOllamaInferenceService, OllamaInferenceService>();
                     services.AddScoped<IOllamaStreamService, OllamaStreamService>();
                     services.AddScoped<IAgentsFactory, AgentsFactory>();

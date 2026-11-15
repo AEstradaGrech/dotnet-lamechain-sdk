@@ -2,7 +2,7 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Agents;
 
-namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services
+namespace Dotnet.OllamaSharp.LameChain.SDK.Services
 {
     public class AgentsFactory : IAgentsFactory
     {

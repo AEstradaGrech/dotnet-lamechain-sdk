@@ -269,11 +269,19 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Steps
 
         public SmartConditionalStep ToSmartConditional(StepSettings settings)
         {
-            if (settings.Command.GetType() != typeof(ReasonedBoolCommand) && !settings.Command.GetType().IsSubclassOf(typeof(ReasonedBoolCommand)))
-                throw new InvalidDataException($"{nameof(SmartConditionalStep)} >> {settings.Command.GetType().Name} >> A SmartConditionalStep command must be a ReasonedBoolCommand or a subclass of it");
+            if (!returnsReasonedBool(settings.Command))
+                throw new InvalidDataException($"{nameof(SmartConditionalStep)} >> {settings.Command.GetType().Name} >> A SmartConditionalStep command must return a {nameof(ReasonedBoolResponse)} or a subclass of it (e.g. {nameof(ReasonedBoolCommand)}, {nameof(ScoredBoolCommand)})");
 
             return Activator.CreateInstance(typeof(SmartConditionalStep), settings) as SmartConditionalStep;
         }
+
+        // Every command implements IPrompteable<TResult> (through BasePromptCommand<T>): TResult is what it returns.
+        // SmartConditionalStep reads the output as a ReasonedBoolResponse, so any command returning one (or a subclass) is valid
+        private static bool returnsReasonedBool(IJsoneable command)
+            => command.GetType()
+                .GetInterfaces()
+                .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IPrompteable<>))
+                .Any(i => typeof(ReasonedBoolResponse).IsAssignableFrom(i.GetGenericArguments()[0]));
 
         protected virtual void submitForgeLog()
         {
