@@ -49,7 +49,29 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
                 await _ollama.ChatPrompt(request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), provider: request.Provider, request.HasTools ? request.Tools : null) :
                 await _ollama.GeneratePrompt(request.ToOllamaGenerate(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings), provider: request.Provider);
 
-            return new ChatMessage(message.Role.ToString(), message.Content);
+            return new ChatMessage(message.Role.ToString(), $"{message.Content}{exactResult(executionResult)}");
+        }
+
+        // The summary above is written by an LLM. The exact values and file paths go along with it, so whoever reads this
+        // (an agent, a chain, the user) does not have to trust the rewording
+        internal static string exactResult(ExecutionResults result)
+        {
+            var sb = new StringBuilder();
+
+            if (result.Result is { ValueKind: not JsonValueKind.Null and not JsonValueKind.Undefined } value)
+                sb.AppendLine().AppendLine()
+                  .AppendLine("EXACT RESULT (report these values exactly as they are, do not recompute or round them):")
+                  .AppendLine(value.GetRawText());
+
+            if (result.Artifacts.Count > 0)
+            {
+                sb.AppendLine().AppendLine("FILES:");
+
+                foreach (var artifact in result.Artifacts)
+                    sb.AppendLine($"- {artifact.Path}");
+            }
+
+            return sb.ToString().TrimEnd();
         }
 
         protected override string getDefaultInstruction() => "You are a helpful assistant. Your task is to return a brief sentence informing of the output of the provided code execution result. If the provided output includes any generated file, you must include in your response the file names and also the path to the directory containing those files";

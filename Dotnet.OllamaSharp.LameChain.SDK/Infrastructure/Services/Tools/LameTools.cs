@@ -23,14 +23,20 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
 
         // Add this tool to any agent or command
         [Description("Solves a task by writing and running a Python script by itself. You do NOT write any code: describe in plain language WHAT has to be done and this tool generates the Python code, runs it and returns the result. Use it for calculations, statistics, data processing (Excel, CSV...) and charts.")]
-        public async Task<string> PythonExecutorTool([Description("Definition of the task to be done based on the user request. NEVER Python code (this will be used to generate the python code to execute")]string goal)
+        public async Task<string> PythonExecutorTool(
+            [Description("Definition of the task to be done based on the user request. NEVER Python code (this will be used to generate the python code to execute)")]
+            string goal,
+            [Description("ALL the data the task needs, copied verbatim from the user's messages: every value, list and table, or the absolute paths of the input files as the API sees them (e.g. /data/Resources/sales.xlsx). Do not summarize or round it. Empty only if the task needs no input data")]
+            string? inputData = null)
         {
             var factory = _services.GetRequiredService<IPromptCommandsFactory>();
+
+            var task = string.IsNullOrWhiteSpace(inputData) ? goal : $"{goal}\n\nInput data:\n{inputData}";
 
             var result = await Chain.StartWith(
                 new StepSettings(
                         factory.GetPythonGeneratorCommand(),
-                        new PromptCommandRequest(message: goal)
+                        new PromptCommandRequest(message: task)
                     ),
                     defaultSettings: new CommandSettings(),
                     chainIntent: "Generate and execute Python code")

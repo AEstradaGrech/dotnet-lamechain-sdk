@@ -18,6 +18,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
     {
         // Settings for the python coding chain
         private CommandSettings? _toolChainSettings = null;
+
+        protected override string selfInstruction() => """
+            You solve the user's requests that need calculations, statistics, data processing (Excel, CSV...) or charts with the SolveTaskWithPython tool.
+            You NEVER write Python code and NEVER compute the results yourself: call the tool with the task in plain language and ALL the data the user gave you in inputData, copied verbatim.
+            Report the values exactly as the tool returns them in its EXACT RESULT section, without recomputing, rounding or mixing them with your own calculations, and include the path of every file the tool created.
+            """;
         public PythonAgent() { }
         public PythonAgent(IServiceProvider serviceProvider, string model, PromptSettings? settings = null, string? name = null, string? description = null) 
             : base(serviceProvider, model, settings, name, description)
@@ -28,6 +34,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
             if(string.IsNullOrEmpty(description))
                 Description = "An agent specialized in generating and executing Python code and providing insights about the results.";
 
+            _useSelfInstruction = true;
+
             AddTool(nameof(SolveTaskWithPython), new ToolBinding(GetType().GetMethod(nameof(SolveTaskWithPython)), target: this));
         }
 
@@ -35,25 +43,17 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
         public async Task<string> SolveTaskWithPython(
             [Description("Plain-language description of what has to be done. NEVER Python code. Example: 'Compute the average salary rise per department'")]
             string goal,
-            [Description("All the data the task needs: the values given by the user, or the absolute paths of the input files as the API sees them (e.g. /data/Resources/sales.xlsx), with sheet and column names if known. Empty if no input data is needed")]
+            [Description("ALL the data the task needs, copied verbatim from the user's messages: every value, list and table, or the absolute paths of the input files as the API sees them (e.g. /data/Resources/sales.xlsx), with sheet and column names if known. Do not summarize or round it. Empty only if the task needs no input data")]
             string? inputData = null,
             [Description("What the result must contain (values, keys, units, rounding) and the files to create, if any. Example: 'a dict with keys department and average_rise rounded to 2 decimals, and a bar chart saved as rises.png'")]
             string? expectedOutput = null)
         {
-            var task = new StringBuilder().AppendLine($"Task: {goal}");
-
-            if (!string.IsNullOrWhiteSpace(inputData))
-                task.AppendLine($"Input data: {inputData}");
-
-            if (!string.IsNullOrWhiteSpace(expectedOutput))
-                task.AppendLine($"Expected output: {expectedOutput}");
-
             var factory = _serviceProvider.GetRequiredService<IPromptCommandsFactory>();
 
             var result = await Chain.StartWith(
                 new StepSettings(
                         factory.GetPythonGeneratorCommand(),
-                        new PromptCommandRequest(message: task.ToString())
+                        new PromptCommandRequest(message: BuildPythonTask(goal, inputData, expectedOutput, UserInput))
                     ),
                     defaultSettings: _toolChainSettings ?? defaultToolSettings(),
                     chainIntent: "Generate and execute Python code")
@@ -65,6 +65,29 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
                 .ExecuteChainAsync();
 
             return result.ResultAs<ChatMessage>().Content;
+        }
+
+        /// <summary>
+        /// Task for the Python generator. The tool arguments are written by the LLM, which may summarize or drop the data the user gave
+        /// (then the generator invents sample data or reads it from somewhere that does not exist). The original user request is
+        /// always passed too, so the generator gets the data exactly as the user wrote it whatever the LLM put in the arguments.
+        /// </summary>
+        internal static string BuildPythonTask(string goal, string? inputData, string? expectedOutput, string? userRequest)
+        {
+            var task = new StringBuilder().AppendLine($"Task: {goal}");
+
+            if (!string.IsNullOrWhiteSpace(inputData))
+                task.AppendLine($"Input data: {inputData}");
+
+            if (!string.IsNullOrWhiteSpace(expectedOutput))
+                task.AppendLine($"Expected output: {expectedOutput}");
+
+            if (!string.IsNullOrWhiteSpace(userRequest))
+                task.AppendLine()
+                    .AppendLine("Original user request (if the task needs data, take it from here exactly as written):")
+                    .AppendLine(userRequest);
+
+            return task.ToString();
         }
 
         public LameAgent UseToolSettings(CommandSettings settings)
