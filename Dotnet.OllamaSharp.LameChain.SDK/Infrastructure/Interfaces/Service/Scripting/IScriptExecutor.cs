@@ -18,9 +18,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Scr
         /// <summary>
         /// Saves the script ready to run (right extension, encoding, line endings and the shell header, if any) and returns its path.
         /// Optionally, saved the LLM response from the ScriptGeneratorCommand as JSON
+        /// Optionally, save a generated script with a desired extension independently of the injected Executor (in case you are asking for a PowerShell script running the API on a Docker Linux container)
         /// <paramref name="folder"/> null: a new run_&lt;guid&gt; folder inside WorkRoot. Useful to propose a script and run it later
         /// </summary>
-        Task<string> SaveScriptAsync(string script, string? generationJson = null, string? folder = null, CancellationToken ct = default);
+        Task<string> SaveScriptAsync(string script, EScriptShell? desiredExtension = null, string? generationJson = null, string? folder = null, CancellationToken ct = default);
 
         /// <summary>
         /// Runs a script saved with <see cref="SaveScriptAsync"/>. The working directory is the script folder

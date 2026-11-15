@@ -258,6 +258,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Extensions
         /// <summary>
         /// Registers the IScriptExecutor (Bash or PowerShell) from the optional 'ScriptExecutionOptions' section.
         /// Without the section: PowerShell on Windows, Bash anywhere else, scripts in [temp]/lamechain-scripts
+        /// 
         /// </summary>
         public static IServiceCollection WithScriptExecutor(this IServiceCollection services, IConfiguration configuration, ServiceLifetime lifetime = ServiceLifetime.Scoped)
         {

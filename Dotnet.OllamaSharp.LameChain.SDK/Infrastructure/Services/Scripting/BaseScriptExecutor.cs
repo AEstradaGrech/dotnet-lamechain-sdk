@@ -37,7 +37,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Scripting
 
         public abstract EScriptShell Shell { get; }
 
-        public async Task<string> SaveScriptAsync(string script, string? generatedJson = null, string? folder = null, CancellationToken ct = default)
+        public async Task<string> SaveScriptAsync(string script, EScriptShell? desiredExtension = null, string? generatedJson = null, string? folder = null, CancellationToken ct = default)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(script);
 
@@ -48,7 +48,14 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Scripting
             if (!dir.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException($"'{folder}' is outside {root}");
 
-            var path = Path.Combine(dir, $"{ScriptFileName}{fileExtension}");
+            var extension = desiredExtension == null ? fileExtension :
+                desiredExtension == EScriptShell.Bash ? ".sh" : 
+                desiredExtension == EScriptShell.PowerShell ? ".ps1" :
+                desiredExtension == EScriptShell.Auto ? fileExtension : string.Empty;
+
+            ArgumentException.ThrowIfNullOrEmpty(extension);
+
+            var path = Path.Combine(dir, $"{ScriptFileName}{extension}");
 
             await File.WriteAllTextAsync(path, prepareScript(script), scriptEncoding, ct);
 

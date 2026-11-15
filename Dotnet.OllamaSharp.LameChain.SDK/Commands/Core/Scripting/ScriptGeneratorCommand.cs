@@ -2,6 +2,7 @@
 
 using Dotnet.OllamaSharp.LameChain.SDK.Command.Bases;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Scripting;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Scripting;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
@@ -14,6 +15,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Scripting
     public class ScriptGeneratorCommand : DbPromptCommand<ScriptGeneratorResponse>
     {
         private readonly IScriptExecutor _executor;
+        private EScriptShell? _requestedShell = null;
         public ScriptGeneratorCommand() : base() { }
         public ScriptGeneratorCommand(IOllamaInferenceService ollama, IScriptExecutor executor) : base(ollama) 
         { 
@@ -34,10 +36,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Scripting
 
         public async override Task<ScriptGeneratorResponse> Prompt(PromptCommandRequest request)
         {
-            validateInputRequest<PromptCommandRequest>(request);
+            validateInputRequest<ScriptGeneratorCommandRequest>(request);
 
             if (string.IsNullOrEmpty(request.Prompt))
                 return new ScriptGeneratorResponse { Script = "Error >> Empty input provided, cannot generate shell Script." };
+
+            _requestedShell = ((ScriptGeneratorCommandRequest)request).RequestedShell;
 
             request.Prompt = $"Write a script that performs the following task: {request.Prompt}";
 
@@ -45,21 +49,21 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Scripting
                 request.ToOllamaChat(await getPromptInstruction(request.GuidanceMessage, request.IsGuidanceAppend), _settings),
                 validation: _settings != null ? validatorFor<ScriptGeneratorResponse>(_settings.CommandValidations, _settings.ValidationType) : null);
 
-            if (response.Shell.ToUpper() != $"{_executor.Shell}".ToUpper())
+            if (_requestedShell == null && response.Shell.ToUpper() != $"{_executor.Shell}".ToUpper())
                 throw new InvalidOperationException($"{nameof(ScriptGeneratorCommand)} >> Invalid generated script shell {response.Shell} for executor shell ({_executor.Shell})");
 
             var savedResponse = JsonSerializer.Serialize<ScriptGeneratorResponse>(response, new JsonSerializerOptions { WriteIndented = true });
 
-            await _executor.SaveScriptAsync(response.Script, savedResponse, response.OutputFolder);
+            await _executor.SaveScriptAsync(response.Script, desiredExtension: _requestedShell, savedResponse, response.OutputFolder);
 
             return response;
         }
 
-        // The target shell comes from the executor: the script is always written for the shell that is going to run it,
+        // The target shell may come in the request if the user wants to generate and save a script of a for a specific shell. If null, it comes from the executor: the script is always written for the shell that is going to run it,
         // and the prompt only carries the rules and examples of that shell
         protected override string getDefaultInstruction()
         {
-            var shell = _executor?.Shell ?? (OperatingSystem.IsWindows() ? EScriptShell.PowerShell : EScriptShell.Bash);
+            var shell = _requestedShell != null ? _requestedShell : _executor?.Shell ?? (OperatingSystem.IsWindows() ? EScriptShell.PowerShell : EScriptShell.Bash);
 
             return shell == EScriptShell.PowerShell ?
                 buildInstruction("PowerShell", _powerShellRules, _powerShellExamples) :
