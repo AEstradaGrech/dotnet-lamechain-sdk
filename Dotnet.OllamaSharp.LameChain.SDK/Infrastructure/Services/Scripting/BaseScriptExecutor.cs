@@ -2,6 +2,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Scripti
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Scripting;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Coding;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Scripting;
 using Microsoft.Extensions.Options;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -42,22 +43,24 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Scripting
             ArgumentException.ThrowIfNullOrWhiteSpace(script);
 
             var root = _options.GetWorkRoot();
-           
-            var dir = Directory.CreateDirectory(folder ?? Path.Combine(_options.GetWorkRoot(), $"run_{Guid.NewGuid():N}")).FullName;
+
+            // Checked before creating anything: an absolute or '..' folder must not create directories outside WorkRoot
+            var dir = Path.GetFullPath(Path.Combine(root, folder ?? $"run_{Guid.NewGuid():N}"));
 
             if (!dir.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException($"'{folder}' is outside {root}");
 
-            var extension = desiredExtension == null ? fileExtension :
-                desiredExtension == EScriptShell.Bash ? ".sh" : 
-                desiredExtension == EScriptShell.PowerShell ? ".ps1" :
-                desiredExtension == EScriptShell.Auto ? fileExtension : string.Empty;
+            Directory.CreateDirectory(dir);
 
-            ArgumentException.ThrowIfNullOrEmpty(extension);
+            // The script may be for another shell (to run it on the user's machine): extension, content and encoding of that shell
+            var target = desiredExtension is EScriptShell.Bash or EScriptShell.PowerShell ? desiredExtension.Value : Shell;
 
-            var path = Path.Combine(dir, $"{ScriptFileName}{extension}");
+            var path = Path.Combine(dir, $"{ScriptFileName}{ScriptFormat.Extension(target)}");
 
-            await File.WriteAllTextAsync(path, prepareScript(script), scriptEncoding, ct);
+            var content = target == Shell ? prepareScript(script) : ScriptFormat.Prepare(target, script);
+            var encoding = target == Shell ? scriptEncoding : ScriptFormat.FileEncoding(target);
+
+            await File.WriteAllTextAsync(path, content, encoding, ct);
 
             if (!string.IsNullOrEmpty(generatedJson))
                 await File.WriteAllTextAsync(Path.Combine(dir, $"generator_response.json"), generatedJson, ct);
@@ -70,10 +73,10 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Scripting
             if (string.IsNullOrWhiteSpace(script))
                 return failed("InputError", "No script was provided");
 
-            return await ExecuteFileAsync(await SaveScriptAsync(script, ct: ct), ct);
+            return await ExecuteFileAsync(await SaveScriptAsync(script, ct: ct), ct: ct);
         }
 
-        public async Task<ScriptExecutionResult> ExecuteFileAsync(string scriptPath, CancellationToken ct = default)
+        public async Task<ScriptExecutionResult> ExecuteFileAsync(string scriptPath, IReadOnlyList<ScriptArgument>? arguments = null, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(scriptPath) || !File.Exists(scriptPath))
                 return failed("FileNotFound", $"Script not found: '{scriptPath}'") with { ScriptPath = scriptPath };
@@ -83,9 +86,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Scripting
             var (fileName, args) = getLauncher(fullPath);
             var watch = Stopwatch.StartNew();
 
+            // Each argument is a separate process argument (ArgumentList): values are never parsed by a shell, so no injection
+            var scriptArgs = await scriptArguments(fullPath, arguments ?? [], ct);
+
             try
             {
-                var run = await ProcessRunner.RunAsync(fileName, args, workDir, buildEnvironment(workDir), _options.ExecutionTimeout, ct, _options.MaxOutputLength);
+                var run = await ProcessRunner.RunAsync(fileName, [.. args, .. scriptArgs], workDir, buildEnvironment(workDir), _options.ExecutionTimeout, ct, _options.MaxOutputLength);
 
                 return new ScriptExecutionResult
                 {
@@ -108,6 +114,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Scripting
         }
 
         protected abstract string fileExtension { get; }
+
+        /// <summary>
+        /// Arguments placed after the script path. By default the values in order (positional: Bash $1, $2...)
+        /// </summary>
+        protected virtual Task<IReadOnlyList<string>> scriptArguments(string scriptPath, IReadOnlyList<ScriptArgument> arguments, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<string>>([.. arguments.Select(a => a.Value)]);
 
         /// <summary>
         /// Program to start and its arguments to run <paramref name="scriptPath"/>

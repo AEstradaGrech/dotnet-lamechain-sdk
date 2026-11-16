@@ -1,5 +1,6 @@
 ﻿using Dotnet.OllamaSharp.LameChain.SDK.Commands.Base;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs.Attributes;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Scripting;
 using System.Text.Json.Serialization;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs
@@ -46,15 +47,21 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs
         public string? Undo { get; set; }
 
         [JsonPropertyName("arguments")]
-        [OllamaJsonProperty(Title = "Description", PromptDescription = "Values passed to the script parameters when it runs, in order")]
-        [OllamaJsonRequirement("- Usually an empty list: write the values of the task directly in the script")]
-        [OllamaJsonRequirement("- Only for scripts the task asks to be reusable, with declared parameters (PowerShell param() block / Bash $1, $2...)")]
-        public List<string> Arguments { get; set; } = [];
+        [JsonRequired]
+        [OllamaJsonProperty(Title = "Description", PromptDescription = "Parameters the script is executed with: one {name, value} per declared parameter (PowerShell param() block / Bash $1, $2...), in the same order. The values are the ones the user wants to use NOW")]
+        [OllamaJsonRequirement("- name: PowerShell, the parameter name as declared in param() without '$'. Bash, a short name for the positional parameter, the same the script shows in its usage message")]
+        [OllamaJsonRequirement("- Must NOT be empty when the script reads parameters: the script is executed with exactly these values")]
+        [OllamaJsonRequirement("- Empty list when the script has no parameters (the values of the task are written directly in the script)")]
+        public List<ScriptArgument> Arguments { get; set; } = [];
 
         [JsonPropertyName("output_folder")]
         [OllamaJsonProperty(Title = "Description", PromptDescription = "Name of the folder where the task asks to save the script")]
         [OllamaJsonRequirement("- null when the task does not ask for a folder")]
         [OllamaJsonRequirement("- A short relative name (letters, numbers, '-' and '_'), never an absolute path, a drive letter or '..'")]
         public string? OutputFolder { get; set; }
+
+        // Set by the ScriptGeneratorCommand after saving the script. Not part of the LLM schema
+        [JsonIgnore]
+        public string? ScriptPath { get; set; }
     }
 }

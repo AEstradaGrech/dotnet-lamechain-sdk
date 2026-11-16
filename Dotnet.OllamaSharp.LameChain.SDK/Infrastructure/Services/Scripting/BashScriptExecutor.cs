@@ -1,5 +1,6 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Scripting;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Scripting;
 using Microsoft.Extensions.Options;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Scripting
@@ -19,6 +20,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Scripting
             => (_options.BashPath, ["--noprofile", "--norc", scriptPath]);
 
         // CRLF breaks bash ($'\r': command not found): scripts written on Windows or by an LLM may come with it
-        protected override string prepareScript(string script) => script.ReplaceLineEndings("\n");
+        protected override string prepareScript(string script) => ScriptFormat.PrepareBash(script);
     }
 }

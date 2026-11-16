@@ -164,7 +164,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Tests.Infrastructure
         [Fact]
         public async Task ExecuteFileAsync_WithMissingFile_ReturnsFileNotFound()
         {
-            var result = await new BashScriptExecutor(options()).ExecuteFileAsync(Path.Combine(_workRoot.FullName, "nope.sh"), TestContext.Current.CancellationToken);
+            var result = await new BashScriptExecutor(options()).ExecuteFileAsync(Path.Combine(_workRoot.FullName, "nope.sh"), ct: TestContext.Current.CancellationToken);
 
             result.Error!.Type.Should().Be("FileNotFound");
         }

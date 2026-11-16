@@ -26,7 +26,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Scr
         /// <summary>
         /// Runs a script saved with <see cref="SaveScriptAsync"/>. The working directory is the script folder
         /// </summary>
-        Task<ScriptExecutionResult> ExecuteFileAsync(string scriptPath, CancellationToken ct = default);
+        /// <param name="arguments">Parameters to run the script with. Bash: the values in order ($1, $2...). PowerShell: by name (-Name value), switches as flags</param>
+        Task<ScriptExecutionResult> ExecuteFileAsync(string scriptPath, IReadOnlyList<ScriptArgument>? arguments = null, CancellationToken ct = default);
 
         /// <summary>
         /// Saves the script in a new run folder and runs it

@@ -1,5 +1,6 @@
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Scripting;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Utilities.Scripting;
 using Microsoft.Extensions.Options;
 using System.Text;
 
@@ -13,16 +14,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Scripting
     /// </summary>
     public sealed class PowerShellScriptExecutor : BaseScriptExecutor
     {
-        // Added at the top of every script (it is saved in the file, so what is reviewed is exactly what runs).
-        // UTF-8 output: Windows PowerShell writes redirected output in the console code page otherwise (accents get broken).
-        // No progress bars: with redirected output they end up in stderr as noise.
-        internal const string Header = """
-            # --- LameChain: UTF-8 output and no progress bars (they break redirected output) ---
-            [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-            $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-            $ProgressPreference = 'SilentlyContinue'
-            # ---
-            """;
+        // Added to every script, right after its param() block if it has one (see ScriptFormat)
+        internal const string Header = ScriptFormat.PowerShellHeader;
 
         public PowerShellScriptExecutor(IOptions<ScriptExecutionOptions> options) : base(options) { }
 
@@ -33,9 +26,44 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Scripting
         protected override (string FileName, string[] Args) getLauncher(string scriptPath)
             => (_options.ResolvePowerShellPath(), ["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptPath]);
 
-        protected override string prepareScript(string script) => $"{Header}{Environment.NewLine}{script}";
+        protected override string prepareScript(string script) => ScriptFormat.PreparePowerShell(script);
 
-        // Windows PowerShell 5.1 reads .ps1 files without BOM in the ANSI code page: with the BOM accents are not broken
-        protected override Encoding scriptEncoding => new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+        private static readonly string[] _switchOn = ["true", "1", "yes", "on", "$true"];
+
+        // By name (-Name value): it does not depend on the order and works with optional parameters.
+        // [switch] parameters are flags: '-Name' when the value is true, nothing when it is false.
+        // Positional when the script has no param() block (it reads $args) or an argument has no name
+        protected override async Task<IReadOnlyList<string>> scriptArguments(string scriptPath, IReadOnlyList<ScriptArgument> arguments, CancellationToken ct)
+        {
+            if (arguments.Count == 0) return [];
+
+            var declared = ScriptFormat.PowerShellParameters(await File.ReadAllTextAsync(scriptPath, ct));
+
+            if (declared == null || arguments.Any(a => string.IsNullOrWhiteSpace(a.Name)))
+                return [.. arguments.Select(a => a.Value)];
+
+            var result = new List<string>();
+
+            foreach (var argument in arguments)
+            {
+                var name = argument.Name.Trim().TrimStart('$', '-');
+                var parameter = declared.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+                if (parameter?.IsSwitch == true)
+                {
+                    if (_switchOn.Contains(argument.Value.Trim(), StringComparer.OrdinalIgnoreCase))
+                        result.Add($"-{parameter.Name}");
+
+                    continue;
+                }
+
+                // An unknown name is passed as it is: PowerShell fails with a clear 'parameter cannot be found' error
+                result.AddRange([$"-{parameter?.Name ?? name}", argument.Value]);
+            }
+
+            return result;
+        }
+
+        protected override Encoding scriptEncoding => ScriptFormat.FileEncoding(EScriptShell.PowerShell);
     }
 }
