@@ -2,6 +2,8 @@
 
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.QueryCommands;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Request.Scripting;
+using Dotnet.OllamaSharp.LameChain.SDK.Commands.Response.StructuredOutputs;
 using Dotnet.OllamaSharp.LameChain.SDK.Extensions;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Enums;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared;
@@ -11,7 +13,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
 using Dotnet.OllamaSharp.LameChain.SDK.Models.Step.ValueObjects;
 using Microsoft.Extensions.DependencyInjection;
 using System.ComponentModel;
-
+using System.Text.Json;
 using Chain = Dotnet.OllamaSharp.LameChain.SDK.Extensions.LameChain;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
@@ -48,6 +50,40 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
                 .ExecuteChainAsync();
             
             return result.ResultAs<ChatMessage>().Content;
+        }
+
+        [Description("Generates a shell script according to the user request and returns the generation params including the path to the generated script. ALWAYS inform the user of the file location found in the resulting 'ScriptPath'")]
+        public async Task<string> ShellGeneratorTool(
+           [Description("The user script request copied verbatim to be passed to the script generator")]
+            string userScriptRequest,
+           [Description("The shell type requested by the user (if any). Options: PowerShell | Bash. Pass null when no specific shell has been requested")] 
+            string? requestedShell = null)
+        {
+            var factory = _services.GetRequiredService<IPromptCommandsFactory>();
+
+            var settingsService = _services.GetRequiredService<ICommandSettingsService>();
+
+            var command = factory.GetScriptGeneratorCommand(settings: settingsService.PresetByEnum(ESettingsPreset.MEDIUM));
+
+            var response = await command.Prompt(new ScriptGeneratorCommandRequest(userScriptRequest, requestedShell));
+
+            return $"{JsonSerializer.Serialize<ScriptGeneratorResponse>(response)}\n# SCRIPT PATH: {response.ScriptPath}";
+        }
+
+        [Description("Executes the requested shell script on the app host machine. NEVER use this tool without a EXPLICIT APPROVAL from the user.")]
+        public async Task<string> ShellExecutorTool(
+           [Description("The path to the script to execute, taken from the user input")]
+            string scriptPath)
+        {
+            var factory = _services.GetRequiredService<IPromptCommandsFactory>();
+
+            var settingsService = _services.GetRequiredService<ICommandSettingsService>();
+
+            var command = factory.GetScriptExecutorCommand(settings: settingsService.PresetByEnum(ESettingsPreset.MEDIUM));
+
+            var result = await command.Prompt(new ScriptExecutionCommandRequest(scriptPath));
+
+            return result.Content;
         }
 
         // For bigger / smart models

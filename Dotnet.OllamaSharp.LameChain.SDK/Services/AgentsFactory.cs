@@ -39,5 +39,8 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Services
 
         public SmartPhilosopherAgent CreateSmartPhilosopherAgent(string model, PromptSettings? settings = null)
             => new SmartPhilosopherAgent(_serviceProvider, model, settings, null, null);
+
+        public SysAdminAgent CreateSysAdminAgent(string model, PromptSettings? settings = null)
+            => new SysAdminAgent(_serviceProvider, model, settings, null, null);
     }
 }
