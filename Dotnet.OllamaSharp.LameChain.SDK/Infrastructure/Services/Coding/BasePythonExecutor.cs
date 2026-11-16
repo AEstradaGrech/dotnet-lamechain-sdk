@@ -29,7 +29,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
             _options = options?.Value ?? throw new ArgumentNullException($"{nameof(PythonExecutionOptions)} >> No Python Executor options configured in appsettings");
         }
 
-        public async Task<ExecutionResults> ExecuteAsync(string code, IReadOnlyList<string> dependencies, CancellationToken ct = default)
+        public async Task<PythonExecutionResults> ExecuteAsync(string code, IReadOnlyList<string> dependencies, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(code))
                 return failed("InputError", "No Python code was provided");
@@ -70,7 +70,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
                         with { ExitCode = run.ExitCode, Stdout = tail(run.Stdout), Stderr = tail(run.Stderr) };
 
                 // 5. Read the envelope
-                var envelope = JsonSerializer.Deserialize<ExecutionResults>(await File.ReadAllTextAsync(envelopePath, ct), _envelopeJsonOptions);
+                var envelope = JsonSerializer.Deserialize<PythonExecutionResults>(await File.ReadAllTextAsync(envelopePath, ct), _envelopeJsonOptions);
 
                 return envelope == null ?
                     failed("HarnessFailure", "The execution produced an empty result envelope") :
@@ -89,7 +89,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
         /// <summary>
         /// Mode specific dependency handling. Returns null when the execution can go on, or the error to return otherwise.
         /// </summary>
-        protected abstract Task<ExecutionResults?> prepareDependenciesAsync(IReadOnlyList<PythonDependency> dependencies, string runDir, CancellationToken ct);
+        protected abstract Task<PythonExecutionResults?> prepareDependenciesAsync(IReadOnlyList<PythonDependency> dependencies, string runDir, CancellationToken ct);
 
         /// <summary>
         /// Program to start and the arguments placed before "-X utf8 lame_harness.py ..."
@@ -113,7 +113,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Coding
         protected Task<ProcessResult> runProcess(string fileName, IEnumerable<string> args, string workDir, TimeSpan timeout, CancellationToken ct = default)
             => ProcessRunner.RunAsync(fileName, args, workDir, buildEnvironment(workDir), timeout, ct);
 
-        protected static ExecutionResults failed(string type, string message)
+        protected static PythonExecutionResults failed(string type, string message)
             => new() { Success = false, Error = new PythonError(type, message, string.Empty) };
 
         protected static string tail(string? text)

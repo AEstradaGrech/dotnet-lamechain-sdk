@@ -7,6 +7,7 @@ using Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Scripting;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Model;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Coding;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Interfaces.Service.Scripting;
+using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Scripting;
 using Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Shared.Configuration;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command;
 using Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services;
@@ -14,6 +15,7 @@ using DotnetLlamaSharp.Domain.Services.Embeddings;
 using DotnetLlamaSharp.Domain.Services.Inference;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using OllamaSharp.Models.Chat;
 
 namespace Dotnet.OllamaSharp.LameChain.SDK.Services.Command
@@ -153,6 +155,20 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Services.Command
                 ?? throw new InvalidOperationException($"{nameof(IScriptExecutor)} is not registered. Call services.WithScriptExecutor(configuration) on startup.");
 
             return new ScriptGeneratorCommand(_ollama, scriptExecutor, guidanceMessage, settings);
+        }
+
+        public ScriptExecutorCommand GetScriptExecutorCommand(string guidanceMessage = null, CommandSettings? settings = null)
+        {
+            using var scope = _serviceProvider.CreateScope();
+
+            // Options and execution mode (uv / local python) are resolved by the executor registered in WithPythonExecutor()
+            var scriptExecutor = scope.ServiceProvider.GetService<IScriptExecutor>()
+                ?? throw new InvalidOperationException($"{nameof(IScriptExecutor)} is not registered. Call services.WithScriptExecutor(configuration) on startup.");
+
+            var options = scope.ServiceProvider.GetRequiredService<IOptions<ScriptExecutionOptions>>()
+                ?? throw new InvalidOperationException($"{nameof(IOptions<ScriptExecutionOptions>)} is not registered. Call services.WithScriptExecutor(configuration) on startup.");
+
+            return new ScriptExecutorCommand(_ollama, scriptExecutor, options, guidanceMessage, settings);
         }
     }
 }

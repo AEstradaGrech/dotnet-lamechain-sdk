@@ -62,5 +62,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Interfaces.Command.Services
         //Scripting commands
 
         ScriptGeneratorCommand GetScriptGeneratorCommand(string guidanceMessage = null, CommandSettings? settings = null);
+        ScriptExecutorCommand GetScriptExecutorCommand(string guidanceMessage = null, CommandSettings? settings = null);
+
     }
 }

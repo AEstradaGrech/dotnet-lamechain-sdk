@@ -54,7 +54,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
 
         // The summary above is written by an LLM. The exact values and file paths go along with it, so whoever reads this
         // (an agent, a chain, the user) does not have to trust the rewording
-        internal static string exactResult(ExecutionResults result)
+        internal static string exactResult(PythonExecutionResults result)
         {
             var sb = new StringBuilder();
 
@@ -76,7 +76,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Coding
 
         protected override string getDefaultInstruction() => "You are a helpful assistant. Your task is to return a brief sentence informing of the output of the provided code execution result. If the provided output includes any generated file, you must include in your response the file names and also the path to the directory containing those files";
 
-        private string getExecutionResultPrompt(ExecutionResults result)
+        private string getExecutionResultPrompt(PythonExecutionResults result)
         {
             StringBuilder sb = new StringBuilder();
 

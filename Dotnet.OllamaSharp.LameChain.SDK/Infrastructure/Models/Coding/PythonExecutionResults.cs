@@ -15,7 +15,7 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Models.Coding
     public sealed record MaliciousPackage(string Name, IReadOnlyList<string> AdvisoryIds);
     public sealed record MaliciousPackageReport(IReadOnlyList<MaliciousPackage> Malicious, string? Error);
 
-    public sealed record ExecutionResults
+    public sealed record PythonExecutionResults
     {
         public bool Success { get; init; }
         public JsonElement? Result { get; init; }   // JSON result of the execution, if any. It can be null if the code does not return anything or if there was an error.
