@@ -18,6 +18,8 @@ It provides a fluent experience for building command chains that can:
 - boost prompts with additional contextual sources
 - generate a final result from multiple intermediate outputs
 
+It is also an agentic framework, so you can build your agents with tools and skills and let the llm decide which tools to use to achieve better responses
+
 ### Core features:
 
 - Asynchronous inference using a CQRS-style commands system.
@@ -26,6 +28,12 @@ It provides a fluent experience for building command chains that can:
 - Chain steps system to configure different type of nodes in your workflows, with different features for different purposes.
 - Tools support.
 - Multi-provider (ollama | anthropic | groq).
+- Different types of Agent to choose depending on your requirements.
+- Python generation and execution with virtual environment (uv. Recommended) or local python install. 
+  Use Commands to generate and execute python code with the required libraries installed, or 'vibe-use' python with
+  the PythonAgent.
+- Shell scripting (Powershell or bash) with Commands or the SysAdminAgent. 
+- Langfuse integration for telemetry so you can debug your interactions with the LLM for both Chain and Agent setups
 
 ### The core concepts
 
@@ -47,6 +55,7 @@ This structure makes it easy to use commands standalone, while also enabling ric
 - Chain rule classes that enforce valid SDK usage
 - Inference and Embeddings services with startup configuration helpers
 - Agents with tools and skills to easily setup LLM requests
+- Infrastructure services to handle embeddings, llm streaming, pdf or markdown loading...
 
 ## How it works
 
@@ -1216,6 +1225,99 @@ no specific `target` is setted in the `ToolBinding` target field (right now the 
 
 ### Agent Types / usage examples:
 
+The basic agent class is the LameAgent with no default instruction. All agents accept a Name and Description that will be added to the System Message to add constraints to the LLM request or 
+help the model to understand the purpose of the agent You can add tools and skills (or tools from skills) to any LameAgent and configure other features like data sources or Langfuse observability.
+
+The framework also provides different types of agents to perform specific tasks. 
+These agents come with their required tools and self-instruction so you don¡t need to configure them:
+
+**PythonAgent**
+ 
+Generates python code, installs the required pip packages, executes the code storing any artifact in the configured working directory and reports the results to the user.
+You can use your preferred local python install or use uv as virtual environment generator and package manager (recommended).
+
+> Setup:
+
+Add this extension method to your `IServiceCollection`, in Program.cs:
+
+```csharp
+    .WithPythonExecutor(builder.Configuration, ServiceLifetime.Scoped)
+```
+> Configuration:
+
+Add the configuration to your appsettings.json file:
+
+```json
+"PythonExecutionOptions": {
+  "UseUv": true, // true: uv installs the Python version and the pip packages of every execution (recommended, with or without Docker). false: uses your local python install (PythonExe) and installs nothing
+  "UvPath": "uv", // uv executable. "uv" is enough if it is in the PATH (installed with winget on Windows, or copied to /bin/uv in the Dockerfile)
+  "PythonVersion": "3.14", // python version that uv will install and use
+  "UvCacheDir": null, // uv cache (downloaded packages + cached environments). null: UV_CACHE_DIR env var or <WorkRoot>/.uv/cache. In Docker, use a named volume (uv links do not work well on Windows bind mounts)
+  "UvPythonInstallDir": null, // where uv installs Python. null: UV_PYTHON_INSTALL_DIR env var or <WorkRoot>/.uv/python
+  "PythonExe": "", // local mode only (UseUv: false). Path to the python executable. Recommended: a venv (venv\Scripts\python.exe) instead of the global install
+  "WorkRoot": "Infrastructure/Data/Resources/PythonEnv", // every execution gets its own run_<guid> folder here (generated code, result and artifacts). Empty: <temp>/lamechain-python. Use a bind mount if using docker so you can easily access the folders
+  "InstallTimeout": "00:05:00", // max time to install the packages of an execution (the first install of big packages takes a while)
+  "ExecutionTimeout": "00:01:00", // max time for the generated code to run. The process is killed after it
+  "MinPackageAgeDays": 14, // Min age for the llm-generated code packages (uv --exclude-newer). Used as security measure (malicious packages usually are quickly detected and removed from pip). 0 disables it
+  "CheckMaliciousPackages": true,  // Checks the dependencies against OSV.dev known malicious packages (MAL- reports) before installing anything
+  "RequireMaliciousPackagesCheck": false, // true: if OSV.dev cannot be reached the installation is aborted (fail closed). false: the check is skipped and logged (fail open)
+  "OsvApiUrl": "https://api.osv.dev/", // OSV.dev API used by the malicious packages check
+  "ExcludedPackages": [], // Add here any package you don't want to use in any generated code
+  "AllowedPackages": [], // Strict package policy: only these pip packages can be installed (null or empty to allow any pip package)
+  "WarmupPackages": [ "pandas", "matplotlib", "openpyxl" ] // uv mode: installed in background on app startup, so the first executions do not wait for them
+}
+```
+
+> Docker notes:
+
+- A relative `WorkRoot` is resolved against the app working directory (`/app` in the container): override it in your compose file so it points to a bind mount, e.g. `PythonExecutionOptions__WorkRoot=/data/Resources/PythonEnv`.
+- Add uv to the **base** stage of your Dockerfile (`COPY --from=ghcr.io/astral-sh/uv:<version> /uv /bin/uv`): Visual Studio fast mode only builds that stage when debugging.
+
+**SysAdminAgent**: 
+ 
+Generates shell scripts for both PowerShell and bash languages, storing the results in the configured working directory and reporting the results to the user for validation. 
+For security reasons, the execution step requires explicit approval of the generated script and parameters. Once the generation step is approved, it executes the stored shell 
+scripts depending on the app host environment (if you are using Docker with linux container it will execute only bash, if you are running it on Windows it will run PowerShell scripts).
+
+> Setup:
+
+Add this extension method to your `IServiceCollection`, in Program.cs:
+
+```csharp
+    .WithScriptExecutor(builder.Configuration, ServiceLifetime.Scoped)
+```
+> Configuration:
+
+Add the configuration to your `appsettings.json` file:
+
+```json
+"ScriptExecutionOptions": {
+  "Shell": "Auto", // Will inject the Bash | PowerShell Executor depending on the app host OS (Auto: PowerShell on Windows, Bash anywhere else, e.g. a Linux container). Use "Bash" or "PowerShell" to force one
+  "BashPath": "bash", // bash executable
+  "PowerShellPath": null, // null: powershell.exe (Windows PowerShell 5.1, always installed) on Windows, pwsh anywhere else
+  "WorkRoot": "Infrastructure/Data/Resources/SysAdmin", // every script gets its own folder here (run_<guid>, or the folder requested in the prompt) with the script and its generator_response.json. Empty: <temp>/lamechain-scripts. Use a bind mount if using docker
+  "ExecutionTimeout": "00:02:00", // max time for a script to run. The whole process tree is killed after it and the partial output is returned
+  "MaxOutputLength": 20000, // max characters kept from stdout and from stderr (beginning + end): scripts can be very chatty and the output goes to an LLM
+  "PassThroughVariables": [] // extra app environment variables passed to the scripts. The app environment is NOT inherited (it may contain secrets): only the system variables (PATH, user profile folders...) plus these ones
+}
+```
+
+**PhilosopherAgent**
+
+These are reasoning / thinking agents that will use a `ReasoningTool` to generate a little inner-thought about the requested task and a `Chain-of-Thought` tool that will generate 
+some reasoning steps to follow in order to achieve a better output response.
+The `SmartPhilosopherAgent` uses an advanced version of those tools with more input parameter that a smaller model (12b or less) would not be able to generate accurately.
+
+> Setup:
+
+The `Reasoning Tools` are part of the SDK and to use them you just need to register the `LameTools` service add this extension method to your `IServiceCollection`, in Program.cs:
+
+```csharp
+    .WithToolsFrom<LameTools>(lifetime)
+```
+
+#### Usage / Instantiation Examples:
+
 ```csharp 
 
     // Basic agent with tools, a behavioral skill and optional name / description
@@ -1247,9 +1349,32 @@ no specific `target` is setted in the `ToolBinding` target field (right now the 
     // The autoskilled agent has built-in tools to discover, select and load the most relevant assigned skills and the specified skill tools (if any) to complete the prompted task 
     public async Task<string> AgentPromptSample_AutoSkilledAgent(string model, string prompt, string? name, string? description, PromptSettings? settings, string? instruction = null)
          => await _agentsFactory.CreateAutoSkilledAgent(model, name, description, settings)
-             .WithBroadcast(agentBroadcaster)
-             .WithSkills(["chroma-dba", "jamaican-assistant", "pirate-assistant", "web-search", "senior-code-reviewer"])
-             .RunPrompt(prompt, instruction);
+            .WithBroadcast(agentBroadcaster)
+            .WithSkills(["chroma-dba", "jamaican-assistant", "pirate-assistant", "web-search", "senior-code-reviewer"])
+            .RunPrompt(prompt, instruction);
+
+    // SUBCLASSED AGENTS:
+
+    public async Task<string> AgentPromptSample_PythonCodingAgent(string model, string prompt, PromptSettings? settings = null, CommandSettings? toolSettings = null)
+        => await (toolSettings == null ?
+            _agentsFactory.CreateAgent<PythonAgent>(model, settings) :
+            _agentsFactory.CreateAgent<PythonAgent>(model, settings)
+            .UseToolSettings(toolSettings)) // You can use specific settings for the tool execution in case you want somethin less 'creative' (lower temp | top_p | top_k )
+            .WithBroadcast(agentBroadcaster)
+            .WithLangfuseTraces(new TraceConfig()) // Enable the Langfuse Tracing feature by passing a TraceConfig object (this one uses the default parameters)
+            .RunPrompt(prompt, reasoning: EReasoning.None);
+
+    public async Task<string> AgentPromptSample_PhilosopherAgent(string model, string prompt, string? systemMessage = null, PromptSettings? settings = null)
+        => await _agentsFactory.CreateAgent<PhilosopherAgent>(model, null, null, settings)
+            .WithBroadcast(agentBroadcaster) // Use a broadcaster to emit data from the agent and log it / store it or whatever you want to do with it
+            .WithLangfuseTraces(new TraceConfig())
+            .RunPrompt(prompt, systemMessage, reasoning: EReasoning.None); // pass a USER DEFINED system message if you want to add more instructions
+
+    public async Task<string> AgentPromptSample_SysAdminAgent(string model, string prompt, PromptSettings? settings = null)
+        => await _agentsFactory.CreateSysAdminAgent(model, settings)
+            .WithBroadcast(agentBroadcaster)
+            .WithLangfuseTraces(new TraceConfig())
+            .RunPrompt(prompt, reasoning: EReasoning.None); // enable reasoning if you want (and the model allows it)
 ```
 
 ## Multiple providers:
@@ -1291,6 +1416,110 @@ Here is a configuration example to use Groq as provider:
         .ConfigureClaudeApiClient(builder.Configuration)
 
 ```
+
+## Langfuse Tracing:
+
+[Langfuse](https://langfuse.com) is an open-source observability platform for LLM apps. It records every execution as a **trace** (prompts, responses, tool calls, token usage, latencies and errors) and shows it in a web UI where you can inspect, filter and compare them.
+The SDK sends the agent and chain executions to Langfuse using OpenTelemetry (OTLP), so you can see step by step what the model received, what it answered and which tools it called.
+
+### Local setup (Docker Compose)
+
+Official guide: [Self-host Langfuse with Docker Compose](https://langfuse.com/self-hosting/docker-compose). This is a summary of a local setup that starts automatically with Docker and needs no manual steps in the UI:
+
+1. **Get the official compose file**: copy the `docker-compose.yml` of the [langfuse/langfuse](https://github.com/langfuse/langfuse) repository into its own folder (e.g. `langfuse/`). It runs the web UI (port 3000), the worker and the services they need (Postgres, ClickHouse, Redis and MinIO).
+2. **Move the secrets to a `.env` file** next to it (the values marked `# CHANGEME`: database passwords, `NEXTAUTH_SECRET`, `SALT`, `ENCRYPTION_KEY`...) and keep it out of git. Use long random values.
+3. **Keep `restart: always`** in every service (the official file already sets it): Langfuse starts together with Docker (Docker Desktop on Windows) and is always available.
+4. **Use [headless initialization](https://langfuse.com/self-hosting/headless-initialization)**: add these variables to the same `.env` file so the organization, the project, your user and the project API keys are created on the first start. No clicks in the UI, and you choose the keys the SDK will use:
+
+    ```env
+    LANGFUSE_INIT_ORG_ID=lamechain
+    LANGFUSE_INIT_ORG_NAME=LameChain
+    LANGFUSE_INIT_PROJECT_ID=lamechain
+    LANGFUSE_INIT_PROJECT_NAME=LameChain
+    LANGFUSE_INIT_PROJECT_PUBLIC_KEY=pk-lf-<random-value>
+    LANGFUSE_INIT_PROJECT_SECRET_KEY=sk-lf-<random-value>
+    LANGFUSE_INIT_USER_EMAIL=<your-email>
+    LANGFUSE_INIT_USER_NAME=<your-name>
+    LANGFUSE_INIT_USER_PASSWORD=<your-password>
+    ```
+
+    The official compose file already passes the `LANGFUSE_INIT_*` variables to the `langfuse-web` service.
+
+5. **Start it once** from that folder:
+
+    ```bash
+    docker compose up -d
+    ```
+
+    After 2-3 minutes the UI is available at http://localhost:3000 (log in with the init user). From then on it starts automatically with Docker.
+
+> Configuration:
+
+Add the project keys to your `appsettings.json`:
+
+```json
+"LangfuseSettings": {
+  "PublicKey": "pk-lf-<your-public-key>", // LANGFUSE_INIT_PROJECT_PUBLIC_KEY
+  "PrivateKey": "sk-lf-<your-secret-key>", // the project SECRET key (LANGFUSE_INIT_PROJECT_SECRET_KEY)
+  "BaseUrl": "http://localhost:3000", // from a container use http://host.docker.internal:3000 (Langfuse runs in its own compose project)
+  "SourceName": "LameChain" // optional: OpenTelemetry source name used by the SDK (default: LameChain)
+}
+```
+
+And register the exporter in `Program.cs` (without the `LangfuseSettings` section it does nothing):
+
+```csharp
+    builder.Services.AddLangfuseTracing(builder.Configuration);
+```
+
+### Tracing agents and chains: `TraceConfig`
+
+Tracing is enabled per execution by passing a `TraceConfig` object. Without it nothing is sent to Langfuse, even if the exporter is registered.
+
+```csharp
+// Agents: before RunPrompt
+await _agentsFactory.CreateAgent<PythonAgent>(model, settings)
+    .WithLangfuseTraces(new TraceConfig())
+    .RunPrompt(prompt);
+
+// Chains: when executing them (also available in ThenExecuteAsync)
+var result = await Chain.StartWith(firstStep, defaultSettings, chainIntent: "Sales report")
+    .Then(secondStep)
+    .ExecuteChainAsync(traceConfig: new TraceConfig());
+```
+
+Every field is optional. The ones you leave empty get a default value:
+
+| Option | What it is for | Default (agents) | Default (chains) |
+|---|---|---|---|
+| `TraceName` | Name of the trace in the Langfuse list | `<AgentName>_<AgentId>` (or `LameAgent_<Id>`) | `ChainRunner_<Id>` |
+| `SessionId` | Groups several traces into one session (e.g. all the runs of the same conversation) | The agent id | The chain id |
+| `UserId` | Lets you filter the traces by user in Langfuse | A random guid | A random guid |
+| `Tags` | Labels to filter the traces (`AddTags(...)` adds more and skips duplicates) | — | — |
+| `Metadata` | Key / value pairs shown in the trace and filterable in Langfuse | — | — |
+
+Example with every option:
+
+```csharp
+var trace = new TraceConfig(
+    traceName: "sales-report",
+    sessionId: conversationId,                          // same id for every message of the conversation
+    userId: currentUser.Id,                             // your app user
+    tags: ["python", "reports"],
+    metadata: new() { ["environment"] = "development" });
+
+await _agentsFactory.CreateAgent<PythonAgent>(model, settings)
+    .WithLangfuseTraces(trace.AddTags("sales"))
+    .RunPrompt(prompt);
+```
+
+Besides your own values, the SDK adds this information automatically:
+
+- **Agents**: tags with the agent type, the agent id, the model and the agent name; metadata with the name, description, skills, tools, provider and model.
+- **Chains**: tags with the step type, the chain id and the chain intent; metadata with the intent, the user prompt, the provider, the model and the context length, max tokens and temperature (when they are set).
+- **Inside the trace**: every LLM call is recorded as a *generation* (model, input messages, output and token usage) and every tool call as a *tool* observation (arguments and result). Errors are recorded too.
+
+> Note: the SDK writes those tags and metadata in the `TraceConfig` object you pass. Create a new one for each agent or chain, unless you want to share the same session or tags on purpose.
 
 ## 🛠️ Sample Implementation
 
