@@ -136,6 +136,28 @@ Rules:
 Output only the steps, in this format:
 # STEP 1: <instruction>
 # STEP 2: <instruction>
+
+# EXAMPLE 1:
+
+> USER INPUT: Explain me the Many Worlds Interpretation.
+
+> OUTPUT:
+
+STEP 1: Identify the core concepts of the Many Worlds Interpretation (MWI) that need to be explained.
+STEP 2: Compare MWI with other quantum interpretations (Copenhagen, de Broglie–Bohm) to highlight its unique features.
+STEP 3: Draft a clear, accessible explanation in English, using analogies and avoiding technical jargon.
+STEP 4: Check that the explanation is informative, clear, and suitable for a general audience, meeting the response requirements.
+STEP 5: Write the final answer in English, ensuring it covers the theory comprehensively and meets the goal.
+
+# EXAMPLE 2:
+
+> USER INPUT: Ahoy mate! How are you doing?
+
+> OUTPUT: 
+# STEP 1: Analyze the user input and extract the intent
+# STEP 2: Evaluate the user mood and tone to get a general idea of the overall chat sentiment
+# STEP 3: Review the content of your "Character Profile" to get a clear idea of what kind of role and character you are interpreting
+# STEP 4: Take into account the results of STEP 2 and STEP 3 to adapt your final response according to the conversation mood and your role
 """;
 
         #endregion

@@ -34,11 +34,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Scripting
 
         public override async Task<ChatMessage> Prompt(PromptCommandRequest request)
         {
-            // req.PathToScript
-            // ScriptGeneratorResponse READ FROM JSON
-            // CHECK SHELL SCRIPT VS EXECUTOR SHELL & THROW IF MISSMATCH
-            // EXECUTION RESULTS
-            // return CHAT MESSAGE WITH EXECUTION RESULTS
             validateInputRequest<ScriptExecutionCommandRequest>(request);
 
             var req = (ScriptExecutionCommandRequest)request;
@@ -53,8 +48,6 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Scripting
 
             if (!File.Exists(req.ScriptPath))
                 throw new InvalidOperationException($"{nameof(ScriptExecutorCommand)} >> {req.ScriptPath} not found");
-
-            //var workDir = string.Join("/", req.ScriptPath.Split("/").SkipLast(1));
 
             var fullPath = Path.GetFullPath(req.ScriptPath);
 
