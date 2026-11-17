@@ -1268,10 +1268,42 @@ Add the configuration to your appsettings.json file:
 }
 ```
 
-> Docker notes:
+> Requirements (uv mode, `"UseUv": true`):
 
-- A relative `WorkRoot` is resolved against the app working directory (`/app` in the container): override it in your compose file so it points to a bind mount, e.g. `PythonExecutionOptions__WorkRoot=/data/Resources/PythonEnv`.
-- Add uv to the **base** stage of your Dockerfile (`COPY --from=ghcr.io/astral-sh/uv:<version> /uv /bin/uv`): Visual Studio fast mode only builds that stage when debugging.
+The SDK does not install uv: it has to be available wherever your app runs.
+
+- **Your app runs in Docker**: add uv to the image, in the **base** stage of your Dockerfile (the stage your final image starts from):
+
+    ```dockerfile
+    FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+    WORKDIR /app
+    # ... your ENV / EXPOSE lines
+    COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+    ```
+
+    It must be in the base stage and not only in the final one: when debugging with Visual Studio (fast mode), only the base stage is built and uv would be missing. Once it works, pin the uv version instead of `latest`.
+
+    A relative `WorkRoot` is resolved against the app working directory (`/app` in the container): override it in your compose file so it points to a bind mount you can open from your machine, e.g. `PythonExecutionOptions__WorkRoot=/data/Resources/PythonEnv`.
+
+- **Your app runs without Docker** (on your machine, IIS...): install uv on that machine. Any of the [official options](https://docs.astral.sh/uv/getting-started/installation/) works:
+
+    ```bash
+    winget install --id=astral-sh.uv -e
+    ```
+
+    ```bash
+    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+    ```
+
+    ```bash
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    ```
+
+    The first two are for Windows, the last one for macOS / Linux. Restart Visual Studio (or your terminal) afterwards so it gets the new `PATH`; if the app still cannot find uv, set its full path in `UvPath`.
+
+> Requirements (local mode, `"UseUv": false`):
+
+Python must be installed on the machine where the app runs, and `PythonExe` must point to its executable (preferably a venv). In this mode no packages are installed: the generated code can only use the packages already installed in that Python.
 
 **SysAdminAgent**: 
  
