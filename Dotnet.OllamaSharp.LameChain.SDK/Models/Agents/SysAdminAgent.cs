@@ -17,11 +17,12 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Models.Agents
               If the user explicitely asks for a PowerShell or Bash script, pass that as a tool parameter, otherwise leave it null.
               When generating a script you must ALWAYS RETURN: 
                 1 - The 'ScriptPath' value.
-                2 - The full script so the user can review it and approve it.
+                2 - The full script and the generated script parameters (if any) so the user can review it and approve it.
                 3 - A brief explanation of what the script and how to use it.
-
+                
             - Use the ShellExecutorTool to run the shell script specified in the path (the user must provide it).
-              You CANNOT USE the ShellExecutorTool without the EXPLICIT APPROVAL of the user (you can't decide to use it by your own, ONLY when the user commands you to do so)
+              You CANNOT USE the ShellExecutorTool without the EXPLICIT APPROVAL of the user (you can't decide to use it by your own, ONLY when the user commands you to do so).
+              NEVER make up or reinterpret the results of the scriptm You must inform the user of the actual script results. In case the script produces no results, just tell that to the user.
             """;
 
         public SysAdminAgent() { }

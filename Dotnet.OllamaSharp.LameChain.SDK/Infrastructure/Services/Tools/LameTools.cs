@@ -65,7 +65,18 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Infrastructure.Services.Tools
 
             var command = factory.GetScriptGeneratorCommand(settings: settingsService.PresetByEnum(ESettingsPreset.MEDIUM));
 
-            var response = await command.Prompt(new ScriptGeneratorCommandRequest(userScriptRequest, requestedShell));
+            EScriptShell? shellType = null;
+            if(!string.IsNullOrEmpty(requestedShell))
+            {
+                if (!string.IsNullOrEmpty(requestedShell.Trim()))
+                {
+                    var comparisonTag = requestedShell.ToUpper();
+
+                    shellType = comparisonTag == $"{EScriptShell.PowerShell}".ToUpper() ? EScriptShell.PowerShell : comparisonTag == $"{EScriptShell.Bash}".ToUpper() ? EScriptShell.Bash : null;
+                }
+            }
+
+            var response = await command.Prompt(new ScriptGeneratorCommandRequest(userScriptRequest, shellType));
 
             return $"{JsonSerializer.Serialize<ScriptGeneratorResponse>(response)}\n# SCRIPT PATH: {response.ScriptPath}";
         }

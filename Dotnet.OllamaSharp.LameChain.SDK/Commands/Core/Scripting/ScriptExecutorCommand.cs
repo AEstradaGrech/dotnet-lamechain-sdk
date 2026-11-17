@@ -84,7 +84,11 @@ namespace Dotnet.OllamaSharp.LameChain.SDK.Commands.Core.Scripting
             return new ChatMessage(message.Role.ToString(), message.Content);
         }
 
-        protected override string getDefaultInstruction() => "You are a helpful assistant. Your task is to return a brief sentence informing of the output of the provided code execution result. If the provided output includes any generated file, you must include in your response the file names and also the path to the directory containing those files";
+        protected override string getDefaultInstruction() => """
+            You are a helpful assistant. Your task is to return a brief sentence informing of the output of the provided script execution result. 
+            If the provided output includes any generated file, you must include in your response the file names and also the path to the directory containing those files.
+            NEVER make up the results of the script, your answer MUST be always faithful to the script output. Id the script returns no results, inform that to the user.
+            """;
 
         private string getExecutionResultPrompt(ScriptExecutionResult result)
         {
